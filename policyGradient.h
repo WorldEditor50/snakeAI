@@ -21,13 +21,11 @@ namespace ML {
             ~DPGNet(){}
             void createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
                            double learningRate = 0.001);
-            void perceive(std::vector<double>& state,
-                    std::vector<double>& action,
-                    double reward);
             int eGreedyAction(std::vector<double>& state);
+            int randomAction();
             int action(std::vector<double>& state);
-            int maxQ(std::vector<double>& q_value);
-            void normalize(std::vector<double>& x);
+            int maxAction(std::vector<double>& value);
+            void zscore(std::vector<double>& x);
             void reinforce(std::vector<Step>& steps);
             void save(const std::string& fileName);
             void load(const std::string& fileName);

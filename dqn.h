@@ -12,7 +12,7 @@
 namespace ML {
     struct Transition {
         std::vector<double> state;
-        std::vector<double> action;
+        double action; /* double for continuous action */
         std::vector<double> nextState;
         double reward;
         bool done;
@@ -21,23 +21,26 @@ namespace ML {
         public:
             DQNet(){}
             ~DQNet(){}
-            void createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
-                    int maxMemorySize, int replaceTargetIter, int batchSize, double learningRate);
+            void createNet(int stateDim,
+                           int hiddenDim,
+                           int hiddenLayerNum,
+                           int actionDim,
+                           int maxMemorySize = 4096,
+                           int replaceTargetIter = 256,
+                           int batchSize = 32);
             void perceive(std::vector<double>& state,
-                    std::vector<double>& action,
-                    std::vector<double>& nextState,
-                    double reward,
-                    bool done);
+                          double action,
+                          std::vector<double>& nextState,
+                          double reward,
+                          bool done);
             void forget();
             int eGreedyAction(std::vector<double>& state);
-            int randAction(std::vector<double> &state, double r);
+            int randomAction();
             int action(std::vector<double>& state);
             int maxQ(std::vector<double>& q_value);
-            int minQ(std::vector<double>& q_value);
             void experienceReplay(Transition& x);
-            void learn();
-            void onlineLearning(std::vector<Transition>& x);
-            void train(std::vector<Transition>& x);
+            void learn(int optType = OPT_RMSPROP, double learningRate = 0.001);
+            void onlineLearning(std::vector<Transition>& x, int optType, double learningRate);
             void save(const std::string& fileName);
             void load(const std::string& fileName);
             int stateDim;
@@ -46,7 +49,6 @@ namespace ML {
             double exploringRate;
             int maxMemorySize;
             int batchSize;
-            double learningRate;
             int learningSteps;
             int replaceTargetIter;
             BPNet QMainNet;

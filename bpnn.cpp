@@ -333,6 +333,26 @@ namespace ML {
         return;
     }
 
+    void BPNet::softUpdateTo(BPNet &dstNet, double alpha)
+    {
+        if (layers.size() != dstNet.layers.size()) {
+            return;
+        }
+        for (int i = 0; i < layers.size(); i++) {
+            for (int j = 0; j < layers[i].weights.size(); j++) {
+                for (int k = 0; k < layers[i].weights[j].size(); k++) {
+                    dstNet.layers[i].weights[j][k] =
+                            (1 - alpha) * dstNet.layers[i].weights[j][k] +
+                            alpha * layers[i].weights[j][k];
+                }
+                dstNet.layers[i].bias[j] =
+                        (1 - alpha) * dstNet.layers[i].bias[j] +
+                        alpha * layers[i].bias[j];
+            }
+        }
+        return;
+    }
+
     void BPNet::feedForward(std::vector<double>& xi)
     {
         layers[0].calculateOutputs(xi);
@@ -431,6 +451,25 @@ namespace ML {
         return;
     }
 
+    void BPNet::optimize(int optType, double learningRate)
+    {
+        switch (optType) {
+            case OPT_BGD:
+                BGD(learningRate);
+                break;
+            case OPT_RMSPROP:
+                RMSProp(0.9, learningRate);
+                break;
+            case OPT_ADAM:
+                Adam(0.9, 0.99, learningRate);
+                break;
+            default:
+                RMSProp(0.9, learningRate);
+                break;
+        }
+        return;
+    }
+
     void BPNet::SGD(std::vector<double> &x, std::vector<double> &y, double learningRate)
     {
         feedForward(x);
@@ -476,27 +515,26 @@ namespace ML {
                 int k = rand() % len;
                 calculateBatchGradient(x[k], y[k]);
             }
-            switch (optimizeMethod) {
-                case OPT_BGD:
-                    BGD(learningRate);
-                    break;
-                case OPT_RMSPROP:
-                    RMSProp(0.9, learningRate);
-                    break;
-                case OPT_ADAM:
-                    Adam(0.9, 0.99, learningRate);
-                    break;
-                default:
-                    Adam(0.9, 0.99, learningRate);
-                    break;
-            }
+            optimize(optimizeMethod, learningRate);
         }
         return;
     }
 
+    int BPNet::maxOutput()
+    {
+        int index = 0;
+        double maxValue = layers[outputIndex].outputs[0];
+        for (int i = 0; i < layers[outputIndex].outputs.size(); i++) {
+            if (maxValue < layers[outputIndex].outputs[i]) {
+                maxValue = layers[outputIndex].outputs[i];
+                index = i;
+            }
+        }
+        return index;
+    }
+
     void BPNet::show()
     {
-        std::cout<<"outputs:"<<std::endl;;
         for (int i = 0; i < layers[outputIndex].outputs.size(); i++) {
             std::cout<<layers[outputIndex].outputs[i]<<" ";
         }

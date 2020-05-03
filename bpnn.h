@@ -69,6 +69,7 @@ namespace ML {
             void createNet(int inputDim, int hiddenDim, int hiddenLayerNum, int outputDim, int activateMethod);
             void createNetWithSoftmax(int inputDim, int hiddenDim, int hiddenLayerNum, int outputDim, int activateMethod);
             void copyTo(BPNet& dstNet);
+            void softUpdateTo(BPNet& dstNet, double alpha);
             std::vector<double>& getOutput();
             void feedForward(std::vector<double>& xi);
             void backPropagate(std::vector<double>& yo, std::vector<double>& yt);
@@ -79,12 +80,14 @@ namespace ML {
             void BGD(double learningRate = 0.001);
             void RMSProp(double rho = 0.9, double learningRate = 0.001);
             void Adam(double alpha1 = 0.9, double alpha2 = 0.99, double learningRate = 0.001);
+            void optimize(int optType = OPT_RMSPROP, double learningRate = 0.001);
             void train(std::vector<std::vector<double> >& x,
                     std::vector<std::vector<double> >& y,
                     int optimizeMethod,
                     int batchSize,
                     double learningRate,
                     int iterateNum);
+            int maxOutput();
             void show();
             void loadParameter(const std::string& fileName);
             void saveParameter(const std::string& fileName);

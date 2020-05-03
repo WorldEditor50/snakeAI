@@ -23,14 +23,19 @@ namespace ML {
         double p = double(rand() % 10000) / 10000;
         int index = 0;
         if (p < exploringRate) {
-            std::vector<double>& policyNetOutput = policyNet.getOutput();
-            for (int i = 0; i < policyNetOutput.size(); i++) {
-                policyNetOutput[i] = double(rand() % 100000) / 100000;
-            }
-            index = maxQ(policyNetOutput);
+            index = randomAction();
         } else {
             index = action(state);
         }
+        return index;
+    }
+
+    int DPGNet::randomAction()
+    {
+        std::vector<double>& policyNetOutput = policyNet.getOutput();
+        policyNetOutput.assign(actionDim, 0);
+        int index = rand() % actionDim;
+        policyNetOutput[index] = 1;
         return index;
     }
 
@@ -39,11 +44,11 @@ namespace ML {
         int index = 0;
         policyNet.feedForward(state);
         std::vector<double>& action = policyNet.getOutput();
-        index = maxQ(action);
+        index = maxAction(action);
         return index;
     }
 
-    int DPGNet::maxQ(std::vector<double>& value)
+    int DPGNet::maxAction(std::vector<double>& value)
     {
         int index = 0;
         double maxValue = value[0];
@@ -56,23 +61,23 @@ namespace ML {
         return index;
     }
 
-    void DPGNet::normalize(std::vector<double> &x)
+    void DPGNet::zscore(std::vector<double> &x)
     {
-        double avg = 0;
+        double u = 0;
         double n = 0;
-        double s = 0;
+        double sigma = 0;
         for (int i = 0 ; i < x.size(); i++) {
-            avg += x[i];
+            u += x[i];
             n++;
         }
-        avg = avg / n;
+        u = u / n;
         for (int i = 0 ; i < x.size(); i++) {
-            s += (x[i] - avg) * (x[i] - avg);
+            x[i] -= u;
+            sigma += x[i] * x[i];
         }
-        s = sqrt(s / n);
+        sigma = sqrt(sigma / n);
         for (int i = 0 ; i < x.size(); i++) {
-            s += (x[i] - avg) * (x[i] - avg);
-            x[i] = (x[i] - avg) / s;
+            x[i] = x[i] / sigma;
         }
         return;
     }
@@ -80,24 +85,16 @@ namespace ML {
     void DPGNet::reinforce(std::vector<Step>& x)
     {
         double r = 0;
-        std::vector<double> discountedReward(x.size());
         for (int i = x.size() - 1; i >= 0; i--) {
             r = gamma * r + x[i].reward;
-            discountedReward[i] = r;
-        }
-        for (int i = 0; i < x.size(); i++) {
             for (int j = 0; j < actionDim; j++) {
-                x[i].action[j] *= discountedReward[i];
+                x[i].action[j] *= r;
             }
             policyNet.calculateBatchGradient(x[i].state, x[i].action);
         }
-        /* gradient ascent */
-        //policyNet.Adam(0.9, 0.99, learningRate);
         policyNet.RMSProp(0.9, learningRate);
-        exploringRate *= 0.95;
-        if (exploringRate < 0.4) {
-            exploringRate = 0.4;
-        }
+        exploringRate *= 0.99;
+        exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
         return;
     }
 

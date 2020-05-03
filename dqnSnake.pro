@@ -20,6 +20,7 @@ SOURCES += \
     bpnn.cpp \
     common.cpp \
     controller.cpp \
+    ddpg.cpp \
     dqn.cpp \
     main.cpp \
     mainwindow.cpp \
@@ -31,6 +32,7 @@ HEADERS += \
     bpnn.h \
     common.h \
     controller.h \
+    ddpg.h \
     dqn.h \
     mainwindow.h \
     policyGradient.h \
