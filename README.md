@@ -15,7 +15,8 @@
 
 ## 1. Markov Decision Process
 
-- **definition : {St,	At,	P(St+1|St, At),	R,	St+1,	γ}**
+- **definition**:
+  **{St,	At,	P(St+1|St, At),	R,	St+1,	γ}**
   **St --- state**
   **At --- action**
   **P(St+1|St, At) --- transition probability**
@@ -23,8 +24,10 @@
   **St+1 --- next state**
   **γ --- discounted factor**
 
-- **Process** : agent is in the state **St** , taking action **At** , then  transitioning into state **St+1**  according to probability **P(St+1|St, At)**  and getting reward **R** in the state **St+1**
-- **Assumption of the Markov Property**: the effects of an action taken in a state depend only on that state and not on the prior history.
+- **Process** :
+  agent is in the state **St** , taking action **At** , then  transitioning into state **St+1**  according to probability **P(St+1|St, At)**  and getting reward **R** in the state **St+1**
+- **Assumption of the Markov Property**:
+  the effects of an action taken in a state depend only on that state and not on the prior history.
 
 
 
@@ -46,7 +49,7 @@
 
 ## 3. Optimization: maximizing cumulative future reward
 
-**θ* = argmax E[∑R(St, At)] ** 
+**θ* = argmax E[∑R(St, At)]** 
 
 
 
