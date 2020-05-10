@@ -3,7 +3,7 @@
 Controller::Controller(vector<vector<int> >& map):map(map)
 {
     this->dqn.createNet(8, 16, 4, 4, 65532, 256, 128);
-    this->dpg.createNet(8, 16, 4, 4, 0.1);
+    this->dpg.createNet(8, 16, 4, 4, 0.5);
     this->bp.createNet(8, 16, 4, 4, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
     this->state.resize(8);
     this->nextState.resize(8);
@@ -17,14 +17,9 @@ double Controller::reward(int xi, int yi, int xn, int yn, int xt, int yt)
     if (xn == xt && yn == yt) {
         return 1;
     }
-    double x1 = (xi - xt)*(xi - xt) + (yi - yt) * (yi - yt);
-    double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
-    double r = 0;
-    if (x1 > x2) {
-        r = tanh(1 / (x1 - x2));
-    } else {
-        r = (x1 - x2) / 64;
-    }
+    double x1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    double x2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    double r = tanh(x1 - x2);
     return r;
 }
 

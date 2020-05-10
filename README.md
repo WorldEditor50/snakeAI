@@ -9,20 +9,20 @@
 
 - dpg agent for testing policy gradient
 
-- ddpg agent // todo
+- ddpg agent // to do
 
-  
+- Instruction: all agents are definited in controller.cpp and you can switch agent by modifying function play2 in mainwindow.cpp.
 
 ## 1. Markov Decision Process
 
 - **definition**:
-  **{St,	At,	P(St+1|St, At),	R,	St+1,	γ}**
-  **St --- state**
-  **At --- action**
-  **P(St+1|St, At) --- transition probability**
-  **R --- reward function**
-  **St+1 --- next state**
-  **γ --- discounted factor**
+  **{St, At, P(St+1|St, At), R, St+1, γ}**
+  **St** --- state
+  **At** --- action
+  **P(St+1|St, At)** --- transition probability
+  **R** --- reward
+  **St+1** --- next state
+  **γ** --- discounted factor
 
 - **Process** :
   agent is in the state **St** , taking action **At** , then  transitioning into state **St+1**  according to probability **P(St+1|St, At)**  and getting reward **R** in the state **St+1**
@@ -45,16 +45,12 @@
 
 **Qπ(s, a) = Eπ[Rt+1 + γ * Qπ(St+1, At+1) | St = s, At = a]**
 
-
-
 ## 3. Optimization: maximizing cumulative future reward
 
-**θ* = argmax E[∑R(St, At)]** 
-
-
+**θ = argmax E[∑R(St, At)]** 
 
 ## 4. sampling method
 
-###  4.1 MCMC
+### 4.1 MCMC
 
 ### 4.2 TD

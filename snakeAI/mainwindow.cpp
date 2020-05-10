@@ -112,6 +112,7 @@ void MainWindow::play2()
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         int direct = 0;
+        /* agent */
         direct = controller.dqnAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
