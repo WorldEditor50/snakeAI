@@ -1,15 +1,15 @@
 # snakeAI
-- A* agent
+- A* agent: a method bases on greedy policy
 
-- random search agent
+- random search agent: a method bases on reward and MCMC
 
 - bp agent for testing supervised learning
 
-- dqn agent for testing DQN
+- dqn agent for testing DQN, DQN works fine
 
-- dpg agent for testing policy gradient
+- dpg agent for testing policy gradient, PG is not work so well, the gradient is unlimited which is easily lead to gradient explode.
 
-- ddpg agent // to do
+- ddpg agent : DDPG does't work in discrete action space
 
 - Instruction: all agents are definited in controller.cpp and you can switch agent by modifying function play2 in mainwindow.cpp.
 
@@ -25,7 +25,7 @@
   **γ** --- discounted factor
 
 - **Process** :
-  agent is in the state **St** , taking action **At** , then  transitioning into state **St+1**  according to probability **P(St+1|St, At)**  and getting reward **R** in the state **St+1**
+  agent is in the state **St** , taking action **At** , then  transitioning into state **St+1** and getting reward **R** in the state **St+1**
 - **Assumption of the Markov Property**:
   the effects of an action taken in a state depend only on that state and not on the prior history.
 

@@ -98,7 +98,7 @@ namespace ML {
         return dy;
     }
 
-    void Layer::createLayer(int inputDim, int layerDim, int activateType, int lossType)
+    void Layer::createLayer(int inputDim, int layerDim, int activateType, int lossType, bool trainFlag)
     {
         if (layerDim < 1 || inputDim < 1) {
             return;
@@ -109,23 +109,8 @@ namespace ML {
         B.resize(layerDim);
         O.resize(layerDim, 0);
         E.resize(layerDim, 0);
-        /* buffer for optimization */
-        dW.resize(layerDim);
-        dB.resize(layerDim);
-        Sw.resize(layerDim);
-        Sb.resize(layerDim, 0);
-        Vw.resize(layerDim);
-        Vb.resize(layerDim, 0);
-        this->alpha1_t = 1;
-        this->alpha2_t = 1;
-        this->delta = pow(10, -8);
-        this->decay = 0;
-        /* init */
         for (int i = 0; i < W.size(); i++) {
             W[i].resize(inputDim);
-            dW[i].resize(inputDim);
-            Sw[i].resize(inputDim, 0);
-            Vw[i].resize(inputDim, 0);
         }
         /* init */
         for (int i = 0; i < W.size(); i++) {
@@ -133,6 +118,26 @@ namespace ML {
                 W[i][j] = double(rand() % 10000 - rand() % 10000) / 10000;
             }
             B[i] = double(rand() % 10000 - rand() % 10000) / 10000;
+        }
+        if (trainFlag == true) {
+            /* buffer for optimization */
+            dW.resize(layerDim);
+            dB.resize(layerDim);
+            Sw.resize(layerDim);
+            Sb.resize(layerDim, 0);
+            Vw.resize(layerDim);
+            Vb.resize(layerDim, 0);
+            this->alpha1_t = 1;
+            this->alpha2_t = 1;
+            this->delta = pow(10, -8);
+            this->decay = 0;
+            /* init */
+            for (int i = 0; i < W.size(); i++) {
+                W[i].resize(inputDim);
+                dW[i].resize(inputDim);
+                Sw[i].resize(inputDim, 0);
+                Vw[i].resize(inputDim, 0);
+            }
         }
         return;
     }
@@ -150,6 +155,18 @@ namespace ML {
         }
         if (lossType == LOSS_CROSS_ENTROPY) {
             softmax(O, O);
+        }
+        return;
+    }
+
+    void Layer::feedForward(std::vector<std::vector<double> > &x)
+    {
+        double y = 0;
+        for (int i = 0; i < W.size(); i++) {
+            for (int j = 0; j < x.size(); j++) {
+                y += dotProduct(W[i], x[j]);
+            }
+            O[i] = activate(y + B[i]);
         }
         return;
     }
@@ -242,9 +259,9 @@ namespace ML {
     {
         double v;
         double s;
+        alpha1_t *= alpha1;
+        alpha2_t *= alpha2;
         for (int i = 0; i < W.size(); i++) {
-            alpha1_t *= alpha1;
-            alpha2_t *= alpha2;
             for (int j = 0; j < W[0].size(); j++) {
                 /* momentum */
                 Vw[i][j] = alpha1 * Vw[i][j] + (1 - alpha1) * dW[i][j];
@@ -265,24 +282,24 @@ namespace ML {
         return;
     }
 
-    void BPNet::createNet(int inputDim, int hiddenDim, int hiddenLayerNum, int outputDim, int activateType, int lossType)
+    void BPNet::createNet(int inputDim, int hiddenDim, int hiddenLayerNum, int outputDim, bool trainFlag, int activateType, int lossType)
     {
         Layer inputLayer;
-        inputLayer.createLayer(inputDim, hiddenDim, activateType);
+        inputLayer.createLayer(inputDim, hiddenDim, activateType, LOSS_MSE, trainFlag);
         layers.push_back(inputLayer);
         for (int i = 1; i < hiddenLayerNum; i++) {
             Layer hiddenLayer;
-            hiddenLayer.createLayer(hiddenDim, hiddenDim, activateType);
+            hiddenLayer.createLayer(hiddenDim, hiddenDim, activateType, LOSS_MSE, trainFlag);
             layers.push_back(hiddenLayer);
         }
         if (lossType == LOSS_MSE) {
             Layer outputLayer;
-            outputLayer.createLayer(hiddenDim, outputDim, activateType);
+            outputLayer.createLayer(hiddenDim, outputDim, activateType, LOSS_MSE, trainFlag);
             layers.push_back(outputLayer);
         }
         if (lossType == LOSS_CROSS_ENTROPY) {
             Layer softmaxLayer;
-            softmaxLayer.createLayer(hiddenDim, outputDim, ACTIVATE_LINEAR, LOSS_CROSS_ENTROPY);
+            softmaxLayer.createLayer(hiddenDim, outputDim, ACTIVATE_LINEAR, LOSS_CROSS_ENTROPY, trainFlag);
             layers.push_back(softmaxLayer);
         }
         this->outputIndex = layers.size() - 1;

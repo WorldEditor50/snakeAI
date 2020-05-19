@@ -2,8 +2,9 @@
 
 Controller::Controller(vector<vector<int> >& map):map(map)
 {
-    this->dqn.createNet(8, 16, 4, 4, 65532, 256, 128);
-    this->dpg.createNet(8, 16, 4, 4, 0.5);
+    this->dqn.createNet(8, 16, 4, 4, 65532, 256, 64);
+    this->dpg.createNet(8, 16, 4, 4, 0.1);
+    this->ddpg.createNet(8, 16, 4, 4, 4096, 256, 64);
     this->bp.createNet(8, 16, 4, 4, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
     this->state.resize(8);
     this->nextState.resize(8);
@@ -17,8 +18,8 @@ double Controller::reward(int xi, int yi, int xn, int yn, int xt, int yt)
     if (xn == xt && yn == yt) {
         return 1;
     }
-    double x1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    double x2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    double x1 = (xi - xt)*(xi - xt) + (yi - yt) * (yi - yt);
+    double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
     double r = tanh(x1 - x2);
     return r;
 }
@@ -146,7 +147,10 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
     for (int j = 0; j < 256; j++) {
         int xi = xn;
         int yi = yn;
-        direct = dpg.randomAction();
+        /* Monte Carlo method */
+        //direct = dpg.randomAction();
+        direct = dpg.eGreedyAction(state);
+        /* Markov Chain */
         move(xn, yn, direct);
         setState(nextState, xn, yn, xt, yt);
         Step s;
@@ -166,6 +170,47 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
     direct = dpg.action(state);
     dpg.policyNet.show();
     return direct;
+}
+
+int Controller::ddpgAgent(int x, int y, int xt, int yt)
+{
+    int a = 0;
+    int steps = 16;
+    /* exploring environment */
+    for (int i = 0; i < steps; i++) {
+        int xn = x;
+        int yn = y;
+        double r = 0;
+        setState(state, x, y, xt, yt);
+        for (int j = 0; j < 128; j++) {
+            int xi = xn;
+            int yi = yn;
+            a = ddpg.eGreedyAction(state);
+            //a = ddpg.randomAction();
+            //a = ddpg.action(state);
+            move(xn, yn, a);
+            r = reward(xi, yi, xn, yn, xt, yt);
+            setState(nextState, xn, yn, xt, yt);
+            if (map[xn][yn] == 1) {
+                ddpg.perceive(state, a, nextState, r, true);
+                break;
+            }
+            if (xn == xt && yn == yt) {
+                ddpg.perceive(state, a, nextState, r, true);
+                break;
+            } else {
+                ddpg.perceive(state, a, nextState, r, false);
+            }
+            state = nextState;
+        }
+    }
+    /* training */
+    ddpg.learn(OPT_RMSPROP, 0.01, 0.01);
+    /* making decision */
+    setState(state, x, y, xt, yt);
+    a = ddpg.action(state);
+    ddpg.ActorMainNet.show();
+    return a;
 }
 
 int Controller::bpAgent(int x, int y, int xt, int yt)
@@ -190,7 +235,7 @@ int Controller::bpAgent(int x, int y, int xt, int yt)
                 bp.calculateGradient(state, action, target);
                 m++;
             }
-            if (xn == xt && yn == yt || map[xn][yn] == 1) {
+            if ((xn == xt && yn == yt) || (map[xn][yn] == 1)) {
                 break;
             }
             setState(state, xn, yn, xt, yt);

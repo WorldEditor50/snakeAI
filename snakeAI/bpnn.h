@@ -20,12 +20,16 @@ namespace ML {
 /* loss type */
 #define LOSS_MSE            0
 #define LOSS_CROSS_ENTROPY  1
+/* cost type */
+#define COST_MSE            0
+#define COST_CROSS_ENTROPY  1
     class Layer {
         public:
             Layer(){}
             ~Layer(){}
-            void createLayer(int inputDim, int layerDim, int activateType, int lossTye = LOSS_MSE);
+            void createLayer(int inputDim, int layerDim, int activateType, int lossTye = LOSS_MSE, bool trainFlag = true);
             void feedForward(std::vector<double>& x);
+            void feedForward(std::vector<std::vector<double> >& x);
             void softmax(std::vector<double>& x, std::vector<double>& y);
             void calculateLoss(std::vector<double>& yo, std::vector<double> yt);
             void calculateErrors(std::vector<double>& nextE, std::vector<std::vector<double> >& nextW);
@@ -39,6 +43,7 @@ namespace ML {
             std::vector<double> O;
             std::vector<double> E;
             int lossType;
+            int layerType;
         private:
             double activate(double x);
             double dActivate(double y);
@@ -65,7 +70,7 @@ namespace ML {
             BPNet(){}
             ~BPNet(){}
             void createNet(int inputDim, int hiddenDim, int hiddenLayerNum, int outputDim,
-                    int activateType = ACTIVATE_SIGMOID, int lossType = LOSS_MSE);
+                    bool trainFlag = true, int activateType = ACTIVATE_SIGMOID, int lossType = LOSS_MSE);
             void copyTo(BPNet& dstNet);
             void softUpdateTo(BPNet& dstNet, double alpha);
             std::vector<double>& getOutput();

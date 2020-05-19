@@ -14,8 +14,8 @@ namespace ML {
         this->maxMemorySize = maxMemorySize;
         this->replaceTargetIter = replaceTargetIter;
         this->batchSize = batchSize;
-        this->QMainNet.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, ACTIVATE_SIGMOID);
-        this->QTargetNet.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, ACTIVATE_SIGMOID);
+        this->QMainNet.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, true);
+        this->QTargetNet.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, false);
         this->QMainNet.copyTo(QTargetNet);
         return;
     }
@@ -126,7 +126,7 @@ namespace ML {
             int k = rand() % memories.size();
             experienceReplay(memories[k]);
         }
-        QMainNet.optimize(optType, learningRate);
+        QMainNet.optimize(optType, learningRate);               
         /* reduce memory */
         if (memories.size() > maxMemorySize) {
             forget();

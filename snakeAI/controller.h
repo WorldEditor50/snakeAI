@@ -3,6 +3,7 @@
 #include <vector>
 #include "dqn.h"
 #include "policyGradient.h"
+#include "ddpg.h"
 #include "common.h"
 using namespace std;
 using namespace ML;
@@ -15,6 +16,7 @@ public:
     int randomSearchAgent(int x, int y, int xt, int yt);
     int dqnAgent(int x, int y, int xt, int yt);
     int dpgAgent(int x, int y, int xt, int yt);
+    int ddpgAgent(int x, int y, int xt, int yt);
     int bpAgent(int x, int y, int xt, int yt);
     double reward(int xi, int yi, int xn, int yn, int xt, int yt);
     bool move(int& x, int& y, int direct);
@@ -25,6 +27,7 @@ public:
     DQNet dqn;
     BPNet bp;
     DPGNet dpg;
+    DDPGNet ddpg;
 };
 
 #endif // CONTROLLER_H

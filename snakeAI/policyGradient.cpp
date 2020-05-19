@@ -11,7 +11,7 @@ namespace ML {
         this->stateDim = stateDim;
         this->actionDim = actionDim;
         this->learningRate = learningRate;
-        this->policyNet.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
+        this->policyNet.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, true, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
         return;
     }
 
@@ -72,7 +72,7 @@ namespace ML {
         }
         u = u / n;
         for (int i = 0 ; i < x.size(); i++) {
-            x[i] -= u;
+            x[i] = x[i] - u;
             sigma += x[i] * x[i];
         }
         sigma = sqrt(sigma / n);
@@ -85,15 +85,20 @@ namespace ML {
     void DPGNet::reinforce(std::vector<Step>& x)
     {
         double r = 0;
+        std::vector<double> discoutedReward(x.size());
         for (int i = x.size() - 1; i >= 0; i--) {
             r = gamma * r + x[i].reward;
-            for (int j = 0; j < actionDim; j++) {
-                x[i].action[j] *= r;
-            }
+            discoutedReward[i] = r;
+        }
+        //zscore(discoutedReward);
+        for (int i = 0; i < x.size(); i++) { 
+            int k = maxAction(x[i].action);
+            x[i].action[k] *= discoutedReward[i];
             policyNet.calculateGradient(x[i].state, x[i].action);
         }
         policyNet.RMSProp(0.9, learningRate);
-        exploringRate *= 0.99;
+        //policyNet.Adam(0.9, 0.99, 0.1);
+        exploringRate *= 0.9999;
         exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
         return;
     }

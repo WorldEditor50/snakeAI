@@ -12,6 +12,7 @@ MainWindow::MainWindow(QWidget *parent)
     /* reinforcement learning */
     controller.dqn.load("./dqn_weights");
     controller.dpg.load("./dpg_weights");
+    controller.ddpg.load("./ddpg_actor", "./ddpg_critic");
     /* supervised learning */
     controller.bp.load("./bp_weights3");
     ui->setupUi(this);
@@ -21,6 +22,7 @@ MainWindow::~MainWindow()
 {
     controller.dqn.save("./dqn_weights");
     controller.dpg.save("./dpg_weights");
+    controller.ddpg.save("./ddpg_actor", "./ddpg_critic");
     controller.bp.save("./bp_weights3");
     delete ui;
 }
@@ -47,13 +49,13 @@ void MainWindow::paintEvent(QPaintEvent *ev)
     p.setBrush(Qt::gray);
     p.setRenderHint(QPainter::Antialiasing);
     /* draw map */
-    for(int i=0; i < board.rows; i++) {
-        for(int j=0; j < board.cols; j++) {
-               if(board.map[i][j] == 1) {
-                    p.setBrush(Qt::gray);
-                    QRect rect = getRect(i, j);
-                    p.drawRect(rect);
-               }
+    for (int i=0; i < board.rows; i++) {
+        for (int j=0; j < board.cols; j++) {
+            if (board.map[i][j] == 1) {
+                p.setBrush(Qt::gray);
+                QRect rect = getRect(i, j);
+                p.drawRect(rect);
+            }
         }
     }
     /* draw target */
@@ -112,8 +114,7 @@ void MainWindow::play2()
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         int direct = 0;
-        /* agent */
-        direct = controller.dqnAgent(x, y, board.xt, board.yt);
+        direct = controller.ddpgAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
         y = snake.body[0].y;

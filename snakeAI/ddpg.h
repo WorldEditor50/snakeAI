@@ -9,20 +9,11 @@
 #include <ctime>
 #include <cstdlib>
 #include "bpnn.h"
+#include "dqn.h"
 namespace ML {
-struct Transition {
-    std::vector<double> state;
-    double action; /* double for continuous action */
-    std::vector<double> nextState;
-    double reward;
-    bool done;
-};
 
-/* TODO:
- * 1. building critic network: Q(S, A, α, β) = V(S, α) + A(S, A, β)
- * 2. apply DDPG to discrete action and figure out a loss function
- * 3. complete experience-replay
- */
+/* this is not a real DDPG,
+ *  DDPG may not work in discrete action space */
 class DDPGNet
 {
 public:
@@ -40,7 +31,11 @@ public:
                   std::vector<double>& nextState,
                   double reward,
                   bool done);
+    void setSA(std::vector<double>& state, std::vector<double>& action);
     void forget();
+    int noiseAction(std::vector<double>& state);
+    int randomAction();
+    int eGreedyAction(std::vector<double>& state);
     int action(std::vector<double>& state);
     int maxQ(std::vector<double>& q_value);
     void experienceReplay(Transition& x);
@@ -55,8 +50,10 @@ public:
     double alpha;
     int maxMemorySize;
     int batchSize;
+    double exploringRate;
     int learningSteps;
     int replaceTargetIter;
+    std::vector<double> sa;
     BPNet ActorMainNet;
     BPNet ActorTargetNet;
     BPNet CriticMainNet;
