@@ -22,6 +22,7 @@ SOURCES += \
     controller.cpp \
     ddpg.cpp \
     dqn.cpp \
+    genetic.cpp \
     main.cpp \
     mainwindow.cpp \
     policyGradient.cpp \
@@ -34,6 +35,7 @@ HEADERS += \
     controller.h \
     ddpg.h \
     dqn.h \
+    genetic.h \
     mainwindow.h \
     policyGradient.h \
     snake.h

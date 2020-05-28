@@ -10,20 +10,20 @@ MainWindow::MainWindow(QWidget *parent)
     this->board.init();
     this->snake.create(25, 25);
     /* reinforcement learning */
-    controller.dqn.load("./dqn_weights");
-    controller.dpg.load("./dpg_weights");
-    controller.ddpg.load("./ddpg_actor", "./ddpg_critic");
+    controller.dqn.Load("./dqn_weights_adam");
+    controller.dpg.Load("./dpg_weights");
+    controller.ddpg.Load("./ddpg_actor", "./ddpg_critic");
     /* supervised learning */
-    controller.bp.load("./bp_weights3");
+    controller.bp.Load("./bp_weights3");
     ui->setupUi(this);
 }
 
 MainWindow::~MainWindow()
 {
-    controller.dqn.save("./dqn_weights");
-    controller.dpg.save("./dpg_weights");
-    controller.ddpg.save("./ddpg_actor", "./ddpg_critic");
-    controller.bp.save("./bp_weights3");
+    controller.dqn.Save("./dqn_weights_adam");
+    controller.dpg.Save("./dpg_weights");
+    controller.ddpg.Save("./ddpg_actor", "./ddpg_critic");
+    controller.bp.Save("./bp_weights3");
     delete ui;
 }
 
@@ -114,7 +114,7 @@ void MainWindow::play2()
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         int direct = 0;
-        direct = controller.ddpgAgent(x, y, board.xt, board.yt);
+        direct = controller.dpgAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
         y = snake.body[0].y;

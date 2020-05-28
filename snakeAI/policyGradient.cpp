@@ -1,6 +1,6 @@
 #include "policyGradient.h"
 namespace ML {
-    void DPGNet::createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
+    void DPGNet::CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
                           double learningRate)
     {
         if (stateDim < 1 || hiddenDim < 1 || hiddenLayerNum < 1 || actionDim < 1) {
@@ -11,11 +11,11 @@ namespace ML {
         this->stateDim = stateDim;
         this->actionDim = actionDim;
         this->learningRate = learningRate;
-        this->policyNet.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, true, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
+        this->policyNet.CreateNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 1, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
         return;
     }
 
-    int DPGNet::eGreedyAction(std::vector<double> &state)
+    int DPGNet::GreedyAction(std::vector<double> &state)
     {
         if (state.size() != stateDim) {
             return -1;
@@ -23,28 +23,28 @@ namespace ML {
         double p = double(rand() % 10000) / 10000;
         int index = 0;
         if (p < exploringRate) {
-            index = randomAction();
+            index = RandomAction();
         } else {
-            index = action(state);
+            index = Action(state);
         }
         return index;
     }
 
-    int DPGNet::randomAction()
+    int DPGNet::RandomAction()
     {
-        std::vector<double>& policyNetOutput = policyNet.getOutput();
+        std::vector<double>& policyNetOutput = policyNet.GetOutput();
         policyNetOutput.assign(actionDim, 0);
         int index = rand() % actionDim;
         policyNetOutput[index] = 1;
         return index;
     }
 
-    int DPGNet::action(std::vector<double> &state)
+    int DPGNet::Action(std::vector<double> &state)
     {
         int index = 0;
-        policyNet.feedForward(state);
-        std::vector<double>& action = policyNet.getOutput();
-        index = maxAction(action);
+        policyNet.FeedForward(state);
+        std::vector<double>& Action = policyNet.GetOutput();
+        index = maxAction(Action);
         return index;
     }
 
@@ -66,11 +66,13 @@ namespace ML {
         double u = 0;
         double n = 0;
         double sigma = 0;
+        /* expectation */
         for (int i = 0 ; i < x.size(); i++) {
             u += x[i];
             n++;
         }
         u = u / n;
+        /* sigma */
         for (int i = 0 ; i < x.size(); i++) {
             x[i] = x[i] - u;
             sigma += x[i] * x[i];
@@ -92,26 +94,26 @@ namespace ML {
         }
         //zscore(discoutedReward);
         for (int i = 0; i < x.size(); i++) { 
-            int k = maxAction(x[i].action);
-            x[i].action[k] *= discoutedReward[i];
-            policyNet.calculateGradient(x[i].state, x[i].action);
+            int k = maxAction(x[i].Action);
+            x[i].Action[k] *= discoutedReward[i];
+            policyNet.Gradient(x[i].state, x[i].Action);
         }
-        policyNet.RMSProp(0.9, learningRate);
-        //policyNet.Adam(0.9, 0.99, 0.1);
+        policyNet.RMSPropWithClip(0.9, 0.5, 1);
+        //policyNet.Adam(0.9, 0.99, 0.5);
         exploringRate *= 0.9999;
         exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
         return;
     }
 
-    void DPGNet::save(const std::string &fileName)
+    void DPGNet::Save(const std::string &fileName)
     {
-        policyNet.save(fileName);
+        policyNet.Save(fileName);
         return;
     }
 
-    void DPGNet::load(const std::string &fileName)
+    void DPGNet::Load(const std::string &fileName)
     {
-        policyNet.load(fileName);
+        policyNet.Load(fileName);
         return;
     }
 }

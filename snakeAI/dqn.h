@@ -12,7 +12,7 @@
 namespace ML {
     struct Transition {
         std::vector<double> state;
-        double action; /* double for continuous action */
+        double Action; /* double for continuous Action */
         std::vector<double> nextState;
         double reward;
         bool done;
@@ -21,28 +21,27 @@ namespace ML {
         public:
             DQNet(){}
             ~DQNet(){}
-            void createNet(int stateDim,
+            void CreateNet(int stateDim,
                            int hiddenDim,
                            int hiddenLayerNum,
                            int actionDim,
                            int maxMemorySize = 4096,
                            int replaceTargetIter = 256,
                            int batchSize = 32);
-            void perceive(std::vector<double>& state,
-                          double action,
+            void Perceive(std::vector<double>& state,
+                          double Action,
                           std::vector<double>& nextState,
                           double reward,
                           bool done);
-            void forget();
-            int eGreedyAction(std::vector<double>& state);
-            int randomAction();
-            int action(std::vector<double>& state);
-            int maxQ(std::vector<double>& q_value);
-            void experienceReplay(Transition& x);
-            void learn(int optType = OPT_RMSPROP, double learningRate = 0.001);
-            void onlineLearning(std::vector<Transition>& x, int optType, double learningRate);
-            void save(const std::string& fileName);
-            void load(const std::string& fileName);
+            void Forget();
+            int GreedyAction(std::vector<double>& state);
+            int RandomAction();
+            int Action(std::vector<double>& state);
+            int MaxQ(std::vector<double>& q_value);
+            void ExperienceReplay(Transition& x);
+            void Learn(int optType = OPT_RMSPROP, double learningRate = 0.001);
+            void Save(const std::string& fileName);
+            void Load(const std::string& fileName);
             int stateDim;
             int actionDim;
             double gamma;

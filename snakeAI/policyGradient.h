@@ -12,23 +12,23 @@
 namespace ML {
     struct Step {
         std::vector<double> state;
-        std::vector<double> action;
+        std::vector<double> Action;
         double reward;
     };
     class DPGNet {
         public:
             DPGNet(){}
             ~DPGNet(){}
-            void createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
+            void CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
                            double learningRate = 0.001);
-            int eGreedyAction(std::vector<double>& state);
-            int randomAction();
-            int action(std::vector<double>& state);
+            int GreedyAction(std::vector<double>& state);
+            int RandomAction();
+            int Action(std::vector<double>& state);
             int maxAction(std::vector<double>& value);
             void zscore(std::vector<double>& x);
             void reinforce(std::vector<Step>& steps);
-            void save(const std::string& fileName);
-            void load(const std::string& fileName);
+            void Save(const std::string& fileName);
+            void Load(const std::string& fileName);
             int stateDim;
             int actionDim;
             double gamma;

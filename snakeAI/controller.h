@@ -20,7 +20,7 @@ public:
     int bpAgent(int x, int y, int xt, int yt);
     double reward(int xi, int yi, int xn, int yn, int xt, int yt);
     bool move(int& x, int& y, int direct);
-    int maxAction(vector<double>& action);
+    int maxAction(vector<double>& Action);
     vector<vector<int> >& map;
     vector<double> state;
     vector<double> nextState;
