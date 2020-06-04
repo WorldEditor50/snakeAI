@@ -1,6 +1,6 @@
 #include "policyGradient.h"
 namespace ML {
-    void DPGNet::CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
+    void DPG::CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
                           double learningRate)
     {
         if (stateDim < 1 || hiddenDim < 1 || hiddenLayerNum < 1 || actionDim < 1) {
@@ -15,7 +15,7 @@ namespace ML {
         return;
     }
 
-    int DPGNet::GreedyAction(std::vector<double> &state)
+    int DPG::GreedyAction(std::vector<double> &state)
     {
         if (state.size() != stateDim) {
             return -1;
@@ -30,7 +30,7 @@ namespace ML {
         return index;
     }
 
-    int DPGNet::RandomAction()
+    int DPG::RandomAction()
     {
         std::vector<double>& policyNetOutput = policyNet.GetOutput();
         policyNetOutput.assign(actionDim, 0);
@@ -39,7 +39,7 @@ namespace ML {
         return index;
     }
 
-    int DPGNet::Action(std::vector<double> &state)
+    int DPG::Action(std::vector<double> &state)
     {
         int index = 0;
         policyNet.FeedForward(state);
@@ -48,7 +48,7 @@ namespace ML {
         return index;
     }
 
-    int DPGNet::maxAction(std::vector<double>& value)
+    int DPG::maxAction(std::vector<double>& value)
     {
         int index = 0;
         double maxValue = value[0];
@@ -61,7 +61,7 @@ namespace ML {
         return index;
     }
 
-    void DPGNet::zscore(std::vector<double> &x)
+    void DPG::zscore(std::vector<double> &x)
     {
         double u = 0;
         double n = 0;
@@ -84,7 +84,7 @@ namespace ML {
         return;
     }
 
-    void DPGNet::reinforce(std::vector<Step>& x)
+    void DPG::reinforce(std::vector<Step>& x)
     {
         double r = 0;
         std::vector<double> discoutedReward(x.size());
@@ -93,25 +93,25 @@ namespace ML {
             discoutedReward[i] = r;
         }
         //zscore(discoutedReward);
-        for (int i = 0; i < x.size(); i++) { 
-            int k = maxAction(x[i].Action);
-            x[i].Action[k] *= discoutedReward[i];
-            policyNet.Gradient(x[i].state, x[i].Action);
+        for (int i = 0; i < x.size(); i++) {
+            int k = maxAction(x[i].action);
+            x[i].action[k] *= discoutedReward[i];
+            policyNet.Gradient(x[i].state, x[i].action);
         }
-        policyNet.RMSPropWithClip(0.9, 0.5, 1);
+        policyNet.RMSPropWithClip(0.9, 0.1, 1);
         //policyNet.Adam(0.9, 0.99, 0.5);
         exploringRate *= 0.9999;
         exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
         return;
     }
 
-    void DPGNet::Save(const std::string &fileName)
+    void DPG::Save(const std::string &fileName)
     {
         policyNet.Save(fileName);
         return;
     }
 
-    void DPGNet::Load(const std::string &fileName)
+    void DPG::Load(const std::string &fileName)
     {
         policyNet.Load(fileName);
         return;

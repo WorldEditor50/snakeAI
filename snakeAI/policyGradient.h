@@ -12,13 +12,16 @@
 namespace ML {
     struct Step {
         std::vector<double> state;
-        std::vector<double> Action;
+        std::vector<double> action;
         double reward;
+        Step(){}
+        Step(std::vector<double>& s, std::vector<double>& a, double r)
+            :state(s), action(a), reward(r) {}
     };
-    class DPGNet {
+    class DPG {
         public:
-            DPGNet(){}
-            ~DPGNet(){}
+            DPG(){}
+            ~DPG(){}
             void CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
                            double learningRate = 0.001);
             int GreedyAction(std::vector<double>& state);

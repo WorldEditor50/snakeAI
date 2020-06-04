@@ -155,7 +155,9 @@ namespace ML {
     {
         for (int i = 0; i < yo.size(); i++) {
             if (lossType == LOSS_CROSS_ENTROPY) {
-                E[i] = -yt[i] * log(yo[i]);
+                E[i] = -yt[i] * log(yo[i] + 1e9);
+            } else if (lossType == LOSS_KL){
+                E[i] = yt[i] * log(yt[i]) - yt[i] * log(yo[i] + 1e9);
             } else if (lossType == LOSS_MSE){
                 E[i] = yo[i] - yt[i];
             }
@@ -176,7 +178,7 @@ namespace ML {
         return;
     }
 
-    void Layer::SoftmaxGradient(std::vector<double>& x, std::vector<double>& yo, std::vector<double> yt)
+    void Layer::SoftmaxGradient(std::vector<double>& x, std::vector<double>& yo, std::vector<double>& yt)
     {
         for (int i = 0; i < dW.size(); i++) {
             double dOutput = yo[i] - yt[i];
@@ -184,7 +186,6 @@ namespace ML {
                 dW[i][j] += dOutput * x[j];
             }
             dB[i] += dOutput;
-            E[i] = 0;
         }
         return;
     }
@@ -263,23 +264,23 @@ namespace ML {
         double bl2 = 0;
         for (int i = 0; i < dW.size(); i++) {
             for (int j = 0; j < dW[0].size(); j++) {
-                Wl2[i] += dW[i][j];
+                Wl2[i] += dW[i][j] * dW[i][j];
             }
-            bl2 += dB[i];
+            bl2 += dB[i] * dB[i];
         }
 
         for (int i = 0; i < layerDim; i++) {
-            Wl2[i] = sqrt(Wl2[i]);
+            Wl2[i] = sqrt(Wl2[i] / layerDim);
         }
-        bl2 = sqrt(bl2);
+        bl2 = sqrt(bl2 / layerDim);
         /* clip gradient */
         for (int i = 0; i < dW.size(); i++) {
             for (int j = 0; j < dW[0].size(); j++) {
-                if (Wl2[i] >= threshold) {
+                if (dW[i][j] * dW[i][j] >= threshold * threshold ) {
                     dW[i][j] *= threshold / Wl2[i];
                 }
             }
-            if (bl2 >= threshold) {
+            if (dB[i] * dB[i] >= threshold * threshold) {
                 dB[i] *= threshold / bl2;
             }
         }
@@ -305,9 +306,9 @@ namespace ML {
             outputLayer.CreateLayer(hiddenDim, outputDim, activateType, LOSS_MSE, trainFlag);
             layers.push_back(outputLayer);
         }
-        if (lossType == LOSS_CROSS_ENTROPY) {
+        if (lossType == LOSS_CROSS_ENTROPY || lossType == LOSS_KL) {
             Layer softmaxLayer;
-            softmaxLayer.CreateLayer(hiddenDim, outputDim, ACTIVATE_LINEAR, LOSS_CROSS_ENTROPY, trainFlag);
+            softmaxLayer.CreateLayer(hiddenDim, outputDim, ACTIVATE_LINEAR, lossType, trainFlag);
             layers.push_back(softmaxLayer);
         }
         this->outputIndex = layers.size() - 1;
@@ -372,34 +373,6 @@ namespace ML {
         return;
     }
 
-    void BPNet::BackPropagate(std::vector<double> &loss)
-    {
-        if (loss.size() != layers[outputIndex].E.size()) {
-            return;
-        }
-        layers[outputIndex].E = loss;
-        /* error backpropagate */
-        for (int i = outputIndex - 1; i >= 0; i--) {
-            layers[i].Error(layers[i + 1].E, layers[i + 1].W);
-        }
-        return;
-    }
-
-    void BPNet::Gradient(std::vector<double> &x, std::vector<double> &yo, std::vector<double> &yt)
-    {
-        BackPropagate(yo, yt);
-        /*   gradient */
-        layers[0].Gradient(x);
-        for (int j = 1; j < layers.size(); j++) {
-            if (layers[j].lossType == LOSS_CROSS_ENTROPY) {
-                layers[j].SoftmaxGradient(layers[j - 1].O, yo, yt);
-            } else {
-                layers[j].Gradient(layers[j - 1].O);
-            }
-        }
-        return;
-    }
-
     void BPNet::Gradient(std::vector<double> &x, std::vector<double> &y)
     {
         FeedForward(x);
@@ -407,7 +380,7 @@ namespace ML {
         /*   gradient */
         layers[0].Gradient(x);
         for (int j = 1; j < layers.size(); j++) {
-            if (layers[j].lossType == LOSS_CROSS_ENTROPY) {
+            if (layers[j].lossType == LOSS_CROSS_ENTROPY || lossType == LOSS_KL) {
                 layers[j].SoftmaxGradient(layers[j - 1].O, layers[outputIndex].O, y);
             } else {
                 layers[j].Gradient(layers[j - 1].O);

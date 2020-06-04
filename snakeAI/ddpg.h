@@ -14,11 +14,11 @@ namespace ML {
 
 /* this is not a real DDPG,
  *  DDPG may not work in discrete Action space */
-class DDPGNet
+class DDPG
 {
 public:
-    DDPGNet(){}
-    ~DDPGNet(){}
+    DDPG(){}
+    ~DDPG(){}
     void CreateNet(int stateDim,
                    int hiddenDim,
                    int hiddenLayerNum,
@@ -27,7 +27,7 @@ public:
                    int replaceTargetIter = 256,
                    int batchSize = 32);
     void Perceive(std::vector<double>& state,
-                  double Action,
+                  double action,
                   std::vector<double>& nextState,
                   double reward,
                   bool done);
@@ -48,6 +48,7 @@ public:
     int actionDim;
     double gamma;
     double alpha;
+    double beta;
     int maxMemorySize;
     int batchSize;
     double exploringRate;

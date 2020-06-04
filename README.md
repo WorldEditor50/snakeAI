@@ -3,30 +3,31 @@
 
 - random search agent: a method bases on reward and MCMC
 
-- bp agent for testing supervised learning
+- bp agent: testing supervised learning
 
-- dqn agent for testing DQN, DQN works fine
+- dqn agent: testing DQN
 
-- dpg agent for testing policy gradient, PG is not work so well, the gradient is unlimited which is easily lead to gradient explode.
+- dpg agent: policy gradient with clip-gradient
 
-- ddpg agent : DDPG does't work in discrete action space
+- ddpg agent: DDPG with KL-divergence
 
+- PPO agent: todo
 - Instruction: all agents are definited in controller.cpp and you can switch agent by modifying function play2 in mainwindow.cpp.
 
 ## 1. Markov Decision Process
 
-- **definition**:
-  **{St, At, P(St+1|St, At), R, St+1, γ}**
-  **St** --- state
-  **At** --- action
-  **P(St+1|St, At)** --- transition probability
-  **R** --- reward
-  **St+1** --- next state
-  **γ** --- discounted factor
+### definition:
+- **{St, At, P(St+1|St, At), R, St+1, γ}**
+- **St** --- state
+- **At** --- action
+- **P(St+1|St, At)** --- transition probability
+- **R** --- reward
+- **St+1** --- next state
+- **γ** --- discounted factor
 
-- **Process** :
+### Process:
   agent is in the state **St** , taking action **At** , then  transitioning into state **St+1** and getting reward **R** in the state **St+1**
-- **Assumption of the Markov Property**:
+### Assumption of the Markov Property:
   the effects of an action taken in a state depend only on that state and not on the prior history.
 
 

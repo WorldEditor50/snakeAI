@@ -26,6 +26,7 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     policyGradient.cpp \
+    ppo.cpp \
     snake.cpp
 
 HEADERS += \
@@ -38,6 +39,7 @@ HEADERS += \
     genetic.h \
     mainwindow.h \
     policyGradient.h \
+    ppo.h \
     snake.h
 LIBS += -lDbgHelp
 FORMS += \

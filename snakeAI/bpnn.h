@@ -33,7 +33,7 @@ namespace ML {
             void Error(std::vector<double>& nextE, std::vector<std::vector<double> >& nextW);
             void Gradient(std::vector<double>& x);
             void Gradient(std::vector<double>& x, double threshold);
-            void SoftmaxGradient(std::vector<double>& x, std::vector<double>& yo, std::vector<double> yt);
+            void SoftmaxGradient(std::vector<double>& x, std::vector<double>& yo, std::vector<double>& yt);
             void SGD(double learningRate);
             void RMSProp(double rho, double learningRate);
             void Adam(double alpha1, double alpha2, double learningRate);
@@ -76,8 +76,6 @@ namespace ML {
             std::vector<double>& GetOutput();
             int FeedForward(std::vector<double>& x);
             void BackPropagate(std::vector<double>& yo, std::vector<double>& yt);
-            void BackPropagate(std::vector<double>& loss);
-            void Gradient(std::vector<double> &x, std::vector<double> &yo, std::vector<double> &yt);
             void Gradient(std::vector<double> &x, std::vector<double> &y);
             void SGD(double learningRate = 0.001);
             void RMSProp(double rho = 0.9, double learningRate = 0.001);

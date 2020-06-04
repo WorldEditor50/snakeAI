@@ -12,28 +12,34 @@
 namespace ML {
     struct Transition {
         std::vector<double> state;
-        double Action; /* double for continuous Action */
+        double action;
         std::vector<double> nextState;
         double reward;
         bool done;
+        Transition(){}
+        Transition(std::vector<double>& s, double a,
+                   std::vector<double>& s_, double r, bool d)
+        {
+            state = s;
+            action = a;
+            nextState = s_;
+            reward = r;
+            done = d;
+        }
     };
-    class DQNet {
+    class DQN {
         public:
-            DQNet(){}
-            ~DQNet(){}
-            void CreateNet(int stateDim,
-                           int hiddenDim,
-                           int hiddenLayerNum,
-                           int actionDim,
+            DQN(){}
+            ~DQN(){}
+            void CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
                            int maxMemorySize = 4096,
                            int replaceTargetIter = 256,
                            int batchSize = 32);
             void Perceive(std::vector<double>& state,
-                          double Action,
+                          double action,
                           std::vector<double>& nextState,
                           double reward,
                           bool done);
-            void Forget();
             int GreedyAction(std::vector<double>& state);
             int RandomAction();
             int Action(std::vector<double>& state);

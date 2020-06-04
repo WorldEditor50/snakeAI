@@ -1,6 +1,6 @@
 #include "ddpg.h"
 namespace ML {
-    void DDPGNet::CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
+    void DDPG::CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
             int maxMemorySize, int replaceTargetIter, int batchSize)
     {
         if (stateDim < 1 || hiddenDim < 1 || hiddenLayerNum < 1 || actionDim < 1 ||
@@ -9,6 +9,7 @@ namespace ML {
         }
         this->gamma = 0.99;
         this->alpha = 0.01;
+        this->beta = 1;
         this->exploringRate = 1;
         this->stateDim = stateDim;
         this->actionDim = actionDim;
@@ -17,8 +18,8 @@ namespace ML {
         this->batchSize = batchSize;
         this->sa.resize(stateDim + actionDim);
         /* actor: a = P(s, theta) */
-        this->ActorMainNet.CreateNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 1, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
-        this->ActorTargetNet.CreateNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 0, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
+        this->ActorMainNet.CreateNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 1, ACTIVATE_SIGMOID, LOSS_KL);
+        this->ActorTargetNet.CreateNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 0, ACTIVATE_SIGMOID, LOSS_KL);
         this->ActorMainNet.SoftUpdateTo(ActorTargetNet, alpha);
         /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
         this->CriticMainNet.CreateNet(stateDim + actionDim, hiddenDim, hiddenLayerNum, actionDim, 1);
@@ -27,8 +28,8 @@ namespace ML {
         return;
     }
 
-    void DDPGNet::Perceive(std::vector<double>& state,
-            double Action,
+    void DDPG::Perceive(std::vector<double>& state,
+            double action,
             std::vector<double>& nextState,
             double reward,
             bool done)
@@ -38,7 +39,7 @@ namespace ML {
         }
         Transition transition;
         transition.state = state;
-        transition.Action = Action;
+        transition.action = action;
         transition.nextState = nextState;
         transition.reward = reward;
         transition.done = done;
@@ -46,7 +47,7 @@ namespace ML {
         return;
     }
 
-    void DDPGNet::SetSA(std::vector<double> &state, std::vector<double> &Action)
+    void DDPG::SetSA(std::vector<double> &state, std::vector<double> &Action)
     {
         for (int i = 0; i < stateDim; i++) {
             sa[i] = state[i];
@@ -57,16 +58,7 @@ namespace ML {
         return;
     }
 
-    void DDPGNet::Forget()
-    {
-        int k = memories.size() / 3;
-        for (int i = 0; i < k; i++) {
-            memories.pop_front();
-        }
-        return;
-    }
-
-    int DDPGNet::NoiseAction(std::vector<double> &state)
+    int DDPG::NoiseAction(std::vector<double> &state)
     {
         int index = 0;
         ActorMainNet.FeedForward(state);
@@ -78,12 +70,12 @@ namespace ML {
         return index;
     }
 
-    int DDPGNet::RandomAction()
+    int DDPG::RandomAction()
     {
         return rand() % actionDim;
     }
 
-    int DDPGNet::GreedyAction(std::vector<double> &state)
+    int DDPG::GreedyAction(std::vector<double> &state)
     {
         if (state.size() != stateDim) {
             return 0;
@@ -98,7 +90,7 @@ namespace ML {
         return index;
     }
 
-    int DDPGNet::Action(std::vector<double> &state)
+    int DDPG::Action(std::vector<double> &state)
     {
         int index = 0;
         ActorMainNet.FeedForward(state);
@@ -107,7 +99,7 @@ namespace ML {
         return index;
     }
 
-    int DDPGNet::MaxQ(std::vector<double>& q_value)
+    int DDPG::MaxQ(std::vector<double>& q_value)
     {
         int index = 0;
         double maxValue = q_value[0];
@@ -120,15 +112,15 @@ namespace ML {
         return index;
     }
 
-    void DDPGNet::ExperienceReplay(Transition& x)
+    void DDPG::ExperienceReplay(Transition& x)
     {
         std::vector<double> cTarget(actionDim);
         std::vector<double>& aMainOutput = ActorMainNet.GetOutput();
-        std::vector<double>& aTarGetOutput = ActorTargetNet.GetOutput();
-        std::vector<double>& cTarGetOutput = CriticTargetNet.GetOutput();
+        std::vector<double>& aTargetOutput = ActorTargetNet.GetOutput();
+        std::vector<double>& cTargetOutput = CriticTargetNet.GetOutput();
         std::vector<double>& cMainOutput = CriticMainNet.GetOutput();
         /* estimate Action value */
-        int i = int(x.Action);
+        int i = int(x.action);
         ActorMainNet.FeedForward(x.state);
         SetSA(x.state, aMainOutput);
         CriticMainNet.FeedForward(sa);
@@ -137,28 +129,25 @@ namespace ML {
             cTarget[i] = x.reward;
         } else {
             ActorTargetNet.FeedForward(x.nextState);
-            SetSA(x.nextState, aTarGetOutput);
+            SetSA(x.nextState, aTargetOutput);
             CriticTargetNet.FeedForward(sa);
             CriticMainNet.FeedForward(sa);
             int k = MaxQ(cMainOutput);
-            cTarget[i] = x.reward + gamma * cTarGetOutput[k];
+            cTarget[i] = x.reward + gamma * cTargetOutput[k];
         }
         /* update ActorMainNet */
         std::vector<double> delta(actionDim);
         ActorMainNet.FeedForward(x.state);
+        ActorTargetNet.FeedForward(x.state);
         SetSA(x.state, aMainOutput);
         CriticMainNet.FeedForward(sa);
-        for (int i = 0; i < actionDim; i++) {
-            /* similar */
-            delta[i] = cMainOutput[i] - aMainOutput[i];
-        }
-        ActorMainNet.Gradient(x.state, delta);
+        ActorMainNet.Gradient(x.state, cMainOutput);
         /* update CriticMainNet */
         CriticMainNet.Gradient(sa, cTarget);
         return;
     }
 
-    void DDPGNet::Learn(int optType, double actorLearningRate, double criticLearningRate)
+    void DDPG::Learn(int optType, double actorLearningRate, double criticLearningRate)
     {
         if (memories.size() < batchSize) {
             return;
@@ -179,7 +168,10 @@ namespace ML {
         CriticMainNet.Optimize(optType, criticLearningRate);
         /* reduce memory */
         if (memories.size() > maxMemorySize) {
-            Forget();
+            int k = memories.size() / 3;
+            for (int i = 0; i < k; i++) {
+                memories.pop_front();
+            }
         }
         /* update step */
         exploringRate = exploringRate * 0.99999;
@@ -188,14 +180,14 @@ namespace ML {
         return;
     }
 
-    void DDPGNet::Save(const std::string& actorPara, const std::string& criticPara)
+    void DDPG::Save(const std::string& actorPara, const std::string& criticPara)
     {
         ActorMainNet.Save(actorPara);
         CriticMainNet.Save(criticPara);
         return;
     }
 
-    void DDPGNet::Load(const std::string& actorPara, const std::string& criticPara)
+    void DDPG::Load(const std::string& actorPara, const std::string& criticPara)
     {
         ActorMainNet.Load(actorPara);
         ActorMainNet.SoftUpdateTo(ActorTargetNet, alpha);

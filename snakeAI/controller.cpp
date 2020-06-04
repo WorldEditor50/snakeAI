@@ -5,12 +5,13 @@ Controller::Controller(vector<vector<int> >& map):map(map)
     this->dqn.CreateNet(8, 16, 4, 4, 8192, 256, 64);
     this->dpg.CreateNet(8, 16, 4, 4, 0.1);
     this->ddpg.CreateNet(8, 16, 4, 4, 4096, 256, 64);
-    this->bp.CreateNet(8, 16, 4, 4, 1, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
+    this->ppo.CreateNet(8, 16, 4, 4, 1024, 256, 4);
+    this->bp.CreateNet(8, 16, 4, 4, 1, ACTIVATE_SIGMOID, LOSS_MSE);
     this->state.resize(8);
     this->nextState.resize(8);
 }
 
-double Controller::reward(int xi, int yi, int xn, int yn, int xt, int yt)
+double Controller::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
 {
     if (map[xn][yn] == 1) {
         return -1;
@@ -21,6 +22,25 @@ double Controller::reward(int xi, int yi, int xn, int yn, int xt, int yt)
     double x1 = (xi - xt)*(xi - xt) + (yi - yt) * (yi - yt);
     double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
     double r = tanh(x1 - x2);
+    return r;
+}
+
+double Controller::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    if (map[xn][yn] == 1) {
+        return -1;
+    }
+    if (xn == xt && yn == yt) {
+        return 1;
+    }
+    double x1 = (xi - xt)*(xi - xt) + (yi - yt) * (yi - yt);
+    double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
+    double r = 0;
+    if (x1 > x2) {
+        r = 0.01;
+    } else {
+        r = -0.1;
+    }
     return r;
 }
 
@@ -77,7 +97,7 @@ int Controller::randomSearchAgent(int x, int y, int xt, int yt)
             int xi = xn;
             int yi = yn;
             move(xn, yn, direct);
-            Action[direct] = gamma * Action[direct] + reward(xi, yi, xn, yn, xt, yt);
+            Action[direct] = gamma * Action[direct] + reward1(xi, yi, xn, yn, xt, yt);
             if ((map[xn][yn] == 1) || (xn == xt && yn == yt)) {
                 break;
             }
@@ -112,7 +132,7 @@ int Controller::dqnAgent(int x, int y, int xt, int yt)
             int yi = yn;
             a = dqn.GreedyAction(state);
             move(xn, yn, a);
-            r = reward(xi, yi, xn, yn, xt, yt);
+            r = reward1(xi, yi, xn, yn, xt, yt);
             setState(nextState, xn, yn, xt, yt);
             if (map[xn][yn] == 1) {
                 dqn.Perceive(state, a, nextState, r, true);
@@ -128,7 +148,7 @@ int Controller::dqnAgent(int x, int y, int xt, int yt)
         }
     }
     /* training */
-    dqn.Learn(OPT_ADAM, 0.001);
+    dqn.Learn(OPT_RMSPROP, 0.01);
     /* making decision */
     setState(state, x, y, xt, yt);
     a = dqn.Action(state);
@@ -148,15 +168,15 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
         int xi = xn;
         int yi = yn;
         /* Monte Carlo method */
-        //direct = dpg.RandomAction();
+        //direct = DPG.RandomAction();
         direct = dpg.GreedyAction(state);
         /* Markov Chain */
         move(xn, yn, direct);
         setState(nextState, xn, yn, xt, yt);
         Step s;
         s.state = state;
-        s.Action  = dpg.policyNet.GetOutput();
-        s.reward  = reward(xi, yi, xn, yn, xt, yt);
+        s.action  = dpg.policyNet.GetOutput();
+        s.reward  = reward2(xi, yi, xn, yn, xt, yt);
         steps.push_back(s);
         if (map[xn][yn] == 1 || (xn == xt && yn == yt)) {
             break;
@@ -186,10 +206,8 @@ int Controller::ddpgAgent(int x, int y, int xt, int yt)
             int xi = xn;
             int yi = yn;
             a = ddpg.GreedyAction(state);
-            //a = ddpg.RandomAction();
-            //a = ddpg.Action(state);
             move(xn, yn, a);
-            r = reward(xi, yi, xn, yn, xt, yt);
+            r = reward2(xi, yi, xn, yn, xt, yt);
             setState(nextState, xn, yn, xt, yt);
             if (map[xn][yn] == 1) {
                 ddpg.Perceive(state, a, nextState, r, true);
@@ -205,12 +223,48 @@ int Controller::ddpgAgent(int x, int y, int xt, int yt)
         }
     }
     /* training */
-    ddpg.Learn(OPT_RMSPROP, 0.01, 0.01);
+    ddpg.Learn(OPT_RMSPROP, 0.001, 0.01);
     /* making decision */
     setState(state, x, y, xt, yt);
     a = ddpg.Action(state);
     ddpg.ActorMainNet.Show();
     return a;
+}
+
+int Controller::ppoAgent(int x, int y, int xt, int yt)
+{
+    int direct = 0;
+    /* exploring environment */
+    vector<Step> steps;
+    int xn = x;
+    int yn = y;
+    setState(state, x, y, xt, yt);
+    for (int j = 0; j < 256; j++) {
+        int xi = xn;
+        int yi = yn;
+        /* Monte Carlo method */
+        direct = ppo.GreedyAction(state);
+        /* Markov Chain */
+        move(xn, yn, direct);
+        setState(nextState, xn, yn, xt, yt);
+        Step s;
+        s.state = state;
+        s.action  = ppo.actor.GetOutput();
+        s.reward  = reward2(xi, yi, xn, yn, xt, yt);
+        steps.push_back(s);
+        if (map[xn][yn] == 1 || (xn == xt && yn == yt)) {
+            break;
+        }
+        state = nextState;
+    }
+    /* training */
+    ppo.Perceive(steps);
+    ppo.Learn(OPT_RMSPROP, 0.01);
+    /* making decision */
+    setState(state, x, y, xt, yt);
+    direct = ppo.Action(state);
+    ppo.actor.Show();
+    return direct;
 }
 
 int Controller::bpAgent(int x, int y, int xt, int yt)
@@ -222,12 +276,12 @@ int Controller::bpAgent(int x, int y, int xt, int yt)
     int yn = y;
     bool training = true;
     double m = 0;
-    vector<double>& Action = bp.GetOutput();
+    vector<double>& action = bp.GetOutput();
     if (training) {
         setState(state, xn, yn, xt, yt);
         for (int i = 0; i < 128; i++) {
             bp.FeedForward(state);
-            direct1 = maxAction(Action);
+            direct1 = maxAction(action);
             direct2 = AStarAgent(xn, yn, xt, yt);
             if (direct1 != direct2) {
                 vector<double> target(4, 0);
@@ -249,7 +303,7 @@ int Controller::bpAgent(int x, int y, int xt, int yt)
     }
     setState(state, x, y, xt, yt);
     bp.FeedForward(state);
-    direct1 = maxAction(Action);
+    direct1 = maxAction(action);
     bp.Show();
     return direct1;
 }
@@ -264,13 +318,13 @@ bool Controller::move(int& x, int& y, int direct)
     return flag;
 }
 
-int Controller::maxAction(vector<double>& Action)
+int Controller::maxAction(vector<double>& action)
 {
-    double maxValue = Action[0];
+    double maxValue = action[0];
     int direct = 0;
-    for (int i = 0; i < Action.size(); i++) {
-        if (maxValue < Action[i]) {
-            maxValue = Action[i];
+    for (int i = 0; i < action.size(); i++) {
+        if (maxValue < action[i]) {
+            maxValue = action[i];
             direct = i;
         }
     }
