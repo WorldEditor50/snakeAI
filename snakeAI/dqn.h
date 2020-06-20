@@ -11,14 +11,14 @@
 #include "bpnn.h"
 namespace ML {
     struct Transition {
-        std::vector<double> state;
-        double action;
-        std::vector<double> nextState;
-        double reward;
+        std::vector<float> state;
+        float action;
+        std::vector<float> nextState;
+        float reward;
         bool done;
         Transition(){}
-        Transition(std::vector<double>& s, double a,
-                   std::vector<double>& s_, double r, bool d)
+        Transition(std::vector<float>& s, float a,
+                   std::vector<float>& s_, float r, bool d)
         {
             state = s;
             action = a;
@@ -34,24 +34,24 @@ namespace ML {
             void CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
                            int maxMemorySize = 4096,
                            int replaceTargetIter = 256,
-                           int batchSize = 32);
-            void Perceive(std::vector<double>& state,
-                          double action,
-                          std::vector<double>& nextState,
-                          double reward,
+                           int batchSize = 64);
+            void Perceive(std::vector<float>& state,
+                          float action,
+                          std::vector<float>& nextState,
+                          float reward,
                           bool done);
-            int GreedyAction(std::vector<double>& state);
+            int GreedyAction(std::vector<float>& state);
             int RandomAction();
-            int Action(std::vector<double>& state);
-            int MaxQ(std::vector<double>& q_value);
+            int Action(std::vector<float>& state);
+            int MaxQ(std::vector<float>& q_value);
             void ExperienceReplay(Transition& x);
-            void Learn(int optType = OPT_RMSPROP, double learningRate = 0.001);
+            void Learn(int optType = OPT_RMSPROP, float learningRate = 0.001);
             void Save(const std::string& fileName);
             void Load(const std::string& fileName);
             int stateDim;
             int actionDim;
-            double gamma;
-            double exploringRate;
+            float gamma;
+            float exploringRate;
             int maxMemorySize;
             int batchSize;
             int learningSteps;

@@ -21,11 +21,10 @@ SOURCES += \
     common.cpp \
     controller.cpp \
     ddpg.cpp \
+    dpg.cpp \
     dqn.cpp \
-    genetic.cpp \
     main.cpp \
     mainwindow.cpp \
-    policyGradient.cpp \
     ppo.cpp \
     snake.cpp
 
@@ -35,13 +34,11 @@ HEADERS += \
     common.h \
     controller.h \
     ddpg.h \
+    dpg.h \
     dqn.h \
-    genetic.h \
     mainwindow.h \
-    policyGradient.h \
     ppo.h \
     snake.h
-LIBS += -lDbgHelp
 FORMS += \
     mainwindow.ui
 

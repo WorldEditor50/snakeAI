@@ -6,12 +6,12 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     this->setGeometry(500, 50, 1000, 1000);
-    this->setFixedSize(800, 800);
+    this->setFixedSize(700, 700);
     this->board.init();
     this->snake.create(25, 25);
     /* reinforcement learning */
-    //controller.dqn.Load("./dqn_weights_adam");
-    controller.dpg.Load("./dpg_weights");
+    controller.dqn.Load("./dqn_weights");
+    //controller.dpg.Load("./dpg_weights");
     //controller.ddpg.Load("./ddpg_actor_1", "./ddpg_critic_1");
     /* supervised learning */
     controller.bp.Load("./bp_weights3");
@@ -20,7 +20,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    controller.dqn.Save("./dqn_weights_adam");
+    controller.dqn.Save("./dqn_weights");
     controller.dpg.Save("./dpg_weights");
     controller.ddpg.Save("./ddpg_actor_1", "./ddpg_critic_1");
     controller.bp.Save("./bp_weights3");
@@ -59,8 +59,8 @@ void MainWindow::paintEvent(QPaintEvent *ev)
         }
     }
     /* draw target */
-    p.setBrush(Qt::yellow);
-    p.setPen(Qt::yellow);
+    p.setBrush(Qt::green);
+    p.setPen(Qt::green);
     QRect rect1 = getRect(board.xt, board.yt);
     p.drawRect(rect1);
     /* draw snake */
@@ -72,7 +72,7 @@ void MainWindow::paintEvent(QPaintEvent *ev)
     }
     /* move */
     this->play2();
-    Sleep(10);
+    SLEEP(100);
     return;
 }
 

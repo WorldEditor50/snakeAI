@@ -3,16 +3,16 @@
 void Board::init()
 {
     /* init board parameter */
-    this->width = 800;
-    this->height = 800;
-    this->unitLen = 20;
+    this->width = 700;
+    this->height = 700;
+    this->unitLen = 10;
     this->blockNum = 0;
     this->rows = width / unitLen - 2;
     this->cols = height / unitLen - 2;
     /* init map */
-    map.resize(50);
-    for (int i = 0; i < 50; i++) {
-        map[i].resize(40);
+    map.resize(rows + 2);
+    for (int i = 0; i < map.size(); i++) {
+        map[i].resize(cols + 2);
     }
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {

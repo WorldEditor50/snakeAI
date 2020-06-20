@@ -1,13 +1,18 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
-
+#if WIN32
+#include <window.h>
+#define SLEEP(t) Sleep(t)
+#else
+#include <unistd.h>
+#define SLEEP(t) usleep(t)
+#endif
 #include <QMainWindow>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QTimer>
 #include <ctime>
 #include <cstdlib>
-#include <windows.h>
 #include "board.h"
 #include "snake.h"
 #include "controller.h"
