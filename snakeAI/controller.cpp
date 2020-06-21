@@ -37,7 +37,7 @@ float Controller::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
     float x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
     float r = 0;
     if (x1 > x2) {
-        r = 0.01;
+        r = 0.01f;
     } else {
         r = -0.1;
     }
@@ -52,10 +52,6 @@ void Controller::setState(vector<float>& statex, int x, int y, int xt, int yt)
     statex[1] = float(y)/col;
     statex[2] = float(xt)/row;
     statex[3] = float(yt)/col;
-    //statex[4] = statex[2] - statex[0];
-    //statex[5] = statex[3] - statex[1];
-    //statex[6] = statex[4] - statex[5];
-    //statex[7] = statex[4] + statex[5];
     return;
 }
 
@@ -90,9 +86,9 @@ int Controller::randomSearchAgent(int x, int y, int xt, int yt)
     float gamma = 0.9;
     float T = 10000;
     vector<float> Action(4, 0);
-    while (T > 0.001) {
+    while (T > 0.001f) {
         /* do experiment */
-        while (T > 0.01) {
+        while (T > 0.01f) {
             direct = rand() % 4;
             int xi = xn;
             int yi = yn;
@@ -148,7 +144,7 @@ int Controller::dqnAgent(int x, int y, int xt, int yt)
         }
     }
     /* training */
-    dqn.Learn(OPT_RMSPROP, 0.01);
+    dqn.Learn(OPT_RMSPROP, 0.01f);
     /* making decision */
     setState(state, x, y, xt, yt);
     a = dqn.Action(state);
@@ -164,11 +160,10 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
     int xn = x;
     int yn = y;
     setState(state, x, y, xt, yt);
-    for (int j = 0; j < 256; j++) {
+    for (int j = 0; j < 16; j++) {
         int xi = xn;
         int yi = yn;
         /* Monte Carlo method */
-        //direct = DPG.RandomAction();
         direct = dpg.GreedyAction(state);
         /* Markov Chain */
         move(xn, yn, direct);
@@ -184,7 +179,7 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
         state = nextState;
     }
     /* training */
-    dpg.reinforce(steps);
+    dpg.Reinforce(steps, OPT_RMSPROP, 0.01);
     /* making decision */
     setState(state, x, y, xt, yt);
     direct = dpg.Action(state);
@@ -223,7 +218,7 @@ int Controller::ddpgAgent(int x, int y, int xt, int yt)
         }
     }
     /* training */
-    ddpg.Learn(OPT_RMSPROP, 0.001, 0.001);
+    ddpg.Learn(OPT_RMSPROP, 0.001f, 0.001f);
     /* making decision */
     setState(state, x, y, xt, yt);
     a = ddpg.Action(state);
@@ -259,7 +254,7 @@ int Controller::ppoAgent(int x, int y, int xt, int yt)
     }
     /* training */
     ppo.Perceive(steps);
-    ppo.Learn(OPT_RMSPROP, 0.01);
+    ppo.Learn(OPT_RMSPROP, 0.01f);
     /* making decision */
     setState(state, x, y, xt, yt);
     direct = ppo.Action(state);
@@ -298,7 +293,7 @@ int Controller::bpAgent(int x, int y, int xt, int yt)
             setState(state, xn, yn, xt, yt);
         }
         if (m > 0) {
-            bp.Optimize(OPT_RMSPROP, 0.01);
+            bp.Optimize(OPT_RMSPROP, 0.01f);
         }
     }
     setState(state, x, y, xt, yt);

@@ -23,7 +23,7 @@ public:
     int Action(std::vector<float>& state);
     void Perceive(std::vector<Step>& trajectory);
     void ExperienceReplay(std::vector<Step>& trajectory);
-    void Learn(int optType = OPT_RMSPROP, float learningRate = 0.001);
+    void Learn(int optType = OPT_RMSPROP, float learningRate = 0.001f);
     void Save(const std::string &actorPara, const std::string &criticPara);
     void Load(const std::string &actorPara, const std::string &criticPara);
     int stateDim;

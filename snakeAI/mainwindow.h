@@ -1,7 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 #if WIN32
-#include <window.h>
+#include <windows.h>
 #define SLEEP(t) Sleep(t)
 #else
 #include <unistd.h>

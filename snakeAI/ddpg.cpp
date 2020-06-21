@@ -8,7 +8,7 @@ namespace ML {
             return;
         }
         this->gamma = 0.99;
-        this->alpha = 0.01;
+        this->alpha = 0.01f;
         this->beta = 1;
         this->exploringRate = 1;
         this->stateDim = stateDim;

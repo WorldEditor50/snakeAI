@@ -40,8 +40,8 @@ public:
     int MaxQ(std::vector<float>& q_value);
     void ExperienceReplay(Transition& x);
     void Learn(int optType = OPT_RMSPROP,
-               float actorLearningRate = 0.01,
-               float criticLearningRate = 0.01);
+               float actorLearningRate = 0.01f,
+               float criticLearningRate = 0.01f);
     void Save(const std::string& actorPara, const std::string& criticPara);
     void Load(const std::string& actorPara, const std::string& criticPara);
     int stateDim;

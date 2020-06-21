@@ -77,11 +77,11 @@ namespace ML {
             int FeedForward(std::vector<float>& x);
             void BackPropagate(std::vector<float>& yo, std::vector<float>& yt);
             void Gradient(std::vector<float> &x, std::vector<float> &y);
-            void SGD(float learningRate = 0.001);
-            void RMSProp(float rho = 0.9, float learningRate = 0.001);
-            void Adam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001);
-            void RMSPropWithClip(float rho = 0.9, float learningRate = 0.001, float threshold = 1);
-            void Optimize(int optType = OPT_RMSPROP, float learningRate = 0.001);
+            void SGD(float learningRate = 0.001f);
+            void RMSProp(float rho = 0.9, float learningRate = 0.001f);
+            void Adam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001f);
+            void RMSPropWithClip(float rho = 0.9, float learningRate = 0.001f, float threshold = 1);
+            void Optimize(int optType = OPT_RMSPROP, float learningRate = 0.001f);
             void Train(std::vector<std::vector<float> >& x,
                     std::vector<std::vector<float> >& y,
                     int optType,

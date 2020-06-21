@@ -45,7 +45,7 @@ namespace ML {
             int Action(std::vector<float>& state);
             int MaxQ(std::vector<float>& q_value);
             void ExperienceReplay(Transition& x);
-            void Learn(int optType = OPT_RMSPROP, float learningRate = 0.001);
+            void Learn(int optType = OPT_RMSPROP, float learningRate = 0.001f);
             void Save(const std::string& fileName);
             void Load(const std::string& fileName);
             int stateDim;

@@ -85,7 +85,7 @@ namespace ML {
         return;
     }
 
-    void DPG::reinforce(std::vector<Step>& x)
+    void DPG::Reinforce(std::vector<Step>& x, int optType, float learingRate)
     {
         float r = 0;
         std::vector<float> discoutedReward(x.size());
@@ -99,8 +99,7 @@ namespace ML {
             x[i].action[k] *= discoutedReward[i] - baseLine;
             policyNet.Gradient(x[i].state, x[i].action);
         }
-        policyNet.RMSPropWithClip(0.9, 0.5, 2);
-        //policyNet.Adam(0.9, 0.99, 0.5);
+        policyNet.Optimize(optType, learingRate);
         exploringRate *= 0.9999;
         exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
         return;
