@@ -11,11 +11,11 @@
 #include "bpnn.h"
 namespace ML {
     struct Step {
-        std::vector<float> state;
-        std::vector<float> action;
-        float reward;
+        std::vector<double> state;
+        std::vector<double> action;
+        double reward;
         Step(){}
-        Step(std::vector<float>& s, std::vector<float>& a, float r)
+        Step(std::vector<double>& s, std::vector<double>& a, double r)
             :state(s), action(a), reward(r) {}
     };
     class DPG {
@@ -23,21 +23,21 @@ namespace ML {
             DPG(){}
             ~DPG(){}
             void CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
-                           float learningRate = 0.001f);
-            int GreedyAction(std::vector<float>& state);
+                           double learningRate = 0.001);
+            int GreedyAction(std::vector<double>& state);
             int RandomAction();
-            int Action(std::vector<float>& state);
-            int maxAction(std::vector<float>& value);
-            void zscore(std::vector<float>& x);
-            void Reinforce(std::vector<Step>& steps, int optType, float learingRate);
+            int Action(std::vector<double>& state);
+            int maxAction(std::vector<double>& value);
+            void zscore(std::vector<double>& x);
+            void Reinforce(std::vector<Step>& steps, int optType, double learingRate);
             void Save(const std::string& fileName);
             void Load(const std::string& fileName);
             int stateDim;
             int actionDim;
-            float gamma;
-            float baseLine;
-            float exploringRate;
-            float learningRate;
+            double gamma;
+            double baseLine;
+            double exploringRate;
+            double learningRate;
             BPNet policyNet;
     };
 }

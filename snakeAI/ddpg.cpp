@@ -8,7 +8,7 @@ namespace ML {
             return;
         }
         this->gamma = 0.99;
-        this->alpha = 0.01f;
+        this->alpha = 0.01;
         this->beta = 1;
         this->exploringRate = 1;
         this->stateDim = stateDim;
@@ -28,10 +28,10 @@ namespace ML {
         return;
     }
 
-    void DDPG::Perceive(std::vector<float>& state,
-            float action,
-            std::vector<float>& nextState,
-            float reward,
+    void DDPG::Perceive(std::vector<double>& state,
+            double action,
+            std::vector<double>& nextState,
+            double reward,
             bool done)
     {
         if (state.size() != stateDim || nextState.size() != stateDim) {
@@ -47,7 +47,7 @@ namespace ML {
         return;
     }
 
-    void DDPG::SetSA(std::vector<float> &state, std::vector<float> &action)
+    void DDPG::SetSA(std::vector<double> &state, std::vector<double> &action)
     {
         for (int i = 0; i < stateDim; i++) {
             sa[i] = state[i];
@@ -58,13 +58,13 @@ namespace ML {
         return;
     }
 
-    int DDPG::NoiseAction(std::vector<float> &state)
+    int DDPG::NoiseAction(std::vector<double> &state)
     {
         int index = 0;
         actorMainNet.FeedForward(state);
-        std::vector<float>& Action = actorMainNet.GetOutput();
+        std::vector<double>& Action = actorMainNet.GetOutput();
         for (int i = 0; i < actionDim; i++) {
-            Action[i] += float(rand() % 100 - rand() % 100) / 1000;
+            Action[i] += double(rand() % 100 - rand() % 100) / 1000;
         }
         index = MaxQ(Action);
         return index;
@@ -75,12 +75,12 @@ namespace ML {
         return rand() % actionDim;
     }
 
-    int DDPG::GreedyAction(std::vector<float> &state)
+    int DDPG::GreedyAction(std::vector<double> &state)
     {
         if (state.size() != stateDim) {
             return 0;
         }
-        float p = float(rand() % 10000) / 10000;
+        double p = double(rand() % 10000) / 10000;
         int index = 0;
         if (p < exploringRate) {
             index = rand() % actionDim;
@@ -90,15 +90,15 @@ namespace ML {
         return index;
     }
 
-    int DDPG::Action(std::vector<float> &state)
+    int DDPG::Action(std::vector<double> &state)
     {
         return actorMainNet.FeedForward(state);
     }
 
-    int DDPG::MaxQ(std::vector<float>& q_value)
+    int DDPG::MaxQ(std::vector<double>& q_value)
     {
         int index = 0;
-        float maxValue = q_value[0];
+        double maxValue = q_value[0];
         for (int i = 0; i < q_value.size(); i++) {
             if (maxValue < q_value[i]) {
                 maxValue = q_value[i];
@@ -110,11 +110,11 @@ namespace ML {
 
     void DDPG::ExperienceReplay(Transition& x)
     {
-        std::vector<float> cTarget(actionDim);
-        std::vector<float>& aMainOutput = actorMainNet.GetOutput();
-        std::vector<float>& aTargetOutput = actorTargetNet.GetOutput();
-        std::vector<float>& cTargetOutput = criticTargetNet.GetOutput();
-        std::vector<float>& cMainOutput = criticMainNet.GetOutput();
+        std::vector<double> cTarget(actionDim);
+        std::vector<double>& aMainOutput = actorMainNet.GetOutput();
+        std::vector<double>& aTargetOutput = actorTargetNet.GetOutput();
+        std::vector<double>& cTargetOutput = criticTargetNet.GetOutput();
+        std::vector<double>& cMainOutput = criticMainNet.GetOutput();
         /* estimate Action value */
         int i = int(x.action);
         actorMainNet.FeedForward(x.state);
@@ -132,7 +132,7 @@ namespace ML {
             cTarget[i] = x.reward + gamma * cTargetOutput[k];
         }
         /* update actorMainNet */
-        std::vector<float> delta(actionDim);
+        std::vector<double> delta(actionDim);
         actorMainNet.FeedForward(x.state);
         actorTargetNet.FeedForward(x.state);
         SetSA(x.state, aMainOutput);
@@ -143,7 +143,7 @@ namespace ML {
         return;
     }
 
-    void DDPG::Learn(int optType, float actorLearningRate, float criticLearningRate)
+    void DDPG::Learn(int optType, double actorLearningRate, double criticLearningRate)
     {
         if (memories.size() < batchSize) {
             return;

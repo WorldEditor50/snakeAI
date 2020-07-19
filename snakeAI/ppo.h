@@ -19,19 +19,19 @@ public:
     ~PPO(){}
     void CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
                    int maxMemorySize = 1024, int replaceTargetIter = 256, int batchSize = 64);
-    int GreedyAction(std::vector<float>& state);
-    int Action(std::vector<float>& state);
+    int GreedyAction(std::vector<double>& state);
+    int Action(std::vector<double>& state);
     void Perceive(std::vector<Step>& trajectory);
     void ExperienceReplay(std::vector<Step>& trajectory);
-    void Learn(int optType = OPT_RMSPROP, float learningRate = 0.001f);
+    void Learn(int optType = OPT_RMSPROP, double learningRate = 0.001);
     void Save(const std::string &actorPara, const std::string &criticPara);
     void Load(const std::string &actorPara, const std::string &criticPara);
     int stateDim;
     int actionDim;
-    float gamma;
-    float exploringRate;
-    float epsilon;
-    float learningRate;
+    double gamma;
+    double exploringRate;
+    double epsilon;
+    double learningRate;
     int maxMemorySize;
     int replaceTargetIter;
     int batchSize;

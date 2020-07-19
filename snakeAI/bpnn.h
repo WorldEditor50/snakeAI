@@ -28,41 +28,43 @@ namespace ML {
             Layer():inputDim(0), layerDim(0){}
             ~Layer(){}
             void CreateLayer(int inputDim, int layerDim, int activateType, int lossTye,  int tarinFlag);
-            void FeedForward(std::vector<float>& x);
-            void Loss(std::vector<float>& yo, std::vector<float> yt);
-            void Error(std::vector<float>& nextE, std::vector<std::vector<float> >& nextW);
-            void Gradient(std::vector<float>& x);
-            void Gradient(std::vector<float>& x, float threshold);
-            void SoftmaxGradient(std::vector<float>& x, std::vector<float>& yo, std::vector<float>& yt);
-            void SGD(float learningRate);
-            void RMSProp(float rho, float learningRate);
-            void Adam(float alpha1, float alpha2, float learningRate);
-            void RMSPropWithClip(float rho, float learningRate, float threshold);
-            std::vector<std::vector<float> > W;
-            std::vector<float> B;
-            std::vector<float> O;
-            std::vector<float> E;
+            void FeedForward(std::vector<double>& x);
+            void Loss(std::vector<double>& yo, std::vector<double> yt);
+            void Error(std::vector<double>& nextE, std::vector<std::vector<double> >& nextW);
+            void Gradient(std::vector<double>& x);
+            void Gradient(std::vector<double>& x, double threshold);
+            void SoftmaxGradient(std::vector<double>& x, std::vector<double>& yo, std::vector<double>& yt);
+            void SGD(double learningRate);
+            void RMSProp(double rho, double learningRate);
+            void Adam(double alpha1, double alpha2, double learningRate);
+            void RMSPropWithClip(double rho, double learningRate, double threshold);
+        public:
+            /* matrix */
+            std::vector<std::vector<double> > W;
+            std::vector<double> B;
+            std::vector<double> O;
+            std::vector<double> E;
             int inputDim;
             int layerDim;
             int lossType;
             int layerType;
         private:
-            float Activate(float x);
-            float dActivate(float y);
-            void softmax(std::vector<float>& x, std::vector<float>& y);
-            float dotProduct(std::vector<float>& x1, std::vector<float>& x2);
+            double Activate(double x);
+            double dActivate(double y);
+            void softmax(std::vector<double>& x, std::vector<double>& y);
+            double dotProduct(std::vector<double>& x1, std::vector<double>& x2);
             int activateType;
             /* buffer for optimization */
-            std::vector<std::vector<float> > dW;
-            std::vector<std::vector<float> > Sw;
-            std::vector<std::vector<float> > Vw;
-            std::vector<float> dB;
-            std::vector<float> Sb;
-            std::vector<float> Vb;
-            float alpha1_t;
-            float alpha2_t;
-            float delta;
-            float decay;
+            std::vector<std::vector<double> > dW;
+            std::vector<std::vector<double> > Sw;
+            std::vector<std::vector<double> > Vw;
+            std::vector<double> dB;
+            std::vector<double> Sb;
+            std::vector<double> Vb;
+            double alpha1_t;
+            double alpha2_t;
+            double delta;
+            double decay;
     };
 
     class BPNet {
@@ -72,21 +74,21 @@ namespace ML {
             void CreateNet(int inputDim, int hiddenDim, int hiddenLayerNum, int outputDim, int trainFlag = 0,
                     int activateType = ACTIVATE_SIGMOID, int lossType = LOSS_MSE);
             void CopyTo(BPNet& dstNet);
-            void SoftUpdateTo(BPNet& dstNet, float alpha);
-            std::vector<float>& GetOutput();
-            int FeedForward(std::vector<float>& x);
-            void BackPropagate(std::vector<float>& yo, std::vector<float>& yt);
-            void Gradient(std::vector<float> &x, std::vector<float> &y);
-            void SGD(float learningRate = 0.001f);
-            void RMSProp(float rho = 0.9, float learningRate = 0.001f);
-            void Adam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001f);
-            void RMSPropWithClip(float rho = 0.9, float learningRate = 0.001f, float threshold = 1);
-            void Optimize(int optType = OPT_RMSPROP, float learningRate = 0.001f);
-            void Train(std::vector<std::vector<float> >& x,
-                    std::vector<std::vector<float> >& y,
+            void SoftUpdateTo(BPNet& dstNet, double alpha);
+            std::vector<double>& GetOutput();
+            int FeedForward(std::vector<double>& x);
+            void BackPropagate(std::vector<double>& yo, std::vector<double>& yt);
+            void Gradient(std::vector<double> &x, std::vector<double> &y);
+            void SGD(double learningRate = 0.001);
+            void RMSProp(double rho = 0.9, double learningRate = 0.001);
+            void Adam(double alpha1 = 0.9, double alpha2 = 0.99, double learningRate = 0.001);
+            void RMSPropWithClip(double rho = 0.9, double learningRate = 0.001, double threshold = 1);
+            void Optimize(int optType = OPT_RMSPROP, double learningRate = 0.001);
+            void Train(std::vector<std::vector<double> >& x,
+                    std::vector<std::vector<double> >& y,
                     int optType,
                     int batchSize,
-                    float learningRate,
+                    double learningRate,
                     int iterateNum);
             int Argmax();
             void Show();

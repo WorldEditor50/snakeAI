@@ -1,19 +1,19 @@
 #include "bpnn.h"
 namespace ML {
 
-    float Layer::dotProduct(std::vector<float>& x1, std::vector<float>& x2)
+    double Layer::dotProduct(std::vector<double>& x1, std::vector<double>& x2)
     {
-        float sum = 0;
+        double sum = 0;
         for (int i = 0; i < x1.size(); i++) {
             sum += x1[i] * x2[i];
         }
         return sum;
     }
 
-    void Layer::softmax(std::vector<float>& x, std::vector<float>& y)
+    void Layer::softmax(std::vector<double>& x, std::vector<double>& y)
     {
-        float s = 0;
-        float maxValue = x[0];
+        double s = 0;
+        double maxValue = x[0];
         for (int i = 0; i < x.size(); i++) {
             if (x[i] > maxValue) {
                 maxValue = x[i];
@@ -28,9 +28,9 @@ namespace ML {
         return;
     }
 
-    float Layer::Activate(float x)
+    double Layer::Activate(double x)
     {
-        float y = 0;
+        double y = 0;
         switch (activateType) {
             case ACTIVATE_SIGMOID:
                 y = exp(x) / (exp(x) + 1);
@@ -51,9 +51,9 @@ namespace ML {
         return y;
     }
 
-    float Layer::dActivate(float y)
+    double Layer::dActivate(double y)
     {
-        float dy = 0;
+        double dy = 0;
         switch (activateType) {
             case ACTIVATE_SIGMOID:
                 dy = y * (1 - y);
@@ -85,42 +85,42 @@ namespace ML {
         this->layerDim = layerDim;
         this->lossType = lossType;
         this->activateType = activateType;
-        W = std::vector<std::vector<float> >(layerDim);
-        B = std::vector<float>(layerDim);
-        O = std::vector<float>(layerDim);
-        E = std::vector<float>(layerDim);
+        W = std::vector<std::vector<double> >(layerDim);
+        B = std::vector<double>(layerDim);
+        O = std::vector<double>(layerDim);
+        E = std::vector<double>(layerDim);
         for (int i = 0; i < W.size(); i++) {
-            W[i] = std::vector<float>(inputDim, 0);
+            W[i] = std::vector<double>(inputDim, 0);
         }
         /* buffer for optimization */
         if (trainFlag == 1) {
-            dW = std::vector<std::vector<float> >(layerDim);
-            dB = std::vector<float>(layerDim);
-            Sw = std::vector<std::vector<float> >(layerDim);
-            Sb = std::vector<float>(layerDim);
-            Vw = std::vector<std::vector<float> >(layerDim);
-            Vb = std::vector<float>(layerDim);
+            dW = std::vector<std::vector<double> >(layerDim);
+            dB = std::vector<double>(layerDim);
+            Sw = std::vector<std::vector<double> >(layerDim);
+            Sb = std::vector<double>(layerDim);
+            Vw = std::vector<std::vector<double> >(layerDim);
+            Vb = std::vector<double>(layerDim);
             this->alpha1_t = 1;
             this->alpha2_t = 1;
             this->delta = pow(10, -8);
             this->decay = 0;
             for (int i = 0; i < W.size(); i++) {
-                dW[i] = std::vector<float>(inputDim);
-                Sw[i] = std::vector<float>(inputDim, 0);
-                Vw[i] = std::vector<float>(inputDim, 0);
+                dW[i] = std::vector<double>(inputDim);
+                Sw[i] = std::vector<double>(inputDim, 0);
+                Vw[i] = std::vector<double>(inputDim, 0);
             }
             /* init */
             for (int i = 0; i < W.size(); i++) {
                 for (int j = 0; j < W[0].size(); j++) {
-                    W[i][j] = float(rand() % 10000 - rand() % 10000) / 10000;
+                    W[i][j] = double(rand() % 10000 - rand() % 10000) / 10000;
                 }
-                B[i] = float(rand() % 10000 - rand() % 10000) / 10000;
+                B[i] = double(rand() % 10000 - rand() % 10000) / 10000;
             }
         }
         return;
     }
 
-    void Layer::FeedForward(std::vector<float>& x)
+    void Layer::FeedForward(std::vector<double>& x)
     {
 
         if (x.size() != W[0].size()) {
@@ -129,7 +129,7 @@ namespace ML {
             return;
         }
         for (int i = 0; i < W.size(); i++) {
-            float y = dotProduct(W[i], x) + B[i];
+            double y = dotProduct(W[i], x) + B[i];
             O[i] = Activate(y);
         }
         if (lossType == LOSS_CROSS_ENTROPY) {
@@ -138,7 +138,7 @@ namespace ML {
         return;
     }
 
-    void Layer::Error(std::vector<float>& nextE, std::vector<std::vector<float> >& nextW)
+    void Layer::Error(std::vector<double>& nextE, std::vector<std::vector<double> >& nextW)
     {
         if (E.size() != nextW[0].size()) {
             std::cout<<"size is not matching"<<std::endl;;
@@ -151,7 +151,7 @@ namespace ML {
         return;
     }
 
-    void Layer::Loss(std::vector<float>& yo, std::vector<float> yt)
+    void Layer::Loss(std::vector<double>& yo, std::vector<double> yt)
     {
         for (int i = 0; i < yo.size(); i++) {
             if (lossType == LOSS_CROSS_ENTROPY) {
@@ -165,10 +165,10 @@ namespace ML {
         return;
     }
 
-    void Layer::Gradient(std::vector<float>& x)
+    void Layer::Gradient(std::vector<double>& x)
     {
         for (int i = 0; i < dW.size(); i++) {
-            float dy = dActivate(O[i]);
+            double dy = dActivate(O[i]);
             for (int j = 0; j < dW[0].size(); j++) {
                 dW[i][j] += E[i] * dy * x[j]; 
             }
@@ -178,10 +178,10 @@ namespace ML {
         return;
     }
 
-    void Layer::SoftmaxGradient(std::vector<float>& x, std::vector<float>& yo, std::vector<float>& yt)
+    void Layer::SoftmaxGradient(std::vector<double>& x, std::vector<double>& yo, std::vector<double>& yt)
     {
         for (int i = 0; i < dW.size(); i++) {
-            float dOutput = yo[i] - yt[i];
+            double dOutput = yo[i] - yt[i];
             for (int j = 0; j < dW[0].size(); j++) {
                 dW[i][j] += dOutput * x[j];
             }
@@ -190,7 +190,7 @@ namespace ML {
         return;
     }
 
-    void Layer::SGD(float learningRate)
+    void Layer::SGD(double learningRate)
     {
         /*
          * e = (Activate(wx + b) - T)^2/2
@@ -208,7 +208,7 @@ namespace ML {
         return;
     }
 
-    void Layer::RMSProp(float rho, float learningRate)
+    void Layer::RMSProp(double rho, double learningRate)
     {
         for (int i = 0; i < W.size(); i++) {
             for (int j = 0; j < W[0].size(); j++) {
@@ -223,7 +223,7 @@ namespace ML {
         return;
     }
 
-    void Layer::Adam(float alpha1, float alpha2, float learningRate)
+    void Layer::Adam(double alpha1, double alpha2, double learningRate)
     {
         alpha1_t *= alpha1;
         alpha2_t *= alpha2;
@@ -233,22 +233,22 @@ namespace ML {
                 Vw[i][j] = alpha1 * Vw[i][j] + (1 - alpha1) * dW[i][j];
                 /* delcay factor */
                 Sw[i][j] = alpha2 * Sw[i][j] + (1 - alpha2) * dW[i][j] * dW[i][j];
-                float v = Vw[i][j] / (1 - alpha1_t);
-                float s = Sw[i][j] / (1 - alpha2_t);
+                double v = Vw[i][j] / (1 - alpha1_t);
+                double s = Sw[i][j] / (1 - alpha2_t);
                 W[i][j] -= learningRate * v / (sqrt(s) + delta);
                 dW[i][j] = 0;
             }
             Vb[i] = alpha1 * Vb[i] + (1 - alpha1) * dB[i];
             Sb[i] = alpha2 * Sb[i] + (1 - alpha2) * dB[i] * dB[i];
-            float v = Vb[i] / (1 - alpha1_t);
-            float s = Sb[i] / (1 - alpha2_t);
+            double v = Vb[i] / (1 - alpha1_t);
+            double s = Sb[i] / (1 - alpha2_t);
             B[i] -= learningRate * v / (sqrt(s) + delta);
             dB[i] = 0;
         }
         return;
     }
 
-    void Layer::RMSPropWithClip(float rho, float learningRate, float threshold)
+    void Layer::RMSPropWithClip(double rho, double learningRate, double threshold)
     {
         /* RMSProp */
         for (int i = 0; i < W.size(); i++) {
@@ -260,8 +260,8 @@ namespace ML {
             dB[i] = dB[i] / (sqrt(Sb[i]) + delta);
         }
         /* l2 norm of gradient */
-        std::vector<float> Wl2(layerDim, 0);
-        float bl2 = 0;
+        std::vector<double> Wl2(layerDim, 0);
+        double bl2 = 0;
         for (int i = 0; i < dW.size(); i++) {
             for (int j = 0; j < dW[0].size(); j++) {
                 Wl2[i] += dW[i][j] * dW[i][j];
@@ -331,7 +331,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::SoftUpdateTo(BPNet &dstNet, float alpha)
+    void BPNet::SoftUpdateTo(BPNet &dstNet, double alpha)
     {
         if (layers.size() != dstNet.layers.size()) {
             return;
@@ -347,7 +347,7 @@ namespace ML {
         return;
     }
 
-    int BPNet::FeedForward(std::vector<float>& x)
+    int BPNet::FeedForward(std::vector<double>& x)
     {
         layers[0].FeedForward(x);
         for (int i = 1; i < layers.size(); i++) {
@@ -356,13 +356,13 @@ namespace ML {
         return Argmax();
     }
 
-    std::vector<float>& BPNet::GetOutput()
+    std::vector<double>& BPNet::GetOutput()
     {
-        std::vector<float>& outputs = layers[outputIndex].O;
+        std::vector<double>& outputs = layers[outputIndex].O;
         return outputs;
     }
 
-    void BPNet::BackPropagate(std::vector<float>& yo, std::vector<float>& yt)
+    void BPNet::BackPropagate(std::vector<double>& yo, std::vector<double>& yt)
     {
         /*  loss */
         layers[outputIndex].Loss(yo, yt);
@@ -373,7 +373,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::Gradient(std::vector<float> &x, std::vector<float> &y)
+    void BPNet::Gradient(std::vector<double> &x, std::vector<double> &y)
     {
         FeedForward(x);
         BackPropagate(layers[outputIndex].O, y);
@@ -389,7 +389,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::SGD(float learningRate)
+    void BPNet::SGD(double learningRate)
     {
         /* gradient descent */
         for (int i = 0; i < layers.size(); i++) {
@@ -398,7 +398,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::RMSProp(float rho, float learningRate)
+    void BPNet::RMSProp(double rho, double learningRate)
     {
         for (int i = 0; i < layers.size(); i++) {
             layers[i].RMSProp(rho, learningRate);
@@ -406,7 +406,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::Adam(float alpha1, float alpha2, float learningRate)
+    void BPNet::Adam(double alpha1, double alpha2, double learningRate)
     {
         for (int i = 0; i < layers.size(); i++) {
             layers[i].Adam(alpha1, alpha2, learningRate);
@@ -414,7 +414,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::RMSPropWithClip(float rho, float learningRate, float threshold)
+    void BPNet::RMSPropWithClip(double rho, double learningRate, double threshold)
     {
         for (int i = 0; i < layers.size(); i++) {
             layers[i].RMSPropWithClip(rho, learningRate, threshold);
@@ -422,7 +422,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::Optimize(int optType, float learningRate)
+    void BPNet::Optimize(int optType, double learningRate)
     {
         switch (optType) {
             case OPT_SGD:
@@ -441,11 +441,11 @@ namespace ML {
         return;
     }
 
-    void BPNet::Train(std::vector<std::vector<float> >& x,
-            std::vector<std::vector<float> >& y,
+    void BPNet::Train(std::vector<std::vector<double> >& x,
+            std::vector<std::vector<double> >& y,
             int optType,
             int batchSize,
-            float learningRate,
+            double learningRate,
             int iterateNum)
     {
         if (x.empty() || y.empty()) {
@@ -478,7 +478,7 @@ namespace ML {
     int BPNet::Argmax()
     {
         int index = 0;
-        float maxValue = layers[outputIndex].O[0];
+        double maxValue = layers[outputIndex].O[0];
         for (int i = 0; i < layers[outputIndex].O.size(); i++) {
             if (maxValue < layers[outputIndex].O[i]) {
                 maxValue = layers[outputIndex].O[i];

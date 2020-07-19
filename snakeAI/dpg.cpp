@@ -1,7 +1,7 @@
 #include "dpg.h"
 namespace ML {
     void DPG::CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
-                          float learningRate)
+                          double learningRate)
     {
         if (stateDim < 1 || hiddenDim < 1 || hiddenLayerNum < 1 || actionDim < 1) {
             return;
@@ -16,12 +16,12 @@ namespace ML {
         return;
     }
 
-    int DPG::GreedyAction(std::vector<float> &state)
+    int DPG::GreedyAction(std::vector<double> &state)
     {
         if (state.size() != stateDim) {
             return -1;
         }
-        float p = float(rand() % 10000) / 10000;
+        double p = double(rand() % 10000) / 10000;
         int index = 0;
         if (p < exploringRate) {
             index = RandomAction();
@@ -33,26 +33,26 @@ namespace ML {
 
     int DPG::RandomAction()
     {
-        std::vector<float>& policyNetOutput = policyNet.GetOutput();
+        std::vector<double>& policyNetOutput = policyNet.GetOutput();
         policyNetOutput.assign(actionDim, 0);
         int index = rand() % actionDim;
         policyNetOutput[index] = 1;
         return index;
     }
 
-    int DPG::Action(std::vector<float> &state)
+    int DPG::Action(std::vector<double> &state)
     {
         int index = 0;
         policyNet.FeedForward(state);
-        std::vector<float>& Action = policyNet.GetOutput();
+        std::vector<double>& Action = policyNet.GetOutput();
         index = maxAction(Action);
         return index;
     }
 
-    int DPG::maxAction(std::vector<float>& value)
+    int DPG::maxAction(std::vector<double>& value)
     {
         int index = 0;
-        float maxValue = value[0];
+        double maxValue = value[0];
         for (int i = 0; i < value.size(); i++) {
             if (maxValue < value[i]) {
                 maxValue = value[i];
@@ -62,11 +62,11 @@ namespace ML {
         return index;
     }
 
-    void DPG::zscore(std::vector<float> &x)
+    void DPG::zscore(std::vector<double> &x)
     {
-        float u = 0;
-        float n = 0;
-        float sigma = 0;
+        double u = 0;
+        double n = 0;
+        double sigma = 0;
         /* expectation */
         for (int i = 0 ; i < x.size(); i++) {
             u += x[i];
@@ -85,10 +85,10 @@ namespace ML {
         return;
     }
 
-    void DPG::Reinforce(std::vector<Step>& x, int optType, float learingRate)
+    void DPG::Reinforce(std::vector<Step>& x, int optType, double learingRate)
     {
-        float r = 0;
-        std::vector<float> discoutedReward(x.size());
+        double r = 0;
+        std::vector<double> discoutedReward(x.size());
         for (int i = x.size() - 1; i >= 0; i--) {
             r = gamma * r + x[i].reward;
             discoutedReward[i] = r;

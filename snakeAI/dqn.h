@@ -11,14 +11,14 @@
 #include "bpnn.h"
 namespace ML {
     struct Transition {
-        std::vector<float> state;
-        float action;
-        std::vector<float> nextState;
-        float reward;
+        std::vector<double> state;
+        double action;
+        std::vector<double> nextState;
+        double reward;
         bool done;
         Transition(){}
-        Transition(std::vector<float>& s, float a,
-                   std::vector<float>& s_, float r, bool d)
+        Transition(std::vector<double>& s, double a,
+                   std::vector<double>& s_, double r, bool d)
         {
             state = s;
             action = a;
@@ -35,23 +35,23 @@ namespace ML {
                            int maxMemorySize = 4096,
                            int replaceTargetIter = 256,
                            int batchSize = 64);
-            void Perceive(std::vector<float>& state,
-                          float action,
-                          std::vector<float>& nextState,
-                          float reward,
+            void Perceive(std::vector<double>& state,
+                          double action,
+                          std::vector<double>& nextState,
+                          double reward,
                           bool done);
-            int GreedyAction(std::vector<float>& state);
+            int GreedyAction(std::vector<double>& state);
             int RandomAction();
-            int Action(std::vector<float>& state);
-            int MaxQ(std::vector<float>& q_value);
+            int Action(std::vector<double>& state);
+            int MaxQ(std::vector<double>& q_value);
             void ExperienceReplay(Transition& x);
-            void Learn(int optType = OPT_RMSPROP, float learningRate = 0.001f);
+            void Learn(int optType = OPT_RMSPROP, double learningRate = 0.001);
             void Save(const std::string& fileName);
             void Load(const std::string& fileName);
             int stateDim;
             int actionDim;
-            float gamma;
-            float exploringRate;
+            double gamma;
+            double exploringRate;
             int maxMemorySize;
             int batchSize;
             int learningSteps;

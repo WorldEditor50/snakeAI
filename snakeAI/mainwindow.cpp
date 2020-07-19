@@ -10,7 +10,7 @@ MainWindow::MainWindow(QWidget *parent)
     this->board.init();
     this->snake.create(25, 25);
     /* reinforcement learning */
-    controller.dqn.Load("./dqn_weights");
+    //controller.dqn.Load("./dqn_weights");
     //controller.dpg.Load("./dpg_weights");
     //controller.ddpg.Load("./ddpg_actor_1", "./ddpg_critic_1");
     /* supervised learning */
@@ -114,7 +114,7 @@ void MainWindow::play2()
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         int direct = 0;
-        direct = controller.dqnAgent(x, y, board.xt, board.yt);
+        direct = controller.ddpgAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
         y = snake.body[0].y;

@@ -22,12 +22,12 @@ void ML::PPO::CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int act
     return;
 }
 
-int ML::PPO::GreedyAction(std::vector<float> &state)
+int ML::PPO::GreedyAction(std::vector<double> &state)
 {
-    float p = (rand() % 10000) / 10000;
+    double p = (rand() % 10000) / 10000;
     int index = 0;
     if (p < exploringRate) {
-        std::vector<float>& action = actor.GetOutput();
+        std::vector<double>& action = actor.GetOutput();
         for (int i = 0; i < actionDim; i++) {
             action[i] = (rand() % 10000) / 10000;
         }
@@ -38,14 +38,14 @@ int ML::PPO::GreedyAction(std::vector<float> &state)
     return index;
 }
 
-int ML::PPO::Action(std::vector<float> &state)
+int ML::PPO::Action(std::vector<double> &state)
 {
     return actor.FeedForward(state);
 }
 
 void ML::PPO::Perceive(std::vector<Step>& trajectory)
 {
-    float r = 0;
+    double r = 0;
     for (int i = trajectory.size() - 1; i >= 0; i--) {
         r = gamma * r + trajectory[i].reward;
         trajectory[i].reward = r;
@@ -56,22 +56,22 @@ void ML::PPO::Perceive(std::vector<Step>& trajectory)
 
 void ML::PPO::ExperienceReplay(std::vector<Step>& trajectory)
 {
-    std::vector<float>& v = critic.GetOutput();
-    std::vector<float>& p = actor.GetOutput();
-    std::vector<float>& pp = actorPrime.GetOutput();
+    std::vector<double>& v = critic.GetOutput();
+    std::vector<double>& p = actor.GetOutput();
+    std::vector<double>& pp = actorPrime.GetOutput();
     for (int i = 0; i < trajectory.size(); i++) {
         /* actor */
         /* advangtage */
         critic.FeedForward(trajectory[i].state);
-        float adv = trajectory[i].reward - v[0];
+        double adv = trajectory[i].reward - v[0];
         /* ratio */
         actor.FeedForward(trajectory[i].state);
         actorPrime.FeedForward(trajectory[i].state);
-        std::vector<float> ratio(actionDim, 0);
+        std::vector<double> ratio(actionDim, 0);
         for (int j = 0; j < actionDim; j++) {
             ratio[j] = pp[j] * adv;
 #if 0
-            float ratioTmp = p[j] / (pp[j] + 1e5);
+            double ratioTmp = p[j] / (pp[j] + 1e5);
             /* clip */
             if (adv > 0) {
                 ratioTmp = (1 + epsilon) * adv;
@@ -85,14 +85,14 @@ void ML::PPO::ExperienceReplay(std::vector<Step>& trajectory)
         }
         actor.Gradient(trajectory[i].state, ratio);
         /* critic */
-        std::vector<float> discounted_r(1);
+        std::vector<double> discounted_r(1);
         discounted_r[0] = trajectory[i].reward;
         critic.Gradient(trajectory[i].state, discounted_r);
     }
     return;
 }
 
-void ML::PPO::Learn(int optType, float learningRate)
+void ML::PPO::Learn(int optType, double learningRate)
 {
     if (memories.size() < batchSize) {
         return;
