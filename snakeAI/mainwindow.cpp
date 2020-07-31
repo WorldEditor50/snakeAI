@@ -5,7 +5,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),controller(board.map)
     , ui(new Ui::MainWindow)
 {
-    this->setGeometry(500, 50, 1000, 1000);
+    this->setGeometry(500, 50, 700, 700);
     this->setFixedSize(700, 700);
     this->board.init();
     this->snake.create(25, 25);
@@ -15,7 +15,10 @@ MainWindow::MainWindow(QWidget *parent)
     //controller.ddpg.Load("./ddpg_actor_1", "./ddpg_critic_1");
     /* supervised learning */
     controller.bp.Load("./bp_weights3");
+    axis = new Axis;
+    connect(&controller, &Controller::sigUpdateReward, axis, &Axis::addPoint);
     ui->setupUi(this);
+    axis->show();
 }
 
 MainWindow::~MainWindow()
@@ -25,12 +28,7 @@ MainWindow::~MainWindow()
     controller.ddpg.Save("./ddpg_actor_1", "./ddpg_critic_1");
     controller.bp.Save("./bp_weights3");
     delete ui;
-}
-
-void MainWindow::init()
-{
-
-    return;
+    delete axis;
 }
 
 QRect MainWindow::getRect(int x, int y)
@@ -114,7 +112,7 @@ void MainWindow::play2()
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         int direct = 0;
-        direct = controller.ddpgAgent(x, y, board.xt, board.yt);
+        direct = controller.dqnAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
         y = snake.body[0].y;

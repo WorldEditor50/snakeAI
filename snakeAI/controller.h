@@ -1,5 +1,6 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
+#include <QObject>
 #include <vector>
 #include "dqn.h"
 #include "dpg.h"
@@ -8,8 +9,9 @@
 #include "common.h"
 using namespace std;
 using namespace ML;
-class Controller
+class Controller : public QObject
 {
+    Q_OBJECT
 public:
     Controller(vector<vector<int> >& map);
     void setState(vector<double>& statex,int x, int y, int xt, int yt);
@@ -32,6 +34,8 @@ public:
     DPG dpg;
     DDPG ddpg;
     PPO ppo;
+signals:
+    void sigUpdateReward(double r);
 };
 
 #endif // CONTROLLER_H

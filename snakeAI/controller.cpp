@@ -2,9 +2,9 @@
 
 Controller::Controller(vector<vector<int> >& map):map(map)
 {
-    this->dqn.CreateNet(4, 32, 4, 4, 16384, 256, 64);
+    this->dqn.CreateNet(4, 32, 4, 4, 8192, 1024, 64);
     this->dpg.CreateNet(4, 32, 4, 4, 0.1);
-    this->ddpg.CreateNet(4, 32, 4, 4, 16384, 256, 64);
+    this->ddpg.CreateNet(4, 32, 4, 4, 8192, 1024, 64);
     this->ppo.CreateNet(4, 32, 4, 4, 1024, 256, 4);
     this->bp.CreateNet(4, 32, 4, 4, 1, ACTIVATE_SIGMOID, LOSS_MSE);
     this->state.resize(4);
@@ -21,7 +21,8 @@ double Controller::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
     }
     double x1 = (xi - xt)*(xi - xt) + (yi - yt) * (yi - yt);
     double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
-    double r = tanh(x1 - x2);
+    double r = sqrt(x1) - sqrt(x2);
+    r = r / sqrt(1 + r * r);
     return r;
 }
 
@@ -116,19 +117,21 @@ int Controller::randomSearchAgent(int x, int y, int xt, int yt)
 int Controller::dqnAgent(int x, int y, int xt, int yt)
 {
     int a = 0;
-    int steps = 16;
+    int steps = 1;
     /* exploring environment */
     for (int i = 0; i < steps; i++) {
         int xn = x;
         int yn = y;
         double r = 0;
+        double total = 0;
         setState(state, x, y, xt, yt);
-        for (int j = 0; j < 128; j++) {
+        for (int j = 0; j < 512; j++) {
             int xi = xn;
             int yi = yn;
             a = dqn.GreedyAction(state);
             move(xn, yn, a);
             r = reward1(xi, yi, xn, yn, xt, yt);
+            total += r;
             setState(nextState, xn, yn, xt, yt);
             if (map[xn][yn] == 1) {
                 dqn.Perceive(state, a, nextState, r, true);
@@ -142,9 +145,10 @@ int Controller::dqnAgent(int x, int y, int xt, int yt)
             }
             state = nextState;
         }
+        emit sigUpdateReward(total);
     }
     /* training */
-    dqn.Learn(OPT_RMSPROP, 0.001);
+    dqn.Learn(OPT_RMSPROP, 0.0001);
     /* making decision */
     setState(state, x, y, xt, yt);
     a = dqn.Action(state);

@@ -16,6 +16,7 @@
 #include "board.h"
 #include "snake.h"
 #include "controller.h"
+#include "axis.h"
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -35,6 +36,7 @@ public:
     Board board;
     Snake snake;
     Controller controller;
+    Axis *axis;
 private:
     Ui::MainWindow *ui;
 };

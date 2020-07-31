@@ -16,6 +16,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    axis.cpp \
     board.cpp \
     bpnn.cpp \
     common.cpp \
@@ -29,6 +30,7 @@ SOURCES += \
     snake.cpp
 
 HEADERS += \
+    axis.h \
     board.h \
     bpnn.h \
     common.h \
