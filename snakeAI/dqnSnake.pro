@@ -24,6 +24,7 @@ SOURCES += \
     ddpg.cpp \
     dpg.cpp \
     dqn.cpp \
+    genetic.cpp \
     main.cpp \
     mainwindow.cpp \
     ppo.cpp \
@@ -38,9 +39,11 @@ HEADERS += \
     ddpg.h \
     dpg.h \
     dqn.h \
+    genetic.h \
     mainwindow.h \
     ppo.h \
     snake.h
+LIBS += -lDbgHelp
 FORMS += \
     mainwindow.ui
 

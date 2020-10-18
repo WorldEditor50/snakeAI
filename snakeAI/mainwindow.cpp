@@ -5,30 +5,42 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),controller(board.map)
     , ui(new Ui::MainWindow)
 {
-    this->setGeometry(500, 50, 700, 700);
-    this->setFixedSize(700, 700);
-    this->board.init();
-    this->snake.create(25, 25);
-    /* reinforcement learning */
-    //controller.dqn.Load("./dqn_weights");
-    //controller.dpg.Load("./dpg_weights");
-    //controller.ddpg.Load("./ddpg_actor_1", "./ddpg_critic_1");
-    /* supervised learning */
-    controller.bp.Load("./bp_weights3");
+    QPalette pal;
+    pal.setBrush(backgroundRole(), Qt::black);
+    setPalette(pal);
     axis = new Axis;
-    connect(&controller, &Controller::sigUpdateReward, axis, &Axis::addPoint);
+    connect(&controller, &Controller::sigTotalReward, axis, &Axis::addPoint);
     ui->setupUi(this);
+    axis->move(1000, 0);
     axis->show();
 }
 
 MainWindow::~MainWindow()
 {
-    controller.dqn.Save("./dqn_weights");
-    controller.dpg.Save("./dpg_weights");
-    controller.ddpg.Save("./ddpg_actor_1", "./ddpg_critic_1");
-    controller.bp.Save("./bp_weights3");
+    controller.dqn.save("./dqn_weights_02");
+    controller.dpg.save("./dpg_weights");
+    controller.ddpg.save("./ddpg_actor_1", "./ddpg_critic_1");
+    controller.bp.save("./bp_weights3");
+    axis->close();
+    axis->deleteLater();
     delete ui;
-    delete axis;
+}
+
+void MainWindow::init()
+{
+    int w = 900;
+    int h = 900;
+    this->setGeometry(100, 50, 1000, 1000);
+    this->setFixedSize(w, h);
+    this->board.init(w, h);
+    this->snake.create(25, 25);
+    /* reinforcement learning */
+    //controller.dqn.load("./dqn_weights01");
+    //controller.dpg.load("./dpg_weights");
+    //controller.ddpg.load("./ddpg_actor_1", "./ddpg_critic_1");
+    /* supervised learning */
+    controller.bp.load("./bp_weights3");
+    return;
 }
 
 QRect MainWindow::getRect(int x, int y)
@@ -70,7 +82,7 @@ void MainWindow::paintEvent(QPaintEvent *ev)
     }
     /* move */
     this->play2();
-    SLEEP(100);
+    Sleep(10);
     return;
 }
 
@@ -112,12 +124,12 @@ void MainWindow::play2()
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         int direct = 0;
-        direct = controller.dqnAgent(x, y, board.xt, board.yt);
+        direct = controller.ppoAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
         y = snake.body[0].y;
         if (x == board.xt && y == board.yt) {
-            if (snake.body.size() < 5) {
+            if (snake.body.size() < 50) {
                snake.add(board.xt, board.yt);
             }
             board.setTarget();

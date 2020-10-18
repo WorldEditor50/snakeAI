@@ -7,11 +7,11 @@
 
 - dqn agent: testing DQN
 
-- dpg agent: policy gradient with clip-gradient
+- dpg agent: policy gradient 
 
-- ddpg agent: DDPG with KL-divergence
+- ddpg agent:  todo
 
-- PPO agent: todo
+- PPO agent: learning with adaptive KL-penalty and clipped objective
 - Instruction: all agents are definited in controller.cpp and you can switch agent by modifying function play2 in mainwindow.cpp.
 
 ## 1. Markov Decision Process

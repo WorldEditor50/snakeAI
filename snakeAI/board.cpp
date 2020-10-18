@@ -1,18 +1,18 @@
 #include "board.h"
 
-void Board::init()
+void Board::init(int w, int h)
 {
     /* init board parameter */
-    this->width = 700;
-    this->height = 700;
+    this->width = w;
+    this->height = h;
     this->unitLen = 10;
     this->blockNum = 0;
     this->rows = width / unitLen - 2;
     this->cols = height / unitLen - 2;
     /* init map */
-    map.resize(rows + 2);
-    for (int i = 0; i < map.size(); i++) {
-        map[i].resize(cols + 2);
+    map.resize(rows);
+    for (int i = 0; i < rows; i++) {
+        map[i].resize(cols);
     }
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -26,9 +26,14 @@ void Board::init()
         }
     }
     /* set block */
+    blockNum = 0;
     for (int i = 0; i < blockNum; i++) {
-        int x = rand() % rows;
-        int y = rand() % cols;
+        int x = rand() % (rows - 10);
+        int y = rand() % (cols - 10);
+        while (x < 10 || y < 10) {
+            x = rand() % rows;
+            y = rand() % cols;
+        }
         map[x][y] = 1;
     }
     /* set target */

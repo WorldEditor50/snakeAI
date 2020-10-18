@@ -31,23 +31,23 @@ namespace ML {
         public:
             DQN(){}
             ~DQN(){}
-            void CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
+            void createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
                            int maxMemorySize = 4096,
                            int replaceTargetIter = 256,
-                           int batchSize = 64);
-            void Perceive(std::vector<double>& state,
+                           int batchSize = 32);
+            void perceive(std::vector<double>& state,
                           double action,
                           std::vector<double>& nextState,
                           double reward,
                           bool done);
-            int GreedyAction(std::vector<double>& state);
-            int RandomAction();
-            int Action(std::vector<double>& state);
-            int MaxQ(std::vector<double>& q_value);
-            void ExperienceReplay(Transition& x);
-            void Learn(int optType = OPT_RMSPROP, double learningRate = 0.001);
-            void Save(const std::string& fileName);
-            void Load(const std::string& fileName);
+            int greedyAction(std::vector<double>& state);
+            int randomAction();
+            int action(std::vector<double>& state);
+            int maxQ(std::vector<double>& q_value);
+            void experienceReplay(Transition& x);
+            void learn(int optType = OPT_RMSPROP, double learningRate = 0.001);
+            void save(const std::string& fileName);
+            void load(const std::string& fileName);
             int stateDim;
             int actionDim;
             double gamma;

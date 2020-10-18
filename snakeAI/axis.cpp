@@ -2,7 +2,7 @@
 
 Axis::Axis(QWidget *parent) : QWidget(parent)
 {
-    setMinimumSize(QSize(400, 400));
+    setMinimumSize(QSize(800, 600));
     QPalette pal;
     pal.setBrush(backgroundRole(), Qt::white);
     x = 0;
@@ -55,16 +55,17 @@ void Axis::paintEvent(QPaintEvent *ev)
     pen.setColor(Qt::gray);
     painter.setPen(pen);
 
-    for (int i = 0; i >= -w; i -= 100) {
+    int interval = 100;
+    for (int i = 0; i >= -w; i -= interval) {
         painter.drawText(i, 20, QString("%1").arg(i));
     }
-    for (int i = 0; i < w; i += 100) {
+    for (int i = 0; i < w; i += interval) {
         painter.drawText(i, 20, QString("%1").arg(i));
     }
-    for (int i = -100; i >= -h; i -= 100) {
-        painter.drawText(-40, i, QString("%1").arg(-i));
+    for (int i = -interval; i >= -h; i -= interval) {
+         painter.drawText(-40, i, QString("%1").arg(-i));
     }
-    for (int i = 100; i < h; i += 100) {
+    for (int i = interval; i < h; i += interval) {
         painter.drawText(-40, i, QString("%1").arg(-i));
     }
     /* curve */
@@ -77,6 +78,7 @@ void Axis::paintEvent(QPaintEvent *ev)
         qreal x2 = points.at(i).x();
         qreal y2 = points.at(i).y();
         painter.drawLine(x1, -y1, x2, -y2);
+        //points.replace(i - 1, points.at(i));
     }
     for (auto it = points.begin(); it != points.end();it++) {
         qreal x = it->x();
@@ -91,6 +93,7 @@ void Axis::paintEvent(QPaintEvent *ev)
 
 void Axis::timerEvent(QTimerEvent *event)
 {
+    double a = 200;
     if (event->timerId() == timerID) {
         double y = rand() % 200 - rand() % 200;
         QPointF p(x, y);

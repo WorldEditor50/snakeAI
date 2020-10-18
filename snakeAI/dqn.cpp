@@ -1,6 +1,6 @@
 #include "dqn.h"
 namespace ML {
-    void DQN::CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
+    void DQN::createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
             int maxMemorySize, int replaceTargetIter, int batchSize)
     {
         if (stateDim < 1 || hiddenDim < 1 || hiddenLayerNum < 1 || actionDim < 1 ||
@@ -14,13 +14,13 @@ namespace ML {
         this->maxMemorySize = maxMemorySize;
         this->replaceTargetIter = replaceTargetIter;
         this->batchSize = batchSize;
-        this->QMainNet.CreateNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 1);
-        this->QTargetNet.CreateNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 0);
-        this->QMainNet.CopyTo(QTargetNet);
+        this->QMainNet.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 1);
+        this->QTargetNet.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 0);
+        this->QMainNet.copyTo(QTargetNet);
         return;
     }
 
-    void DQN::Perceive(std::vector<double>& state,
+    void DQN::perceive(std::vector<double>& state,
             double action,
             std::vector<double>& nextState,
             double reward,
@@ -34,7 +34,7 @@ namespace ML {
         return;
     }
 
-    int DQN::GreedyAction(std::vector<double> &state)
+    int DQN::greedyAction(std::vector<double> &state)
     {
         if (state.size() != stateDim) {
             return -1;
@@ -44,21 +44,21 @@ namespace ML {
         if (p < exploringRate) {
             index = rand() % actionDim;
         } else {
-            index = Action(state);
+            index = action(state);
         }
         return index;
     }
 
-    int DQN::Action(std::vector<double> &state)
+    int DQN::action(std::vector<double> &state)
     {
         int index = 0;
-        QMainNet.FeedForward(state);
-        std::vector<double>& Action = QMainNet.GetOutput();
-        index = MaxQ(Action);
+        QMainNet.feedForward(state);
+        std::vector<double>& Action = QMainNet.getOutput();
+        index = maxQ(Action);
         return index;
     }
 
-    int DQN::MaxQ(std::vector<double>& q_value)
+    int DQN::maxQ(std::vector<double>& q_value)
     {
         int index = 0;
         double maxValue = q_value[0];
@@ -71,32 +71,32 @@ namespace ML {
         return index;
     }
 
-    void DQN::ExperienceReplay(Transition& x)
+    void DQN::experienceReplay(Transition& x)
     {
         std::vector<double> qTarget(actionDim);
-        std::vector<double>& QTargetNetOutput = QTargetNet.GetOutput();
-        std::vector<double>& QMainNetOutput = QMainNet.GetOutput();
+        std::vector<double>& QTargetNetOutput = QTargetNet.getOutput();
+        std::vector<double>& QMainNetOutput = QMainNet.getOutput();
         /* estimate q-target: Q-Regression */
         /* select Action to estimate q-value */
         int i = int(x.action);
-        QMainNet.FeedForward(x.state);
+        QMainNet.feedForward(x.state);
         qTarget = QMainNetOutput;
         if (x.done == true) {
             qTarget[i] = x.reward;
         } else {
             /* select optimal Action in the QMainNet */
-            QMainNet.FeedForward(x.nextState);
-            int k = MaxQ(QMainNetOutput);
+            QMainNet.feedForward(x.nextState);
+            int k = maxQ(QMainNetOutput);
             /* select value in the QTargetNet */
-            QTargetNet.FeedForward(x.nextState);
+            QTargetNet.feedForward(x.nextState);
             qTarget[i] = x.reward + gamma * QTargetNetOutput[k];
         }
         /* train QMainNet */
-        QMainNet.Gradient(x.state, qTarget);
+        QMainNet.gradient(x.state, qTarget);
         return;
     }
 
-    void DQN::Learn(int optType, double learningRate)
+    void DQN::learn(int optType, double learningRate)
     {
         if (memories.size() < batchSize) {
             return;
@@ -104,16 +104,15 @@ namespace ML {
         if (learningSteps % replaceTargetIter == 0) {
             std::cout<<"update target net"<<std::endl;
             /* update tagetNet */
-            //QMainNet.CopyTo(QTargetNet);
-            QMainNet.SoftUpdateTo(QTargetNet, 0.01);
+            QMainNet.copyTo(QTargetNet);
             learningSteps = 0;
         }
         /* experience replay */
         for (int i = 0; i < batchSize; i++) {
             int k = rand() % memories.size();
-            ExperienceReplay(memories[k]);
+            experienceReplay(memories[k]);
         }
-        QMainNet.Optimize(optType, learningRate);
+        QMainNet.optimize(optType, learningRate);
         /* reduce memory */
         if (memories.size() > maxMemorySize) {
             int k = memories.size() / 3;
@@ -128,16 +127,16 @@ namespace ML {
         return;
     }
 
-    void DQN::Save(const std::string &fileName)
+    void DQN::save(const std::string &fileName)
     {
-        QMainNet.Save(fileName);
+        QMainNet.save(fileName);
         return;
     }
 
-    void DQN::Load(const std::string &fileName)
+    void DQN::load(const std::string &fileName)
     {
-        QMainNet.Load(fileName);
-        QMainNet.CopyTo(QTargetNet);
+        QMainNet.load(fileName);
+        QMainNet.copyTo(QTargetNet);
         return;
     }
 }

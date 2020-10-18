@@ -14,7 +14,7 @@ class Board
 public:
     Board(){}
     ~Board(){}
-    void init();
+    void init(int w, int h);
     void setTarget();
     void setTarget(vector<Point>& body);
     int width;

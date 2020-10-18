@@ -22,15 +22,16 @@ namespace ML {
         public:
             DPG(){}
             ~DPG(){}
-            void createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
-            int greedyAction(std::vector<double>& state);
-            int randomAction();
-            int action(std::vector<double>& state);
+            void CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
+                           double learningRate = 0.001);
+            int GreedyAction(std::vector<double>& state);
+            int RandomAction();
+            int Action(std::vector<double>& state);
             int maxAction(std::vector<double>& value);
             void zscore(std::vector<double>& x);
-            void reinforce(int optType, double learningRate, std::vector<Step>& x);
-            void save(const std::string& fileName);
-            void load(const std::string& fileName);
+            void reinforce(std::vector<Step>& steps);
+            void Save(const std::string& fileName);
+            void Load(const std::string& fileName);
             int stateDim;
             int actionDim;
             double gamma;

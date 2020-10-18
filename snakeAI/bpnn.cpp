@@ -28,7 +28,7 @@ namespace ML {
         return;
     }
 
-    double Layer::Activate(double x)
+    double Layer::activate(double x)
     {
         double y = 0;
         switch (activateType) {
@@ -75,7 +75,7 @@ namespace ML {
     }
 
 
-    void Layer::CreateLayer(int inputDim, int layerDim, int activateType, int lossType, int trainFlag)
+    void Layer::createLayer(int inputDim, int layerDim, int activateType, int lossType, int trainFlag)
     {
         if (layerDim < 1 || inputDim < 1) {
             return;
@@ -120,7 +120,7 @@ namespace ML {
         return;
     }
 
-    void Layer::FeedForward(std::vector<double>& x)
+    void Layer::feedForward(std::vector<double>& x)
     {
 
         if (x.size() != W[0].size()) {
@@ -130,7 +130,7 @@ namespace ML {
         }
         for (int i = 0; i < W.size(); i++) {
             double y = dotProduct(W[i], x) + B[i];
-            O[i] = Activate(y);
+            O[i] = activate(y);
         }
         if (lossType == LOSS_CROSS_ENTROPY) {
             softmax(O, O);
@@ -138,7 +138,7 @@ namespace ML {
         return;
     }
 
-    void Layer::Error(std::vector<double>& nextE, std::vector<std::vector<double> >& nextW)
+    void Layer::error(std::vector<double>& nextE, std::vector<std::vector<double> >& nextW)
     {
         if (E.size() != nextW[0].size()) {
             std::cout<<"size is not matching"<<std::endl;;
@@ -151,13 +151,13 @@ namespace ML {
         return;
     }
 
-    void Layer::Loss(std::vector<double>& yo, std::vector<double> yt)
+    void Layer::loss(std::vector<double>& yo, std::vector<double>& yt)
     {
         for (int i = 0; i < yo.size(); i++) {
             if (lossType == LOSS_CROSS_ENTROPY) {
-                E[i] = -yt[i] * log(yo[i] + 1e9);
+                E[i] = -yt[i] * log(yo[i] + 1e-9);
             } else if (lossType == LOSS_KL){
-                E[i] = yt[i] * log(yt[i]) - yt[i] * log(yo[i] + 1e9);
+                E[i] = yt[i] * log((yt[i] / (yo[i] + 1e-9)));
             } else if (lossType == LOSS_MSE){
                 E[i] = yo[i] - yt[i];
             }
@@ -165,7 +165,13 @@ namespace ML {
         return;
     }
 
-    void Layer::Gradient(std::vector<double>& x)
+    void Layer::loss(std::vector<double> &l)
+    {
+        E.assign(l.begin(), l.end());
+        return;
+    }
+
+    void Layer::gradient(std::vector<double>& x)
     {
         for (int i = 0; i < dW.size(); i++) {
             double dy = dActivate(O[i]);
@@ -178,7 +184,7 @@ namespace ML {
         return;
     }
 
-    void Layer::SoftmaxGradient(std::vector<double>& x, std::vector<double>& yo, std::vector<double>& yt)
+    void Layer::softmaxGradient(std::vector<double>& x, std::vector<double>& yo, std::vector<double>& yt)
     {
         for (int i = 0; i < dW.size(); i++) {
             double dOutput = yo[i] - yt[i];
@@ -289,33 +295,33 @@ namespace ML {
         return;
     }
 
-    void BPNet::CreateNet(int inputDim, int hiddenDim, int hiddenLayerNum, int outputDim,
+    void BPNet::createNet(int inputDim, int hiddenDim, int hiddenLayerNum, int outputDim,
                           int trainFlag, int activateType, int lossType)
     {
         this->lossType = lossType;
         Layer inputLayer;
-        inputLayer.CreateLayer(inputDim, hiddenDim, activateType, LOSS_MSE, trainFlag);
+        inputLayer.createLayer(inputDim, hiddenDim, activateType, LOSS_MSE, trainFlag);
         layers.push_back(inputLayer);
         for (int i = 1; i < hiddenLayerNum; i++) {
             Layer hiddenLayer;
-            hiddenLayer.CreateLayer(hiddenDim, hiddenDim, activateType, LOSS_MSE, trainFlag);
+            hiddenLayer.createLayer(hiddenDim, hiddenDim, activateType, LOSS_MSE, trainFlag);
             layers.push_back(hiddenLayer);
         }
         if (lossType == LOSS_MSE) {
             Layer outputLayer;
-            outputLayer.CreateLayer(hiddenDim, outputDim, activateType, LOSS_MSE, trainFlag);
+            outputLayer.createLayer(hiddenDim, outputDim, activateType, LOSS_MSE, trainFlag);
             layers.push_back(outputLayer);
         }
         if (lossType == LOSS_CROSS_ENTROPY || lossType == LOSS_KL) {
             Layer softmaxLayer;
-            softmaxLayer.CreateLayer(hiddenDim, outputDim, ACTIVATE_LINEAR, lossType, trainFlag);
+            softmaxLayer.createLayer(hiddenDim, outputDim, ACTIVATE_LINEAR, lossType, trainFlag);
             layers.push_back(softmaxLayer);
         }
         this->outputIndex = layers.size() - 1;
         return;
     }
 
-    void BPNet::CopyTo(BPNet& dstNet)
+    void BPNet::copyTo(BPNet& dstNet)
     {
         if (layers.size() != dstNet.layers.size()) {
             return;
@@ -331,7 +337,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::SoftUpdateTo(BPNet &dstNet, double alpha)
+    void BPNet::softUpdateTo(BPNet &dstNet, double alpha)
     {
         if (layers.size() != dstNet.layers.size()) {
             return;
@@ -347,43 +353,59 @@ namespace ML {
         return;
     }
 
-    int BPNet::FeedForward(std::vector<double>& x)
+    int BPNet::feedForward(std::vector<double>& x)
     {
-        layers[0].FeedForward(x);
+        layers[0].feedForward(x);
         for (int i = 1; i < layers.size(); i++) {
-            layers[i].FeedForward(layers[i - 1].O);
+            layers[i].feedForward(layers[i - 1].O);
         }
-        return Argmax();
+        return argmax();
     }
 
-    std::vector<double>& BPNet::GetOutput()
+    std::vector<double>& BPNet::getOutput()
     {
         std::vector<double>& outputs = layers[outputIndex].O;
         return outputs;
     }
 
-    void BPNet::BackPropagate(std::vector<double>& yo, std::vector<double>& yt)
+    void BPNet::backPropagate(std::vector<double>& yo, std::vector<double>& yt)
     {
         /*  loss */
-        layers[outputIndex].Loss(yo, yt);
+        layers[outputIndex].loss(yo, yt);
         /* error Backpropagate */
         for (int i = outputIndex - 1; i >= 0; i--) {
-            layers[i].Error(layers[i + 1].E, layers[i + 1].W);
+            layers[i].error(layers[i + 1].E, layers[i + 1].W);
         }
         return;
     }
 
-    void BPNet::Gradient(std::vector<double> &x, std::vector<double> &y)
+    void BPNet::grad(std::vector<double> &x, std::vector<double> &loss)
     {
-        FeedForward(x);
-        BackPropagate(layers[outputIndex].O, y);
-        /*   gradient */
-        layers[0].Gradient(x);
+        /*  loss */
+        layers[outputIndex].loss(loss);
+        /* error Backpropagate */
+        for (int i = outputIndex - 1; i >= 0; i--) {
+            layers[i].error(layers[i + 1].E, layers[i + 1].W);
+        }
+        /* gradient */
+        layers[0].gradient(x);
+        for (int j = 1; j < layers.size(); j++) {
+            layers[j].gradient(layers[j - 1].O);
+        }
+        return;
+    }
+
+    void BPNet::gradient(std::vector<double> &x, std::vector<double> &y)
+    {
+        feedForward(x);
+        backPropagate(layers[outputIndex].O, y);
+        /* gradient */
+        layers[0].gradient(x);
         for (int j = 1; j < layers.size(); j++) {
             if (layers[j].lossType == LOSS_CROSS_ENTROPY || lossType == LOSS_KL) {
-                layers[j].SoftmaxGradient(layers[j - 1].O, layers[outputIndex].O, y);
+                layers[j].softmaxGradient(layers[j - 1].O, layers[outputIndex].O, y);
             } else {
-                layers[j].Gradient(layers[j - 1].O);
+                layers[j].gradient(layers[j - 1].O);
             }
         }
         return;
@@ -422,7 +444,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::Optimize(int optType, double learningRate)
+    void BPNet::optimize(int optType, double learningRate)
     {
         switch (optType) {
             case OPT_SGD:
@@ -441,7 +463,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::Train(std::vector<std::vector<double> >& x,
+    void BPNet::train(std::vector<std::vector<double> >& x,
             std::vector<std::vector<double> >& y,
             int optType,
             int batchSize,
@@ -468,14 +490,14 @@ namespace ML {
         for (int i = 0; i < iterateNum; i++) {
             for (int j = 0; j < batchSize; j++) {
                 int k = rand() % len;
-                Gradient(x[k], y[k]);
+                gradient(x[k], y[k]);
             }
-            Optimize(optType, learningRate);
+            optimize(optType, learningRate);
         }
         return;
     }
 
-    int BPNet::Argmax()
+    int BPNet::argmax()
     {
         int index = 0;
         double maxValue = layers[outputIndex].O[0];
@@ -488,7 +510,7 @@ namespace ML {
         return index;
     }
 
-    void BPNet::Show()
+    void BPNet::show()
     {
         for (int i = 0; i < layers[outputIndex].O.size(); i++) {
             std::cout<<layers[outputIndex].O[i]<<" ";
@@ -497,7 +519,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::Load(const std::string& fileName)
+    void BPNet::load(const std::string& fileName)
     {
         std::ifstream file;
         file.open(fileName);
@@ -512,7 +534,7 @@ namespace ML {
         return;
     }
 
-    void BPNet::Save(const std::string& fileName)
+    void BPNet::save(const std::string& fileName)
     {
         std::ofstream file;
         file.open(fileName);

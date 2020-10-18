@@ -12,34 +12,48 @@
 #include "dpg.h"
 namespace ML {
 
+struct Transit {
+    std::vector<double> state;
+    std::vector<double> action;
+    std::vector<double> nextState;
+    double reward;
+    Transit(){}
+    Transit(std::vector<double>& s,
+            std::vector<double>& a,
+            std::vector<double>& s_,
+            double r)
+        :state(s),
+          action(a),
+          nextState(s_),
+          reward(r) {}
+};
+
 class PPO
 {
 public:
     PPO(){}
     ~PPO(){}
-    void CreateNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim,
-                   int maxMemorySize = 1024, int replaceTargetIter = 256, int batchSize = 64);
-    int GreedyAction(std::vector<double>& state);
-    int Action(std::vector<double>& state);
-    void Perceive(std::vector<Step>& trajectory);
-    void ExperienceReplay(std::vector<Step>& trajectory);
-    void Learn(int optType = OPT_RMSPROP, double learningRate = 0.001);
-    void Save(const std::string &actorPara, const std::string &criticPara);
-    void Load(const std::string &actorPara, const std::string &criticPara);
+    void createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
+    int greedyAction(std::vector<double>& state);
+    int action(std::vector<double>& state);
+    double KLmean(std::vector<double>& p, std::vector<double>& q);
+    double getValue(std::vector<double> &s);
+    int maxAction(std::vector<double>& value);
+    void learnWithKLpenalty(int optType, double learningRate, std::vector<Transit>& x);
+    void learnWithClip(int optType, double learningRate, std::vector<Transit>& x);
+    void save(const std::string &actorPara, const std::string &criticPara);
+    void load(const std::string &actorPara, const std::string &criticPara);
     int stateDim;
     int actionDim;
     double gamma;
-    double exploringRate;
+    double beta;
+    double delta;
     double epsilon;
-    double learningRate;
-    int maxMemorySize;
-    int replaceTargetIter;
-    int batchSize;
-    int learningStep;
-    BPNet actor;
-    BPNet actorPrime;
+    double exploringRate;
+    int learningSteps;
+    BPNet actorP;
+    BPNet actorQ;
     BPNet critic;
-    std::deque<std::vector<Step> > memories;
 };
 }
 #endif // PPO_H
