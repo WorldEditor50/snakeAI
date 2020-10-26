@@ -18,7 +18,6 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     axis.cpp \
     board.cpp \
-    bpnn.cpp \
     common.cpp \
     controller.cpp \
     ddpg.cpp \
@@ -27,13 +26,13 @@ SOURCES += \
     genetic.cpp \
     main.cpp \
     mainwindow.cpp \
+    mlp.cpp \
     ppo.cpp \
     snake.cpp
 
 HEADERS += \
     axis.h \
     board.h \
-    bpnn.h \
     common.h \
     controller.h \
     ddpg.h \
@@ -41,9 +40,9 @@ HEADERS += \
     dqn.h \
     genetic.h \
     mainwindow.h \
+    mlp.h \
     ppo.h \
     snake.h
-LIBS += -lDbgHelp
 FORMS += \
     mainwindow.ui
 

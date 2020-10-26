@@ -8,7 +8,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
-#include "bpnn.h"
+#include "mlp.h"
 #include "dqn.h"
 namespace ML {
 
@@ -19,15 +19,9 @@ class DDPG
 public:
     DDPG(){}
     ~DDPG(){}
-    void createNet(int stateDim,
-                   int hiddenDim,
-                   int hiddenLayerNum,
-                   int actionDim,
-                   int maxMemorySize = 4096,
-                   int replaceTargetIter = 256,
-                   int batchSize = 32);
+    explicit DDPG(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
     void perceive(std::vector<double>& state,
-                  double action,
+                  std::vector<double>& action,
                   std::vector<double>& nextState,
                   double reward,
                   bool done);
@@ -35,11 +29,14 @@ public:
     void forget();
     int noiseAction(std::vector<double>& state);
     int randomAction();
-    int greedyAction(std::vector<double>& state);
+    std::vector<double>& greedyAction(std::vector<double>& state);
     int action(std::vector<double>& state);
     int maxQ(std::vector<double>& q_value);
     void experienceReplay(Transition& x);
-    void learn(int optType = OPT_RMSPROP,
+    void learn(int optType  = OPT_RMSPROP,
+               int maxMemorySize = 4096,
+               int replaceTargetIter = 256,
+               int batchSize = 64,
                double actorLearningRate = 0.0001,
                double criticLearningRate = 0.001);
     void save(const std::string& actorPara, const std::string& criticPara);
@@ -55,10 +52,10 @@ public:
     int learningSteps;
     int replaceTargetIter;
     std::vector<double> sa;
-    BPNet actorMainNet;
-    BPNet actorTargetNet;
-    BPNet criticMainNet;
-    BPNet criticTargetNet;
+    MLP actorP;
+    MLP actorQ;
+    MLP criticMainNet;
+    MLP criticTargetNet;
     std::deque<Transition> memories;
 };
 }

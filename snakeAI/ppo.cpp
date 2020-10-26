@@ -1,11 +1,11 @@
 #include "ppo.h"
 
-void ML::PPO::createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim)
+ML::PPO::PPO(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim)
 {
     if (stateDim < 1 || hiddenDim < 1 || hiddenLayerNum < 1 || actionDim < 1) {
         return;
     }
-    this->gamma = 0.9;
+    this->gamma = 0.99;
     this->beta = 0.5;
     this->delta = 0.01;
     this->epsilon = 0.2;
@@ -13,9 +13,9 @@ void ML::PPO::createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int act
     this->learningSteps = 0;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->actorP.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 1, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
-    this->actorQ.createNet(stateDim, hiddenDim, hiddenLayerNum, actionDim, 0, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
-    this->critic.createNet(stateDim, hiddenDim, hiddenLayerNum, 1, 1, ACTIVATE_RELU, LOSS_MSE);
+    this->actorP = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, 1, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
+    this->actorQ = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, 0, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
+    this->critic = MLP(stateDim, hiddenDim, hiddenLayerNum, 1, 1, ACTIVATE_RELU, LOSS_MSE);
     return;
 }
 
@@ -68,7 +68,8 @@ void ML::PPO::learnWithKLpenalty(int optType, double learningRate, std::vector<M
         x[i].reward = r;
     }
     if (learningSteps % 10 == 0) {
-        actorP.copyTo(actorQ);
+        actorP.softUpdateTo(actorQ, 0.01);
+        //actorP.copyTo(actorQ);
     }
     double n = 0;
     double KLexpect = 0;
@@ -109,7 +110,7 @@ void ML::PPO::learnWithKLpenalty(int optType, double learningRate, std::vector<M
     return;
 }
 
-void ML::PPO::learnWithClip(int optType, double learningRate, std::vector<ML::Transit> &x)
+void ML::PPO::learnWithClipObject(int optType, double learningRate, std::vector<ML::Transit> &x)
 {
     /* reward */
     int end = x.size() - 1;
@@ -117,10 +118,10 @@ void ML::PPO::learnWithClip(int optType, double learningRate, std::vector<ML::Tr
     for (int i = end; i >= 0; i--) {
         r = x[i].reward + gamma * r;
         x[i].reward = r;
-
     }
     if (learningSteps % 10 == 0) {
-        actorP.copyTo(actorQ);
+        actorP.softUpdateTo(actorQ, 0.01);
+        //actorP.copyTo(actorQ);
         learningSteps = 0;
     }
     std::vector<double>& v = critic.getOutput();
@@ -130,15 +131,14 @@ void ML::PPO::learnWithClip(int optType, double learningRate, std::vector<ML::Tr
         critic.feedForward(x[i].state);
         double advantage = x[i].reward - v[0];
         /* critic */
-        std::vector<double> totalTeward(1);
-        totalTeward[0] = x[i].reward;
-        critic.gradient(x[i].state, totalTeward);
+        std::vector<double> discount_r(1);
+        discount_r[0] = x[i].reward;
+        critic.gradient(x[i].state, discount_r);
         /* actor */
         std::vector<double>& q = x[i].action;
         actorP.feedForward(x[i].state);
-        std::vector<double> y(q);
-        int j = maxAction(q);
-        double ratio = p[j] / (q[j] + 1e-9);
+        int k = maxAction(q);
+        double ratio = p[k] / (q[k] + 1e-9);
         if (advantage > 0) {
             if (ratio > 1 + epsilon) {
                 ratio = 1 + epsilon;
@@ -148,8 +148,8 @@ void ML::PPO::learnWithClip(int optType, double learningRate, std::vector<ML::Tr
                 ratio = 1 - epsilon;
             }
         }
-        y[j] = q[j] + ratio * advantage;
-        actorP.gradient(x[i].state, y);
+        q[k] = q[k] + ratio * advantage;
+        actorP.gradient(x[i].state, q);
     }
     actorP.optimize(optType, learningRate);
     critic.optimize(optType, 0.0001);

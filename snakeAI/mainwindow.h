@@ -7,7 +7,6 @@
 #include <QTimer>
 #include <ctime>
 #include <cstdlib>
-#include <windows.h>
 #include "board.h"
 #include "snake.h"
 #include "controller.h"

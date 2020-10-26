@@ -1,8 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-
+#include <QThread>
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent),controller(board.map)
+    : QMainWindow(parent),controller(this, board.map)
     , ui(new Ui::MainWindow)
 {
     QPalette pal;
@@ -20,7 +20,7 @@ MainWindow::~MainWindow()
     controller.dqn.save("./dqn_weights_02");
     controller.dpg.save("./dpg_weights");
     controller.ddpg.save("./ddpg_actor_1", "./ddpg_critic_1");
-    controller.bp.save("./bp_weights3");
+    controller.mlp.save("./bp_weights3");
     axis->close();
     axis->deleteLater();
     delete ui;
@@ -39,7 +39,7 @@ void MainWindow::init()
     //controller.dpg.load("./dpg_weights");
     //controller.ddpg.load("./ddpg_actor_1", "./ddpg_critic_1");
     /* supervised learning */
-    controller.bp.load("./bp_weights3");
+    controller.mlp.load("./bp_weights3");
     return;
 }
 
@@ -82,7 +82,8 @@ void MainWindow::paintEvent(QPaintEvent *ev)
     }
     /* move */
     this->play2();
-    Sleep(10);
+
+    QThread::msleep(10);
     return;
 }
 
@@ -92,7 +93,7 @@ void MainWindow::play1()
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         cout<<"x: "<<x<<" y:"<<y<<endl;
-        int direct = controller.AStarAgent(x, y, board.xt, board.yt);
+        int direct = controller.astarAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
         y = snake.body[0].y;
@@ -124,7 +125,7 @@ void MainWindow::play2()
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         int direct = 0;
-        direct = controller.ppoAgent(x, y, board.xt, board.yt);
+        direct = controller.ddpgAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
         y = snake.body[0].y;

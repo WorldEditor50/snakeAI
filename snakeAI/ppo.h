@@ -8,7 +8,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
-#include "bpnn.h"
+#include "mlp.h"
 #include "dpg.h"
 namespace ML {
 
@@ -32,15 +32,15 @@ class PPO
 {
 public:
     PPO(){}
+    explicit PPO(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
     ~PPO(){}
-    void createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
     int greedyAction(std::vector<double>& state);
     int action(std::vector<double>& state);
     double KLmean(std::vector<double>& p, std::vector<double>& q);
     double getValue(std::vector<double> &s);
     int maxAction(std::vector<double>& value);
     void learnWithKLpenalty(int optType, double learningRate, std::vector<Transit>& x);
-    void learnWithClip(int optType, double learningRate, std::vector<Transit>& x);
+    void learnWithClipObject(int optType, double learningRate, std::vector<Transit>& x);
     void save(const std::string &actorPara, const std::string &criticPara);
     void load(const std::string &actorPara, const std::string &criticPara);
     int stateDim;
@@ -51,9 +51,9 @@ public:
     double epsilon;
     double exploringRate;
     int learningSteps;
-    BPNet actorP;
-    BPNet actorQ;
-    BPNet critic;
+    MLP actorP;
+    MLP actorQ;
+    MLP critic;
 };
 }
 #endif // PPO_H

@@ -8,7 +8,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
-#include "bpnn.h"
+#include "mlp.h"
 namespace ML {
     struct Step {
         std::vector<double> state;
@@ -21,8 +21,8 @@ namespace ML {
     class DPG {
         public:
             DPG(){}
+            explicit DPG(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
             ~DPG(){}
-            void createNet(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
             int greedyAction(std::vector<double>& state);
             int randomAction();
             int action(std::vector<double>& state);
@@ -36,7 +36,7 @@ namespace ML {
             double gamma;
             double exploringRate;
             double learningRate;
-            BPNet policyNet;
+            MLP policyNet;
     };
 }
 #endif // POLICY_GRADIENT_H
