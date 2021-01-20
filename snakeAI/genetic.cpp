@@ -1,8 +1,8 @@
 #include "genetic.h"
 
-double Genetic::run(char OptimizeType, int iterate)
+double Genetic::run(char OptimizeType, std::size_t iterate)
 {
-    for (int i = 0; i < iterate; i++) {
+    for (std::size_t i = 0; i < iterate; i++) {
         calculateFitness();
         int index1 = select();
         int index2 = select();
@@ -19,8 +19,8 @@ double Genetic::run(char OptimizeType, int iterate)
 void Genetic::eliminate(char OptimizeType)
 {
 	/* sort */
-    for (int i = 0; i < group.size() - 1; i++) {
-        for (int j = i + 1; j < group.size(); j++) {
+    for (std::size_t i = 0; i < group.size() - 1; i++) {
+        for (std::size_t j = i + 1; j < group.size(); j++) {
             if (OptimizeType == OPT_MAX) {
                 if (group[i].fitness < group[j].fitness) {
                     group[i].swap(group[j]);
@@ -34,10 +34,10 @@ void Genetic::eliminate(char OptimizeType)
 		}
 	}
 	/* eliminate */
-    int len = group.size();
+    std::size_t len = group.size();
     int k = rand() % (len / 3);
     int j = 0;
-    for (int i = len -1; i >= len - k; i--) {
+    for (std::size_t i = len -1; i >= len - k; i--) {
         group[j].copyTo(group[i]);
         j++;
 	}
@@ -53,7 +53,7 @@ int Genetic::select()
 	if (p <= group[0].accumulateFitness) {
         index = 0;
 	} else {
-        for (int i = 1; i < group.size() - 1; i++) {
+        for (std::size_t i = 1; i < group.size() - 1; i++) {
 			if (p > group[i].accumulateFitness && p <= group[i + 1].accumulateFitness) {
                 index = i + 1;
                 break;
@@ -89,18 +89,18 @@ void Genetic::calculateFitness()
     double sum = 0.0;
     double value = 0.0;
 	/* calulate fitness */
-    for (int i = 0; i < group.size(); i++) {
+    for (std::size_t i = 0; i < group.size(); i++) {
         value = group[i].decode();
         group[i].fitness = objectFunction(value);
 		sum += group[i].fitness;
 	}
 	/* calulate relative fitness */
-    for (int i = 0; i < group.size(); i++) {
+    for (std::size_t i = 0; i < group.size(); i++) {
 		group[i].relativeFitness = group[i].fitness /sum;
 	}
     /* calculate accumulate fitness */
 	group[0].accumulateFitness = group[0].relativeFitness;
-    for (int i = 1; i < group.size(); i++) {
+    for (std::size_t i = 1; i < group.size(); i++) {
 		group[i].accumulateFitness = group[i - 1].accumulateFitness + group[i].relativeFitness;
 	}
 	return;
@@ -120,11 +120,11 @@ Genetic::Genetic(double crossRate, double mutateRate, int maxGroupSize, int maxC
     create(crossRate, mutateRate, maxGroupSize, maxCodeLen);
 }
 
-void Genetic::create(double crossRate, double mutateRate, int maxGroupSize, int maxCodeLen)
+void Genetic::create(double crossRate, double mutateRate, std::size_t maxGroupSize, int maxCodeLen)
 {
     this->crossRate = crossRate;
     this->mutateRate = mutateRate;
-    for (int i = 0; i < maxGroupSize; i++) {
+    for (std::size_t i = 0; i < maxGroupSize; i++) {
         Factor factor(maxCodeLen);
         group.push_back(factor);
     }
@@ -136,10 +136,10 @@ double Genetic::objectFunction(double x)
     return 100 - x * x;
 }
 
-Factor::Factor(int codeLen)
+Factor::Factor(std::size_t codeLen)
 {
     code = std::vector<char>(codeLen, 0);
-    for (int i = 0; i < codeLen; i++) {
+    for (std::size_t i = 0; i < codeLen; i++) {
         code[i] = rand() % 2;
     }
     fitness = 0.0;
@@ -152,9 +152,9 @@ Factor::Factor(const Factor& factor)
     if (this == &factor) {
         return;
     }
-    int codeLen = factor.code.size();
+    std::size_t codeLen = factor.code.size();
     this->code = std::vector<char>(codeLen, 0);
-    for (int i = 0; i < codeLen; i++) {
+    for (std::size_t i = 0; i < codeLen; i++) {
         code[i] = factor.code[i];
     }
     this->fitness = factor.fitness;
@@ -165,9 +165,9 @@ Factor::Factor(const Factor& factor)
 double Factor::decode()
 {
     double value = 0.0;
-    int len = code.size();
-    int mid =  code.size() / 2;
-    for (int i = 0; i < len; i++) {
+    std::size_t len = code.size();
+    std::size_t mid =  code.size() / 2;
+    for (std::size_t i = 0; i < len; i++) {
         value += double(code[i] * pow(2, mid - i - 1));
     }
     if (code[len - 1] == 1) {
@@ -184,7 +184,7 @@ void Factor::copyTo(Factor &dstFactor)
 
 void Factor::swap(Factor &factor)
 {
-    for (int i = 0; i < code.size(); i++) {
+    for (std::size_t i = 0; i < code.size(); i++) {
         char tmp = factor.code[i];
         factor.code[i] = code[i];
         code[i] = tmp;
@@ -204,8 +204,8 @@ void Factor::mutate()
 
 void Factor::crossover(Factor& factor)
 {
-    int crossNum = rand() % code.size();
-    for (int i = 0; i < crossNum; i++) {
+    std::size_t crossNum = rand() % code.size();
+    for (std::size_t i = 0; i < crossNum; i++) {
         int k = rand() % code.size();
         char bit = code[k];
         code[k] = factor.code[k];

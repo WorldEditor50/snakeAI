@@ -1,6 +1,6 @@
 #include "board.h"
 
-void Board::init(int w, int h)
+void Board::init(size_t w, size_t h)
 {
     /* init board parameter */
     this->width = w;
@@ -11,11 +11,11 @@ void Board::init(int w, int h)
     this->cols = height / unitLen - 2;
     /* init map */
     map.resize(rows);
-    for (int i = 0; i < rows; i++) {
+    for (std::size_t i = 0; i < rows; i++) {
         map[i].resize(cols);
     }
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
+    for (std::size_t i = 0; i < rows; i++) {
+        for (std::size_t j = 0; j < cols; j++) {
             if (i == 0 || i == rows - 1) {
                 map[i][j] = 1;
             } else if (j == 0 || j == cols - 1) {
@@ -27,7 +27,7 @@ void Board::init(int w, int h)
     }
     /* set block */
     blockNum = 0;
-    for (int i = 0; i < blockNum; i++) {
+    for (std::size_t i = 0; i < blockNum; i++) {
         int x = rand() % (rows - 10);
         int y = rand() % (cols - 10);
         while (x < 10 || y < 10) {
@@ -57,7 +57,7 @@ void Board::setTarget()
 void Board::setTarget(vector<Point> &body)
 {
     setTarget();
-    for (int i = 0; i < body.size(); i++) {
+    for (std::size_t i = 0; i < body.size(); i++) {
         if (xt == body[i].x && yt == body[i].y) {
             setTarget();
             i = 0;

@@ -13,15 +13,15 @@ ML::PPO::PPO(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim)
     this->learningSteps = 0;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->actorP = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, 1, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
-    this->actorQ = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, 0, ACTIVATE_SIGMOID, LOSS_CROSS_ENTROPY);
-    this->critic = MLP(stateDim, hiddenDim, hiddenLayerNum, 1, 1, ACTIVATE_RELU, LOSS_MSE);
+    this->actorP = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, true, SIGMOID, CROSS_ENTROPY);
+    this->actorQ = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, false, SIGMOID, CROSS_ENTROPY);
+    this->critic = MLP(stateDim, hiddenDim, 2, 1, 1, RELU, MSE);
     return;
 }
 
-int ML::PPO::greedyAction(std::vector<double> &state)
+int ML::PPO::greedyAction(Vec &state)
 {
-    std::vector<double>& out = actorQ.getOutput();
+    Vec& out = actorQ.getOutput();
     double p = double(rand() % 10000) / 10000;
     int index = 0;
     if (p < exploringRate) {
@@ -34,16 +34,16 @@ int ML::PPO::greedyAction(std::vector<double> &state)
     return index;
 }
 
-int ML::PPO::action(std::vector<double> &state)
+int ML::PPO::action(Vec &state)
 {
     return actorP.feedForward(state);
 }
 
-double ML::PPO::KLmean(std::vector<double> &p, std::vector<double> &q)
+double ML::PPO::KLmean(Vec &p, Vec &q)
 {
     double sum = 0;
     double n = 0;
-    for (int i = 0; i < p.size(); i++) {
+    for (std::size_t i = 0; i < p.size(); i++) {
         sum += p[i] * (log(p[i]) - log(q[i] + 1e-5));
         n++;
     }
@@ -51,14 +51,14 @@ double ML::PPO::KLmean(std::vector<double> &p, std::vector<double> &q)
     return sum;
 }
 
-double ML::PPO::getValue(std::vector<double> &s)
+double ML::PPO::getValue(Vec &s)
 {
-    std::vector<double>& v = critic.getOutput();
+    Vec& v = critic.getOutput();
     critic.feedForward(s);
     return v[0];
 }
 
-void ML::PPO::learnWithKLpenalty(int optType, double learningRate, std::vector<ML::Transit> &x)
+void ML::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::vector<ML::Transit> &x)
 {
     /* reward */
     int end = x.size() - 1;
@@ -67,26 +67,26 @@ void ML::PPO::learnWithKLpenalty(int optType, double learningRate, std::vector<M
         r = x[i].reward + gamma * r;
         x[i].reward = r;
     }
-    if (learningSteps % 10 == 0) {
-        actorP.softUpdateTo(actorQ, 0.01);
+    if (learningSteps % 100 == 0) {
+        actorP.softUpdateTo(actorQ, 0.001);
         //actorP.copyTo(actorQ);
     }
     double n = 0;
     double KLexpect = 0;
-    std::vector<double>& v = critic.getOutput();
-    std::vector<double>& p = actorP.getOutput();
-    for (int i = 0; i < x.size(); i++) {
+    Vec& v = critic.getOutput();
+    Vec& p = actorP.getOutput();
+    for (std::size_t i = 0; i < x.size(); i++) {
         /* advangtage */
         critic.feedForward(x[i].state);
         double advantage = x[i].reward - v[0];
         /* critic */
-        std::vector<double> discounted_r(1);
+        Vec discounted_r(1);
         discounted_r[0] = x[i].reward;
         critic.gradient(x[i].state, discounted_r);
         /* actor */
-        std::vector<double>& q = x[i].action;
+        Vec& q = x[i].action;
         actorP.feedForward(x[i].state);
-        std::vector<double> y(q);
+        Vec y(q);
         int k = maxAction(q);
         double kl = p[k] * (log(p[k]) - log(q[k] + 1e-9));
         y[k] = q[k] + p[k] / (q[k] + 1e-9) * advantage - beta * kl;
@@ -110,13 +110,13 @@ void ML::PPO::learnWithKLpenalty(int optType, double learningRate, std::vector<M
     return;
 }
 
-void ML::PPO::learnWithClipObject(int optType, double learningRate, std::vector<ML::Transit> &x)
+void ML::PPO::learnWithClipObject(OptType optType, double learningRate, std::vector<ML::Transit> &x)
 {
     /* reward */
     int end = x.size() - 1;
     double r = getValue(x[end].state);
     for (int i = end; i >= 0; i--) {
-        r = x[i].reward + gamma * r;
+        r = gamma * r + x[i].reward;
         x[i].reward = r;
     }
     if (learningSteps % 10 == 0) {
@@ -124,31 +124,39 @@ void ML::PPO::learnWithClipObject(int optType, double learningRate, std::vector<
         //actorP.copyTo(actorQ);
         learningSteps = 0;
     }
-    std::vector<double>& v = critic.getOutput();
-    std::vector<double>& p = actorP.getOutput();
-    for (int i = 0; i < x.size(); i++) {
+    Vec& v = critic.getOutput();
+    Vec& p = actorP.getOutput();
+    for (std::size_t i = 0; i < x.size(); i++) {
         /* advangtage */
         critic.feedForward(x[i].state);
         double advantage = x[i].reward - v[0];
         /* critic */
-        std::vector<double> discount_r(1);
+        Vec discount_r(1);
         discount_r[0] = x[i].reward;
         critic.gradient(x[i].state, discount_r);
         /* actor */
-        std::vector<double>& q = x[i].action;
+        Vec& q = x[i].action;
         actorP.feedForward(x[i].state);
         int k = maxAction(q);
         double ratio = p[k] / (q[k] + 1e-9);
-        if (advantage > 0) {
-            if (ratio > 1 + epsilon) {
-                ratio = 1 + epsilon;
-            }
-        } else {
-            if (ratio < 1 - epsilon) {
-                ratio = 1 - epsilon;
-            }
+//        if (advantage > 0) {
+//            if (ratio > 1 + epsilon) {
+//                //std::cout<<"adv = "<<advantage<<" ratio = "<<ratio<<std::endl;
+//                ratio = 1 + epsilon;
+//            }
+//        } else {
+//            if (ratio < 1 - epsilon) {
+//                //std::cout<<"adv = "<<advantage<<" ratio = "<<ratio<<std::endl;
+//                ratio = 1 - epsilon;
+//            }
+//        }
+        if (ratio > 1 + epsilon) {
+            ratio = 1 + epsilon;
         }
-        q[k] = q[k] + ratio * advantage;
+        if (ratio < 1 - epsilon) {
+            ratio = 1 - epsilon;
+        }
+        q[k] += ratio * advantage;
         actorP.gradient(x[i].state, q);
     }
     actorP.optimize(optType, learningRate);
@@ -160,17 +168,29 @@ void ML::PPO::learnWithClipObject(int optType, double learningRate, std::vector<
     return;
 }
 
-int ML::PPO::maxAction(std::vector<double>& value)
+int ML::PPO::maxAction(Vec& value)
 {
     int index = 0;
     double maxValue = value[0];
-    for (int i = 0; i < value.size(); i++) {
+    for (std::size_t i = 0; i < value.size(); i++) {
         if (maxValue < value[i]) {
             maxValue = value[i];
             index = i;
         }
     }
     return index;
+}
+
+double ML::PPO::clip(double x, double sup, double inf)
+{
+    double y = x;
+    if (x > sup) {
+        y = sup;
+    }
+    if (x < inf) {
+        y = inf;
+    }
+    return y;
 }
 
 void ML::PPO::save(const std::string &actorPara, const std::string &criticPara)

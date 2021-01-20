@@ -19,30 +19,31 @@ class DDPG
 public:
     DDPG(){}
     ~DDPG(){}
-    explicit DDPG(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
-    void perceive(std::vector<double>& state,
-                  std::vector<double>& action,
-                  std::vector<double>& nextState,
+    explicit DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t actionDim);
+    void perceive(Vec& state,
+                  Vec& action,
+                  Vec& nextState,
                   double reward,
                   bool done);
-    void setSA(std::vector<double>& state, std::vector<double>& action);
+    void setSA(Vec& state, Vec& action);
     void forget();
-    int noiseAction(std::vector<double>& state);
+    int noiseAction(Vec& state);
     int randomAction();
-    std::vector<double>& greedyAction(std::vector<double>& state);
-    int action(std::vector<double>& state);
-    int maxQ(std::vector<double>& q_value);
+    Vec& greedyAction(Vec& state);
+    int action(Vec& state);
+    int maxQ(Vec& q_value);
     void experienceReplay(Transition& x);
-    void learn(int optType  = OPT_RMSPROP,
-               int maxMemorySize = 4096,
-               int replaceTargetIter = 256,
-               int batchSize = 64,
+    void learn(OptType optType  = OPT_RMSPROP,
+               std::size_t maxMemorySize = 4096,
+               std::size_t replaceTargetIter = 256,
+               std::size_t batchSize = 64,
                double actorLearningRate = 0.0001,
                double criticLearningRate = 0.001);
     void save(const std::string& actorPara, const std::string& criticPara);
     void load(const std::string& actorPara, const std::string& criticPara);
-    int stateDim;
-    int actionDim;
+public:
+    std::size_t stateDim;
+    std::size_t actionDim;
     double gamma;
     double alpha;
     double beta;
@@ -51,7 +52,7 @@ public:
     double exploringRate;
     int learningSteps;
     int replaceTargetIter;
-    std::vector<double> sa;
+    Vec sa;
     MLP actorP;
     MLP actorQ;
     MLP criticMainNet;

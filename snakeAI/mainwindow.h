@@ -11,9 +11,6 @@
 #include "snake.h"
 #include "controller.h"
 #include "axis.h"
-QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
-QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
 {
@@ -32,7 +29,5 @@ public:
     Controller controller;
     /* visualize */
     Axis *axis;
-private:
-    Ui::MainWindow *ui;
 };
 #endif // MAINWINDOW_H

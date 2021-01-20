@@ -1,16 +1,17 @@
 #include "controller.h"
 
-Controller::Controller(QObject *parent, vector<vector<int> >& map):
+Controller::Controller(QObject *parent, vector<vector<int> >& map, Snake &s):
     QObject(parent),
-    map(map)
+    map(map),
+    snake(s)
 {
-    this->dqn = DQN(8, 16, 4, 4);
-    this->dpg = DPG(8, 16, 4, 4);
-    this->ddpg = DDPG(8, 16, 4, 4);
-    this->ppo = PPO(8, 16, 4, 4);
-    this->mlp = MLP(8, 16, 4, 4, 1, ACTIVATE_SIGMOID, LOSS_MSE);
-    this->state.resize(8);
-    this->nextState.resize(8);
+    this->dqn = DQN(12, 24, 4, 4);
+    this->dpg = DPG(12, 24, 4, 4);
+    this->ddpg = DDPG(12, 24, 4, 4);
+    this->ppo = PPO(12, 24, 4, 4);
+    this->mlp = MLP(12, 24, 4, 4, 1);
+    this->state.resize(12);
+    this->nextState.resize(12);
 }
 
 Controller::~Controller()
@@ -20,11 +21,14 @@ Controller::~Controller()
 
 double Controller::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
 {
+    if (snake.isHitSelf()) {
+        return -4;
+    }
     if (map[xn][yn] == 1) {
-        return -1;
+        return -4;
     }
     if (xn == xt && yn == yt) {
-        return 1;
+        return 2;
     }
     double x1 = (xi - xt)*(xi - xt) + (yi - yt) * (yi - yt);
     double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
@@ -41,21 +45,14 @@ double Controller::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
     if (xn == xt && yn == yt) {
         return 1;
     }
-    double x1 = sqrt((xi - xt)*(xi - xt) + (yi - yt) * (yi - yt));
-    double x2 = sqrt((xn - xt)*(xn - xt) + (yn - yt) * (yn - yt));
-    double r = 0;
-    if (x1 > x2) {
-        r = tanh(1 / (x1 - x2));
-    } else {
-        r = tanh(x1 - x2);
-    }
-    return r;
+    double x1 = (xi - xt)*(xi - xt) + (yi - yt) * (yi - yt);
+    double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
+    double r = x2 / (x1 - x2);
+    return tanh(r);
 }
 
 double Controller::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    double row = double(map.size());
-    double col = double(map[0].size());
     if (map[xn][yn] == 1) {
         return -1;
     }
@@ -66,25 +63,43 @@ double Controller::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
     double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
     double r = 0;
     if (x1 > x2) {
-        r = 0.01;
+        r = 0.1;
     } else {
         r = -0.1;
     }
     return r;
 }
 
-void Controller::setState(vector<double>& statex, int x, int y, int xt, int yt)
+double Controller::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    double row = double(map.size());
-    double col = double(map[0].size());
-    statex[0] = double(x)/row;
-    statex[1] = double(y)/col;
-    statex[2] = double(xt)/row;
-    statex[3] = double(yt)/col;
+    double di = fabs(double(xi - xt)) + fabs(double(yi - yt));
+    double dn = fabs(double(xn - xt)) + fabs(double(yn - yt));
+    double r = di - dn;
+    if (map[xn][yn] == 1) {
+        return -fabs(r) * 10;
+    }
+    if (xn == xt && yn == yt) {
+        return fabs(r) * 10;
+    }
+    return r;
+}
+
+void Controller::observe(vector<double>& statex, int x, int y, int xt, int yt, vector<double>& output)
+{
+    double xc = double(map.size()) / 2;
+    double yc = double(map[0].size()) / 2;
+    statex[0] = (x - xc) / xc;
+    statex[1] = (y - yc) / yc;
+    statex[2] = (xt - xc) / xc;
+    statex[3] = (yt - yc) / yc;
     statex[4] = statex[2] - statex[0];
     statex[5] = statex[3] - statex[1];
     statex[6] = statex[4] - statex[5];
     statex[7] = statex[4] + statex[5];
+    statex[8] = output[0];
+    statex[9] = output[1];
+    statex[10] = output[2];
+    statex[11] = output[3];
     return;
 }
 
@@ -102,7 +117,7 @@ int Controller::astarAgent(int x, int y, int xt, int yt)
     }
     int minDirect = 0;
     int minDistance = distance[0];
-    for (int i = 0; i < 4; i++) {
+    for (std::size_t i = 0; i < 4; i++) {
         if (minDistance > distance[i]) {
             minDistance = distance[i];
             minDirect = i;
@@ -148,41 +163,41 @@ int Controller::randAgent(int x, int y, int xt, int yt)
 
 int Controller::dqnAgent(int x, int y, int xt, int yt)
 {
-    int steps = 1;
     /* exploring environment */
-    for (int i = 0; i < steps; i++) {
-        int xn = x;
-        int yn = y;
-        double r = 0;
-        double total = 0;
-        setState(state, x, y, xt, yt);
-        for (int j = 0; j < 512; j++) {
-            int xi = xn;
-            int yi = yn;
-            std::vector<double>& action = dqn.greedyAction(state);
-            int k = maxAction(action);
-            move(xn, yn, k);
-            r = reward1(xi, yi, xn, yn, xt, yt);
-            total += r;
-            setState(nextState, xn, yn, xt, yt);
-            if (map[xn][yn] == 1) {
-                dqn.perceive(state, action, nextState, r, true);
-                break;
-            }
-            if (xn == xt && yn == yt) {
-                dqn.perceive(state, action, nextState, r, true);
-                break;
-            } else {
-                dqn.perceive(state, action, nextState, r, false);
-            }
-            state = nextState;
+    int xn = x;
+    int yn = y;
+    double r = 0;
+    double total = 0;
+    vector<double> act(4);
+    act = dqn.QMainNet.getOutput();
+    observe(state, x, y, xt, yt, act);
+    for (std::size_t j = 0; j < 256; j++) {
+        int xi = xn;
+        int yi = yn;
+        Vec& action = dqn.greedyAction(state);
+        int k = maxAction(action);
+        move(xn, yn, k);
+        r = reward1(xi, yi, xn, yn, xt, yt);
+        //std::cout<<r<<std::endl;
+        total += r;
+        observe(nextState, xn, yn, xt, yt, dqn.QMainNet.getOutput());
+        if (map[xn][yn] == 1) {
+            dqn.perceive(state, action, nextState, r, true);
+            break;
         }
-        emit sigTotalReward(total);
+        if (xn == xt && yn == yt) {
+            dqn.perceive(state, action, nextState, r, true);
+            break;
+        } else {
+            dqn.perceive(state, action, nextState, r, false);
+        }
+        state = nextState;
     }
+    emit sigTotalReward(total);
     /* training */
-    dqn.learn(OPT_RMSPROP, 8192, 1024, 64, 0.0001);
+    dqn.learn(OPT_RMSPROP, 8192, 256, 64, 0.001);
     /* making decision */
-    setState(state, x, y, xt, yt);
+    observe(state, x, y, xt, yt, act);
     int a = dqn.action(state);
     dqn.QMainNet.show();
     return a;
@@ -196,15 +211,17 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
     int xn = x;
     int yn = y;
     double total = 0;
-    setState(state, x, y, xt, yt);
-    for (int j = 0; j < 256; j++) {
+    vector<double> act(4);
+    act = dpg.policyNet.getOutput();
+    observe(state, x, y, xt, yt, act);
+    for (std::size_t j = 0; j < 64; j++) {
         int xi = xn;
         int yi = yn;
         /* Monte Carlo method */
         direct = dpg.greedyAction(state);
         /* Markov Chain */
         move(xn, yn, direct);
-        setState(nextState, xn, yn, xt, yt);
+        observe(nextState, xn, yn, xt, yt, dpg.policyNet.getOutput());
         Step s;
         s.state = state;
         s.action  = dpg.policyNet.getOutput();
@@ -218,9 +235,9 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
     }
     emit sigTotalReward(total);
     /* training */
-    dpg.reinforce(OPT_RMSPROP, 0.01, steps);
+    dpg.reinforce(OPT_RMSPROP, 0.0001, steps);
     /* making decision */
-    setState(state, x, y, xt, yt);
+    observe(state, x, y, xt, yt, act);
     direct = dpg.action(state);
     dpg.policyNet.show();
     return direct;
@@ -229,41 +246,40 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
 int Controller::ddpgAgent(int x, int y, int xt, int yt)
 {
     int a = 0;
-    int steps = 1;
     /* exploring environment */
-    for (int i = 0; i < steps; i++) {
-        int xn = x;
-        int yn = y;
-        double r = 0;
-        double totalReward = 0;
-        setState(state, x, y, xt, yt);
-        for (int j = 0; j < 128; j++) {
-            int xi = xn;
-            int yi = yn;
-            std::vector<double> & action = ddpg.greedyAction(state);
-            int k = maxAction(action);
-            move(xn, yn, k);
-            r = reward1(xi, yi, xn, yn, xt, yt);
-            totalReward += r;
-            setState(nextState, xn, yn, xt, yt);
-            if (map[xn][yn] == 1) {
-                ddpg.perceive(state, action, nextState, r, true);
-                break;
-            }
-            if (xn == xt && yn == yt) {
-                ddpg.perceive(state, action, nextState, r, true);
-                break;
-            } else {
-                ddpg.perceive(state, action, nextState, r, false);
-            }
-            state = nextState;
+    int xn = x;
+    int yn = y;
+    double r = 0;
+    double totalReward = 0;
+    vector<double> act(4);
+    act = ddpg.actorP.getOutput();
+    observe(state, x, y, xt, yt, act);
+    for (std::size_t j = 0; j < 128; j++) {
+        int xi = xn;
+        int yi = yn;
+        Vec & action = ddpg.greedyAction(state);
+        int k = maxAction(action);
+        move(xn, yn, k);
+        r = reward1(xi, yi, xn, yn, xt, yt);
+        totalReward += r;
+        observe(nextState, xn, yn, xt, yt, ddpg.actorP.getOutput());
+        if (map[xn][yn] == 1) {
+            ddpg.perceive(state, action, nextState, r, true);
+            break;
         }
-        emit sigTotalReward(totalReward);
+        if (xn == xt && yn == yt) {
+            ddpg.perceive(state, action, nextState, r, true);
+            break;
+        } else {
+            ddpg.perceive(state, action, nextState, r, false);
+        }
+        state = nextState;
     }
+    emit sigTotalReward(totalReward);
     /* training */
     ddpg.learn(OPT_RMSPROP, 8192, 256, 64, 0.01, 0.02);
     /* making decision */
-    setState(state, x, y, xt, yt);
+    observe(state, x, y, xt, yt, act);
     a = ddpg.action(state);
     ddpg.actorP.show();
     return a;
@@ -276,16 +292,18 @@ int Controller::ppoAgent(int x, int y, int xt, int yt)
     vector<Transit> trans;
     int xn = x;
     int yn = y;
-    setState(state, x, y, xt, yt);
+    vector<double> act(4);
+    act = ppo.actorP.getOutput();
+    observe(state, x, y, xt, yt, act);
     double total = 0;
-    for (int j = 0; j < 128; j++) {
+    for (std::size_t j = 0; j < 64; j++) {
         int xi = xn;
         int yi = yn;
         /* Monte Carlo method */
         direct = ppo.greedyAction(state);
         /* Markov Chain */
         move(xn, yn, direct);
-        setState(nextState, xn, yn, xt, yt);
+        observe(nextState, xn, yn, xt, yt, ppo.actorP.getOutput());
         Transit t;
         t.state = state;
         t.action = ppo.actorQ.getOutput();
@@ -299,9 +317,9 @@ int Controller::ppoAgent(int x, int y, int xt, int yt)
     }
     emit sigTotalReward(total);
     /* training */
-    ppo.learnWithKLpenalty(OPT_RMSPROP, 0.01, trans);
+    ppo.learnWithClipObject(OPT_RMSPROP, 0.01, trans);
     /* making decision */
-    setState(state, x, y, xt, yt);
+    observe(state, x, y, xt, yt, act);
     direct = ppo.action(state);
     ppo.actorP.show();
     return direct;
@@ -318,8 +336,8 @@ int Controller::supervisedAgent(int x, int y, int xt, int yt)
     double m = 0;
     vector<double>& action = mlp.getOutput();
     if (training) {
-        setState(state, xn, yn, xt, yt);
-        for (int i = 0; i < 128; i++) {
+        observe(state, xn, yn, xt, yt, action);
+        for (std::size_t i = 0; i < 128; i++) {
             mlp.feedForward(state);
             direct1 = maxAction(action);
             direct2 = astarAgent(xn, yn, xt, yt);
@@ -335,13 +353,13 @@ int Controller::supervisedAgent(int x, int y, int xt, int yt)
             if (map[xn][yn] == 1) {
                 break;
             }
-            setState(state, xn, yn, xt, yt);
+            observe(state, xn, yn, xt, yt, action);
         }
         if (m > 0) {
             mlp.optimize(OPT_RMSPROP, 0.01);
         }
     }
-    setState(state, x, y, xt, yt);
+    observe(state, x, y, xt, yt, action);
     mlp.feedForward(state);
     direct1 = maxAction(action);
     mlp.show();
@@ -362,7 +380,7 @@ int Controller::maxAction(vector<double>& action)
 {
     double maxValue = action[0];
     int direct = 0;
-    for (int i = 0; i < action.size(); i++) {
+    for (std::size_t i = 0; i < action.size(); i++) {
         if (maxValue < action[i]) {
             maxValue = action[i];
             direct = i;

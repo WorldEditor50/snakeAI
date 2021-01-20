@@ -14,7 +14,7 @@ public:
     void add(int x, int y);
     void reset(int rows, int cols);
     void move(int direct);
-    bool check();
+    bool isHitSelf();
     vector<Point> body;
 };
 

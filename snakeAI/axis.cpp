@@ -2,7 +2,7 @@
 
 Axis::Axis(QWidget *parent) : QWidget(parent)
 {
-    setMinimumSize(QSize(800, 600));
+    setMinimumSize(QSize(600, 600));
     QPalette pal;
     pal.setBrush(backgroundRole(), Qt::white);
     x = 0;
@@ -20,6 +20,7 @@ void Axis::addPoint(double y)
 
 void Axis::paintEvent(QPaintEvent *ev)
 {
+    Q_UNUSED(ev)
     int w = this->width() / 2;
     int h = this->height() / 2;
     QPainter painter(this);
@@ -93,7 +94,6 @@ void Axis::paintEvent(QPaintEvent *ev)
 
 void Axis::timerEvent(QTimerEvent *event)
 {
-    double a = 200;
     if (event->timerId() == timerID) {
         double y = rand() % 200 - rand() % 200;
         QPointF p(x, y);

@@ -14,15 +14,15 @@ class Board
 public:
     Board(){}
     ~Board(){}
-    void init(int w, int h);
+    void init(std::size_t w, std::size_t h);
     void setTarget();
     void setTarget(vector<Point>& body);
-    int width;
-    int height;
-    int rows;
-    int cols;
-    int unitLen;
-    int blockNum;
+    std::size_t width;
+    std::size_t height;
+    std::size_t rows;
+    std::size_t cols;
+    std::size_t unitLen;
+    std::size_t blockNum;
     int xt;
     int yt;
     vector<vector<int> > map;

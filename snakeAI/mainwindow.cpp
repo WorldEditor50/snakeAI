@@ -1,16 +1,14 @@
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
 #include <QThread>
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent),controller(this, board.map)
-    , ui(new Ui::MainWindow)
+    : QMainWindow(parent),
+      controller(this, board.map, snake)
 {
     QPalette pal;
     pal.setBrush(backgroundRole(), Qt::black);
     setPalette(pal);
     axis = new Axis;
     connect(&controller, &Controller::sigTotalReward, axis, &Axis::addPoint);
-    ui->setupUi(this);
     axis->move(1000, 0);
     axis->show();
 }
@@ -23,20 +21,19 @@ MainWindow::~MainWindow()
     controller.mlp.save("./bp_weights3");
     axis->close();
     axis->deleteLater();
-    delete ui;
 }
 
 void MainWindow::init()
 {
-    int w = 900;
-    int h = 900;
+    int w = 600;
+    int h = 600;
     this->setGeometry(100, 50, 1000, 1000);
     this->setFixedSize(w, h);
     this->board.init(w, h);
     this->snake.create(25, 25);
     /* reinforcement learning */
-    //controller.dqn.load("./dqn_weights01");
-    //controller.dpg.load("./dpg_weights");
+    controller.dqn.load("./dqn_weights_02");
+    controller.dpg.load("./dpg_weights");
     //controller.ddpg.load("./ddpg_actor_1", "./ddpg_critic_1");
     /* supervised learning */
     controller.mlp.load("./bp_weights3");
@@ -54,13 +51,14 @@ QRect MainWindow::getRect(int x, int y)
 
 void MainWindow::paintEvent(QPaintEvent *ev)
 {
+    Q_UNUSED(ev)
     QPainter p(this);
     p.setPen(Qt::black);
     p.setBrush(Qt::gray);
     p.setRenderHint(QPainter::Antialiasing);
     /* draw map */
-    for (int i=0; i < board.rows; i++) {
-        for (int j=0; j < board.cols; j++) {
+    for (std::size_t i=0; i < board.rows; i++) {
+        for (std::size_t j=0; j < board.cols; j++) {
             if (board.map[i][j] == 1) {
                 p.setBrush(Qt::gray);
                 QRect rect = getRect(i, j);
@@ -76,7 +74,7 @@ void MainWindow::paintEvent(QPaintEvent *ev)
     /* draw snake */
     p.setBrush(Qt::red);
     p.setPen(Qt::red);
-    for (int i = 0; i < snake.body.size(); i++) {
+    for (std::size_t i = 0; i < snake.body.size(); i++) {
         QRect rect = getRect(snake.body[i].x, snake.body[i].y);
         p.drawRect(rect);
     }
@@ -106,7 +104,7 @@ void MainWindow::play1()
             board.setTarget(snake.body);
         }
 #if 0
-        for (int i = 1; i < snake.body.size(); i++) {
+        for (std::size_t i = 1; i < snake.body.size(); i++) {
             if (x == snake.body[i].x && y == snake.body[i].y) {
                 snake.reset(board.rows, board.cols);
                 board.setTarget(snake.body);
@@ -121,16 +119,16 @@ void MainWindow::play1()
 
 void MainWindow::play2()
 {
-    QTimer::singleShot(100, [&]{
+    QTimer::singleShot(100, [=](){
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         int direct = 0;
-        direct = controller.ddpgAgent(x, y, board.xt, board.yt);
+        direct = controller.dqnAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
         y = snake.body[0].y;
         if (x == board.xt && y == board.yt) {
-            if (snake.body.size() < 50) {
+            if (snake.body.size() < 500) {
                snake.add(board.xt, board.yt);
             }
             board.setTarget();
@@ -139,9 +137,9 @@ void MainWindow::play2()
             snake.reset(board.rows, board.cols);
             board.setTarget();
         }
-        if (snake.check()) {
-            //snake.reset(board.rows, board.cols);
-            //board.setTarget();
+        if (snake.isHitSelf()) {
+            snake.reset(board.rows, board.cols);
+            board.setTarget();
         }
         update();
     });

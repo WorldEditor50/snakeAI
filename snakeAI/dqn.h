@@ -12,14 +12,14 @@
 namespace ML {
 struct Transition
 {
-    std::vector<double> state;
-    std::vector<double> action;
-    std::vector<double> nextState;
+    Vec state;
+    Vec action;
+    Vec nextState;
     double reward;
     bool done;
     Transition(){}
-    explicit Transition(std::vector<double>& s, std::vector<double>& a,
-               std::vector<double>& s_, double r, bool d)
+    explicit Transition(Vec& s, Vec& a,
+               Vec& s_, double r, bool d)
     {
         state = s;
         action = a;
@@ -32,27 +32,27 @@ class DQN
 {
 public:
     DQN(){}
-    explicit DQN(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
+    explicit DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t actionDim);
     ~DQN(){}
-    void perceive(std::vector<double>& state,
-                  std::vector<double>& action,
-                  std::vector<double>& nextState,
+    void perceive(Vec& state,
+                  Vec& action,
+                  Vec& nextState,
                   double reward,
                   bool done);
-    std::vector<double>& greedyAction(std::vector<double>& state);
+    Vec& greedyAction(Vec& state);
     int randomAction();
-    int action(std::vector<double>& state);
-    int maxQ(std::vector<double>& q_value);
+    int action(Vec& state);
+    int maxQ(Vec& q_value);
     void experienceReplay(Transition& x);
-    void learn(int optType = OPT_RMSPROP,
-               int maxMemorySize = 4096,
-               int replaceTargetIter = 256,
-               int batchSize = 32,
+    void learn(OptType optType = OPT_RMSPROP,
+               std::size_t maxMemorySize = 4096,
+               std::size_t replaceTargetIter = 256,
+               std::size_t batchSize = 32,
                double learningRate = 0.001);
     void save(const std::string& fileName);
     void load(const std::string& fileName);
-    int stateDim;
-    int actionDim;
+    std::size_t stateDim;
+    std::size_t actionDim;
     double gamma;
     double exploringRate;
     int learningSteps;

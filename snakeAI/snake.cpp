@@ -2,7 +2,7 @@
 
 void Snake::create(int x, int y)
 {
-    for (int i =0; i < 3; i++) {
+    for (std::size_t i =0; i < 3; i++) {
         body.push_back(Point(x + i, y));
     }
     return;
@@ -11,7 +11,7 @@ void Snake::create(int x, int y)
 void Snake::add(int x, int y)
 {
     body.push_back(Point(0, 0));
-    for (int i = body.size() - 1; i > 0; i--) {
+    for (std::size_t i = body.size() - 1; i > 0; i--) {
         body[i].x = body[i - 1].x;
         body[i].y = body[i - 1].y;
     }
@@ -38,7 +38,7 @@ void Snake::reset(int rows, int cols)
 
 void Snake::move(int direct)
 {
-    for (int i = body.size() - 1; i > 0; i--) {
+    for (std::size_t i = body.size() - 1; i > 0; i--) {
         body[i].x = body[i - 1].x;
         body[i].y = body[i - 1].y;
     }
@@ -46,10 +46,10 @@ void Snake::move(int direct)
     return;
 }
 
-bool Snake::check()
+bool Snake::isHitSelf()
 {
     bool flag = false;
-    for (int i = 1; i < body.size(); i++) {
+    for (std::size_t i = 1; i < body.size(); i++) {
         if (body[0].x == body[i].x && body[0].y == body[i].y) {
             flag = true;
             break;
