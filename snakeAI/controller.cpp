@@ -1,17 +1,18 @@
 #include "controller.h"
-
+#include <QDebug>
 Controller::Controller(QObject *parent, vector<vector<int> >& map, Snake &s):
     QObject(parent),
     map(map),
     snake(s)
 {
-    this->dqn = DQN(12, 24, 4, 4);
-    this->dpg = DPG(12, 24, 4, 4);
-    this->ddpg = DDPG(12, 24, 4, 4);
-    this->ppo = PPO(12, 24, 4, 4);
-    this->mlp = MLP(12, 24, 4, 4, 1);
-    this->state.resize(12);
-    this->nextState.resize(12);
+    int stateDim = 8;
+    this->dqn = DQN(stateDim, 16, 4, 4);
+    this->dpg = DPG(stateDim, 16, 4, 4);
+    this->ddpg = DDPG(stateDim, 16, 4, 4);
+    this->ppo = PPO(stateDim, 16, 4, 4);
+    this->mlp = MLP(stateDim, 16, 4, 4, 1);
+    this->state.resize(stateDim);
+    this->nextState.resize(stateDim);
 }
 
 Controller::~Controller()
@@ -21,14 +22,11 @@ Controller::~Controller()
 
 double Controller::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (snake.isHitSelf()) {
-        return -4;
-    }
     if (map[xn][yn] == 1) {
-        return -4;
+        return -1;
     }
     if (xn == xt && yn == yt) {
-        return 2;
+        return 1;
     }
     double x1 = (xi - xt)*(xi - xt) + (yi - yt) * (yi - yt);
     double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
@@ -47,8 +45,7 @@ double Controller::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
     }
     double x1 = (xi - xt)*(xi - xt) + (yi - yt) * (yi - yt);
     double x2 = (xn - xt)*(xn - xt) + (yn - yt) * (yn - yt);
-    double r = x2 / (x1 - x2);
-    return tanh(r);
+    return tanh(1 / (x1 - x2));
 }
 
 double Controller::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
@@ -92,14 +89,10 @@ void Controller::observe(vector<double>& statex, int x, int y, int xt, int yt, v
     statex[1] = (y - yc) / yc;
     statex[2] = (xt - xc) / xc;
     statex[3] = (yt - yc) / yc;
-    statex[4] = statex[2] - statex[0];
-    statex[5] = statex[3] - statex[1];
-    statex[6] = statex[4] - statex[5];
-    statex[7] = statex[4] + statex[5];
-    statex[8] = output[0];
-    statex[9] = output[1];
-    statex[10] = output[2];
-    statex[11] = output[3];
+    statex[4] = output[0];
+    statex[5] = output[1];
+    statex[6] = output[2];
+    statex[7] = output[3];
     return;
 }
 
@@ -168,9 +161,7 @@ int Controller::dqnAgent(int x, int y, int xt, int yt)
     int yn = y;
     double r = 0;
     double total = 0;
-    vector<double> act(4);
-    act = dqn.QMainNet.getOutput();
-    observe(state, x, y, xt, yt, act);
+    observe(state, x, y, xt, yt, dqn.QMainNet.getOutput());
     for (std::size_t j = 0; j < 256; j++) {
         int xi = xn;
         int yi = yn;
@@ -180,7 +171,7 @@ int Controller::dqnAgent(int x, int y, int xt, int yt)
         r = reward1(xi, yi, xn, yn, xt, yt);
         //std::cout<<r<<std::endl;
         total += r;
-        observe(nextState, xn, yn, xt, yt, dqn.QMainNet.getOutput());
+        observe(nextState, xn, yn, xt, yt, action);
         if (map[xn][yn] == 1) {
             dqn.perceive(state, action, nextState, r, true);
             break;
@@ -195,9 +186,9 @@ int Controller::dqnAgent(int x, int y, int xt, int yt)
     }
     emit sigTotalReward(total);
     /* training */
-    dqn.learn(OPT_RMSPROP, 8192, 256, 64, 0.001);
+    dqn.learn(OPT_RMSPROP, 8192, 1024, 64, 0.001);
     /* making decision */
-    observe(state, x, y, xt, yt, act);
+    observe(state, x, y, xt, yt, dqn.QMainNet.getOutput());
     int a = dqn.action(state);
     dqn.QMainNet.show();
     return a;
@@ -211,9 +202,7 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
     int xn = x;
     int yn = y;
     double total = 0;
-    vector<double> act(4);
-    act = dpg.policyNet.getOutput();
-    observe(state, x, y, xt, yt, act);
+    observe(state, x, y, xt, yt, dpg.policyNet.getOutput());
     for (std::size_t j = 0; j < 64; j++) {
         int xi = xn;
         int yi = yn;
@@ -235,9 +224,9 @@ int Controller::dpgAgent(int x, int y, int xt, int yt)
     }
     emit sigTotalReward(total);
     /* training */
-    dpg.reinforce(OPT_RMSPROP, 0.0001, steps);
+    dpg.reinforce(OPT_RMSPROP, 0.01, steps);
     /* making decision */
-    observe(state, x, y, xt, yt, act);
+    observe(state, x, y, xt, yt, dpg.policyNet.getOutput());
     direct = dpg.action(state);
     dpg.policyNet.show();
     return direct;
@@ -251,9 +240,7 @@ int Controller::ddpgAgent(int x, int y, int xt, int yt)
     int yn = y;
     double r = 0;
     double totalReward = 0;
-    vector<double> act(4);
-    act = ddpg.actorP.getOutput();
-    observe(state, x, y, xt, yt, act);
+    observe(state, x, y, xt, yt, ddpg.actorP.getOutput());
     for (std::size_t j = 0; j < 128; j++) {
         int xi = xn;
         int yi = yn;
@@ -279,7 +266,7 @@ int Controller::ddpgAgent(int x, int y, int xt, int yt)
     /* training */
     ddpg.learn(OPT_RMSPROP, 8192, 256, 64, 0.01, 0.02);
     /* making decision */
-    observe(state, x, y, xt, yt, act);
+    observe(state, x, y, xt, yt, ddpg.actorP.getOutput());
     a = ddpg.action(state);
     ddpg.actorP.show();
     return a;
@@ -292,9 +279,7 @@ int Controller::ppoAgent(int x, int y, int xt, int yt)
     vector<Transit> trans;
     int xn = x;
     int yn = y;
-    vector<double> act(4);
-    act = ppo.actorP.getOutput();
-    observe(state, x, y, xt, yt, act);
+    observe(state, x, y, xt, yt, ppo.actorP.getOutput());
     double total = 0;
     for (std::size_t j = 0; j < 64; j++) {
         int xi = xn;
@@ -319,7 +304,7 @@ int Controller::ppoAgent(int x, int y, int xt, int yt)
     /* training */
     ppo.learnWithClipObject(OPT_RMSPROP, 0.01, trans);
     /* making decision */
-    observe(state, x, y, xt, yt, act);
+    observe(state, x, y, xt, yt, ppo.actorP.getOutput());
     direct = ppo.action(state);
     ppo.actorP.show();
     return direct;

@@ -5,8 +5,8 @@ ML::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLaye
     this->exploringRate = 1;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->QMainNet = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, 1);
-    this->QTargetNet = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, 0);
+    this->QMainNet = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, true, SIGMOID);
+    this->QTargetNet = MLP(stateDim, hiddenDim, hiddenLayerNum, actionDim, false, SIGMOID);
     this->QMainNet.copyTo(QTargetNet);
     return;
 }

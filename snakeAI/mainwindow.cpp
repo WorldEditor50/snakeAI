@@ -31,12 +31,14 @@ void MainWindow::init()
     this->setFixedSize(w, h);
     this->board.init(w, h);
     this->snake.create(25, 25);
+#if 0
     /* reinforcement learning */
     controller.dqn.load("./dqn_weights_02");
     controller.dpg.load("./dpg_weights");
     //controller.ddpg.load("./ddpg_actor_1", "./ddpg_critic_1");
     /* supervised learning */
     controller.mlp.load("./bp_weights3");
+#endif
     return;
 }
 
@@ -137,10 +139,12 @@ void MainWindow::play2()
             snake.reset(board.rows, board.cols);
             board.setTarget();
         }
+#if 0
         if (snake.isHitSelf()) {
             snake.reset(board.rows, board.cols);
             board.setTarget();
         }
+#endif
         update();
     });
     return;
