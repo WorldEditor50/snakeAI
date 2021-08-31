@@ -1,12 +1,14 @@
 #include "axis.h"
 
-Axis::Axis(QWidget *parent) : QWidget(parent)
+Axis::Axis(QWidget *parent) :
+    QWidget(parent),
+    interval(40),
+    scale(1)
 {
     setMinimumSize(QSize(600, 600));
     QPalette pal;
     pal.setBrush(backgroundRole(), Qt::white);
     x = 0;
-    //timerID = startTimer(100);
 }
 
 void Axis::addPoint(double y)
@@ -14,6 +16,20 @@ void Axis::addPoint(double y)
     QPointF p(x, y);
     points.append(p);
     x++;
+    update();
+    return;
+}
+
+void Axis::setInterval(int value)
+{
+    interval = value;
+    update();
+    return;
+}
+
+void Axis::setScale(int value)
+{
+    scale = value;
     update();
     return;
 }
@@ -38,6 +54,8 @@ void Axis::paintEvent(QPaintEvent *ev)
     painter.setPen(pen);
     painter.drawLine(-w, 0, w, 0);
     painter.drawLine(0, h, 0, -h);
+    /* draw scale */
+    painter.drawText(-w + 20, -h + 20, QString("SCALE:x%1").arg(scale));
     /* grid */
     pen.setWidthF(0.3);
     pen.setColor(Qt::gray);
@@ -56,7 +74,6 @@ void Axis::paintEvent(QPaintEvent *ev)
     pen.setColor(Qt::gray);
     painter.setPen(pen);
 
-    int interval = 100;
     for (int i = 0; i >= -w; i -= interval) {
         painter.drawText(i, 20, QString("%1").arg(i));
     }

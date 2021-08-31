@@ -6,15 +6,12 @@
 #define    UP       2
 #define    DOWN     3
 
-class Point {
+class Point
+{
 public:
     Point(){}
     ~Point(){}
-    Point(int x, int y)
-    {
-        this->x = x;
-        this->y = y;
-    }
+    Point(int x_, int y_):x(x_), y(y_){}
     int x;
     int y;
 };

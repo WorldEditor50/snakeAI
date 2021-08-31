@@ -9,7 +9,7 @@
 #include "common.h"
 #include "snake.h"
 using namespace std;
-using namespace ML;
+using namespace RL;
 class Controller : public QObject
 {
     Q_OBJECT
@@ -30,18 +30,19 @@ public:
     double reward3(int xi, int yi, int xn, int yn, int xt, int yt);
     double reward4(int xi, int yi, int xn, int yn, int xt, int yt);
     bool move(int& x, int& y, int direct);
-    int maxAction(vector<double>& Action);
+public:
     vector<vector<int> >& map;
     Snake &snake;
     vector<double> state;
     vector<double> nextState;
     DQN dqn;
-    MLP mlp;
+    BPNN bpnn;
     DPG dpg;
     DDPG ddpg;
     PPO ppo;
 signals:
-    void sigTotalReward(double r);
+    void totalReward(double r);
+    void scale(int value);
 public slots:
 };
 

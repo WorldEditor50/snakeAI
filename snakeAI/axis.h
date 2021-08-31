@@ -20,10 +20,14 @@ signals:
 
 public slots:
     void addPoint(double y);
+    void setInterval(int value);
+    void setScale(int value);
 public:
     QList<QPointF> points;
     int timerID;
     double x = 0;
+    int interval;
+    int scale;
 };
 
 #endif // AXIS_H

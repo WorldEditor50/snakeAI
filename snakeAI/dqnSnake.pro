@@ -20,14 +20,9 @@ SOURCES += \
     board.cpp \
     common.cpp \
     controller.cpp \
-    ddpg.cpp \
-    dpg.cpp \
-    dqn.cpp \
     genetic.cpp \
     main.cpp \
     mainwindow.cpp \
-    mlp.cpp \
-    ppo.cpp \
     snake.cpp
 
 HEADERS += \
@@ -35,15 +30,11 @@ HEADERS += \
     board.h \
     common.h \
     controller.h \
-    ddpg.h \
-    dpg.h \
-    dqn.h \
     genetic.h \
     mainwindow.h \
-    mlp.h \
-    ppo.h \
     snake.h
-FORMS +=
+
+include($$PWD/rl/rl.pri)
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

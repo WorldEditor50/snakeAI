@@ -8,7 +8,8 @@ MainWindow::MainWindow(QWidget *parent)
     pal.setBrush(backgroundRole(), Qt::black);
     setPalette(pal);
     axis = new Axis;
-    connect(&controller, &Controller::sigTotalReward, axis, &Axis::addPoint);
+    connect(&controller, &Controller::totalReward, axis, &Axis::addPoint);
+    connect(&controller, &Controller::scale, axis, &Axis::setScale);
     axis->move(1000, 0);
     axis->show();
 }
@@ -18,7 +19,7 @@ MainWindow::~MainWindow()
     controller.dqn.save("./dqn_weights_02");
     controller.dpg.save("./dpg_weights");
     controller.ddpg.save("./ddpg_actor_1", "./ddpg_critic_1");
-    controller.mlp.save("./bp_weights3");
+    controller.bpnn.save("./bp_weights3");
     axis->close();
     axis->deleteLater();
 }
@@ -125,7 +126,7 @@ void MainWindow::play2()
         int x = snake.body[0].x;
         int y = snake.body[0].y;
         int direct = 0;
-        direct = controller.dqnAgent(x, y, board.xt, board.yt);
+        direct = controller.ppoAgent(x, y, board.xt, board.yt);
         snake.move(direct);
         x = snake.body[0].x;
         y = snake.body[0].y;
