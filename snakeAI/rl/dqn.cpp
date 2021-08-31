@@ -50,7 +50,7 @@ void RL::DQN::experienceReplay(Transition& x)
     Vec& QMainNetOutput = QMainNet.output();
     /* estimate q-target: Q-Regression */
     /* select Action to estimate q-value */
-    int i = RL::max(x.action);
+    int i = RL::argmax(x.action);
     QMainNet.feedForward(x.state);
     qTarget = QMainNetOutput;
     if (x.done == true) {

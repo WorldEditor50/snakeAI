@@ -56,7 +56,7 @@ int RL::DDPG::noiseAction(Vec &state)
             out[i] += double(rand() % 100 - rand() % 100) / 1000;
         }
     }
-    index = RL::max(out);
+    index = RL::argmax(out);
     return index;
 }
 
@@ -92,7 +92,7 @@ void RL::DDPG::experienceReplay(Transition& x)
     Vec& cTargetOutput = criticTargetNet.output();
     Vec& cMainOutput = criticMainNet.output();
     /* estimate action value */
-    int i = RL::max(x.action);
+    int i = RL::argmax(x.action);
     actorP.feedForward(x.state);
     setSA(x.state, p);
     criticMainNet.feedForward(sa);

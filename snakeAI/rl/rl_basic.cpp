@@ -1,7 +1,7 @@
 #include "rl_basic.h"
 #include <cmath>
 
-int RL::max(const std::vector<double> &x)
+int RL::argmax(const std::vector<double> &x)
 {
     int index = 0;
     double maxValue = x[0];
@@ -14,17 +14,7 @@ int RL::max(const std::vector<double> &x)
     return index;
 }
 
-void RL::zscore(std::vector<double> &x)
-{
-    /* sigma */
-    double sigma = variance(x);
-    for (std::size_t i = 0 ; i < x.size(); i++) {
-        x[i] /= sigma;
-    }
-    return;
-}
-
-int RL::min(const std::vector<double> &x)
+int RL::argmin(const std::vector<double> &x)
 {
     int index = 0;
     double minValue = x[0];
@@ -35,6 +25,38 @@ int RL::min(const std::vector<double> &x)
         }
     }
     return index;
+}
+
+double RL::max(const std::vector<double> &x)
+{
+    double maxValue = x[0];
+    for (std::size_t i = 0; i < x.size(); i++) {
+        if (maxValue < x[i]) {
+            maxValue = x[i];
+        }
+    }
+    return maxValue;
+}
+
+double RL::min(const std::vector<double> &x)
+{
+    double minValue = x[0];
+    for (std::size_t i = 0; i < x.size(); i++) {
+        if (minValue > x[i]) {
+            minValue = x[i];
+        }
+    }
+    return minValue;
+}
+
+void RL::zscore(std::vector<double> &x)
+{
+    /* sigma */
+    double sigma = variance(x);
+    for (std::size_t i = 0 ; i < x.size(); i++) {
+        x[i] /= sigma;
+    }
+    return;
 }
 
 double RL::mean(const std::vector<double> &x)

@@ -33,8 +33,10 @@ struct Step
         :state(s), action(a), reward(r) {}
 };
 
-int max(const std::vector<double> &x);
-int min(const std::vector<double> &x);
+int argmax(const std::vector<double> &x);
+int argmin(const std::vector<double> &x);
+double max(const std::vector<double> &x);
+double min(const std::vector<double> &x);
 double sum(const std::vector<double> &x);
 double mean(const std::vector<double> &x);
 double variance(const std::vector<double> &x);

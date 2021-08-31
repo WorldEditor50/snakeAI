@@ -56,7 +56,7 @@ void RL::DPG::reinforce(OptType optType, double learningRate, std::vector<Step>&
     }
     u = u / n;
     for (std::size_t i = 0; i < x.size(); i++) {
-        int k = RL::max(x[i].action);
+        int k = RL::argmax(x[i].action);
         x[i].action[k] *= discoutedReward[i] - u;
         policyNet.gradient(x[i].state, x[i].action);
     }

@@ -145,7 +145,7 @@ int Controller::randAgent(int x, int y, int xt, int yt)
         xn = x;
         yn = y;
         /* select optimal Action */
-        direct = RL::max(Action);
+        direct = RL::argmax(Action);
         move(xn, yn, direct);
         if (map[xn][yn] != 1) {
             break;
@@ -169,7 +169,7 @@ int Controller::dqnAgent(int x, int y, int xt, int yt)
         int xi = xn;
         int yi = yn;
         Vec& action = dqn.greedyAction(state);
-        int k = RL::max(action);
+        int k = RL::argmax(action);
         move(xn, yn, k);
         r = reward4(xi, yi, xn, yn, xt, yt);
         //std::cout<<r<<std::endl;
@@ -248,7 +248,7 @@ int Controller::ddpgAgent(int x, int y, int xt, int yt)
         int xi = xn;
         int yi = yn;
         Vec & action = ddpg.greedyAction(state);
-        int k = RL::max(action);
+        int k = RL::argmax(action);
         move(xn, yn, k);
         r = reward1(xi, yi, xn, yn, xt, yt);
         total += r;
@@ -328,7 +328,7 @@ int Controller::supervisedAgent(int x, int y, int xt, int yt)
         observe(state, xn, yn, xt, yt, action);
         for (std::size_t i = 0; i < 128; i++) {
             bpnn.feedForward(state);
-            direct1 = RL::max(action);
+            direct1 = RL::argmax(action);
             direct2 = astarAgent(xn, yn, xt, yt);
             if (direct1 != direct2) {
                 vector<double> target(4, 0);
@@ -350,7 +350,7 @@ int Controller::supervisedAgent(int x, int y, int xt, int yt)
     }
     observe(state, x, y, xt, yt, action);
     bpnn.feedForward(state);
-    direct1 = RL::max(action);
+    direct1 = RL::argmax(action);
     bpnn.show();
     return direct1;
 }

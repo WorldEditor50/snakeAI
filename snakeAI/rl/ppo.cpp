@@ -74,7 +74,7 @@ void RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::vect
         Vec& q = x[i].action;
         actorP.feedForward(x[i].state);
         Vec y(q);
-        int k = RL::max(q);
+        int k = RL::argmax(q);
         double kl = p[k] * (log(p[k]) - log(q[k] + 1e-9));
         y[k] = q[k] + p[k] / (q[k] + 1e-9) * advantage - beta * kl;
         KLexpect += kl;
@@ -123,7 +123,7 @@ void RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::vec
         /* actor */
         Vec& q = x[i].action;
         actorP.feedForward(x[i].state);
-        int k = RL::max(q);
+        int k = RL::argmax(q);
         double ratio = p[k] / (q[k] + 1e-9);
         if (advantage > 0) {
             ratio = (ratio > 1 + epsilon) ? (1 + epsilon) : ratio;
