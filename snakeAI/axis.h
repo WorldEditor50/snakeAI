@@ -4,18 +4,20 @@
 #include <QWidget>
 #include <QPaintEvent>
 #include <QPainter>
+#include <QWheelEvent>
 #include <QTimer>
 #include <cmath>
 
-class Axis : public QWidget
+class AxisWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit Axis(QWidget *parent = nullptr);
+    explicit AxisWidget(QWidget *parent = nullptr);
 
 protected:
-    void paintEvent(QPaintEvent *ev) override;
+    void paintEvent(QPaintEvent *event) override;
     void timerEvent(QTimerEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 signals:
 
 public slots:

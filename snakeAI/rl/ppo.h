@@ -5,6 +5,7 @@
 #include <fstream>
 #include <vector>
 #include <deque>
+#include <random>
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
@@ -18,13 +19,15 @@ public:
     PPO(){}
     explicit PPO(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
     ~PPO(){}
-    int greedyAction(Vec& state);
-    int action(Vec& state);
-    double getValue(Vec &s);
+    void continousAction(const Vec &state, Vec& act);
+    BPNN &greedyAction(const Vec &state);
+    BPNN &action(const Vec &state);
+    Vec& output(){return actorP.output();}
     void learnWithKLpenalty(OptType optType, double learningRate, std::vector<Transition>& x);
     void learnWithClipObject(OptType optType, double learningRate, std::vector<Transition>& x);
     void save(const std::string &actorPara, const std::string &criticPara);
     void load(const std::string &actorPara, const std::string &criticPara);
+protected:
     int stateDim;
     int actionDim;
     double gamma;

@@ -25,9 +25,9 @@ public:
                   double reward,
                   bool done);
     Vec& greedyAction(Vec& state);
-    int randomAction();
-    int action(Vec& state);
-    void experienceReplay(Transition& x);
+    Vec& output();
+    int action(const Vec &state);
+    void experienceReplay(const Transition& x);
     void learn(OptType optType = OPT_RMSPROP,
                std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
@@ -35,6 +35,7 @@ public:
                double learningRate = 0.001);
     void save(const std::string& fileName);
     void load(const std::string& fileName);
+protected:
     std::size_t stateDim;
     std::size_t actionDim;
     double gamma;

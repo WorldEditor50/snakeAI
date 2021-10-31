@@ -20,16 +20,17 @@ public:
     DDPG(){}
     ~DDPG(){}
     explicit DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t actionDim);
-    void perceive(Vec& state,
-                  Vec& action,
-                  Vec& nextState,
+    void perceive(const Vec& state,
+                  const Vec& action,
+                  const Vec& nextState,
                   double reward,
                   bool done);
-    void setSA(Vec& state, Vec& action);
-    int noiseAction(Vec& state);
+    void setSA(const Vec& state, const Vec& action);
+    int noiseAction(const Vec &state);
     int randomAction();
-    Vec& greedyAction(Vec& state);
-    int action(Vec& state);
+    Vec& greedyAction(const Vec &state);
+    Vec& output() {return actorP.output();}
+    int action(const Vec& state);
     void experienceReplay(Transition& x);
     void learn(OptType optType  = OPT_RMSPROP,
                std::size_t maxMemorySize = 4096,
@@ -39,22 +40,18 @@ public:
                double criticLearningRate = 0.001);
     void save(const std::string& actorPara, const std::string& criticPara);
     void load(const std::string& actorPara, const std::string& criticPara);
-public:
+protected:
     std::size_t stateDim;
     std::size_t actionDim;
     double gamma;
-    double alpha;
     double beta;
-    int maxMemorySize;
-    int batchSize;
     double exploringRate;
     int learningSteps;
-    int replaceTargetIter;
     Vec sa;
     BPNN actorP;
     BPNN actorQ;
-    BPNN criticMainNet;
-    BPNN criticTargetNet;
+    BPNN criticP;
+    BPNN criticQ;
     std::deque<Transition> memories;
 };
 }

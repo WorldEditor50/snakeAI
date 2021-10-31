@@ -20,11 +20,13 @@ public:
     ~DPG(){}
     int greedyAction(Vec& state);
     int randomAction();
-    int action(Vec& state);
+    Vec& output(){return policyNet.output();}
+    int action(const Vec &state);
     void zscore(Vec& x);
     void reinforce(OptType optType, double learningRate, std::vector<Step>& x);
     void save(const std::string& fileName);
     void load(const std::string& fileName);
+protected:
     std::size_t stateDim;
     std::size_t actionDim;
     double gamma;

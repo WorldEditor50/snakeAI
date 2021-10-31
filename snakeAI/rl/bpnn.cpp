@@ -1,6 +1,6 @@
 #include "bpnn.h"
 
-double RL::Layer::dotProduct(Vec& x1, Vec& x2)
+double RL::Layer::dotProduct(const Vec& x1, const Vec& x2)
 {
     double p = 0;
     for (std::size_t i = 0; i < x1.size(); i++) {
@@ -22,21 +22,21 @@ void RL::Layer::softmax(Vec& x, Vec& y)
     return;
 }
 
-RL::Vec RL::Layer::softmax(Vec &x)
+RL::Vec RL::Layer::softmax(const Vec &x)
 {
     double s = 0;
     double maxValue = max(x);
     for (std::size_t i = 0; i < x.size(); i++) {
         s += exp(x[i] - maxValue);
     }
-    Vec y(x.size(), 0);
+    Vec y(x.size());
     for (std::size_t i = 0; i < x.size(); i++) {
         y[i] = exp(x[i] - maxValue) / s;
     }
     return y;
 }
 
-double RL::Layer::max(Vec &x)
+double RL::Layer::max(const Vec &x)
 {
     double value = x[0];
     for (std::size_t i = 0; i < x.size(); i++) {
@@ -47,7 +47,7 @@ double RL::Layer::max(Vec &x)
     return value;
 }
 
-int RL::Layer::argmax(Vec &x)
+int RL::Layer::argmax(const Vec &x)
 {
     int index = 0;
     double value = x[0];
@@ -69,6 +69,9 @@ double RL::Layer::activate(double x)
             break;
         case RELU:
             y = x > 0 ? x : 0;
+            break;
+        case LEAKY_RELU:
+            y = x > 0 ? x : 0.01*x;
             break;
         case TANH:
             y = tanh(x);
@@ -92,6 +95,9 @@ double RL::Layer::dActivate(double y)
             break;
         case RELU:
             dy = y  > 0 ? 1 : 0;
+            break;
+        case LEAKY_RELU:
+            dy = y  > 0 ? 1 : 0.01;
             break;
         case TANH:
             dy = 1 - y * y;
@@ -146,9 +152,8 @@ RL::Layer::Layer(std::size_t inputDim, std::size_t layerDim, LayerType layerType
     return;
 }
 
-void RL::Layer::feedForward(Vec& x)
+void RL::Layer::feedForward(const Vec& x)
 {
-
     if (x.size() != W[0].size()) {
         std::cout<<"x = "<<x.size()<<std::endl;
         std::cout<<"w = "<<W[0].size()<<std::endl;
@@ -164,7 +169,7 @@ void RL::Layer::feedForward(Vec& x)
     return;
 }
 
-void RL::Layer::error(Vec& nextE, Mat& nextW)
+void RL::Layer::error(const Vec& nextE, const Mat& nextW)
 {
     if (E.size() != nextW[0].size()) {
         std::cout<<"size is not matching"<<std::endl;;
@@ -177,11 +182,11 @@ void RL::Layer::error(Vec& nextE, Mat& nextW)
     return;
 }
 
-void RL::Layer::loss(Vec& yo, Vec& yt)
+void RL::Layer::loss(const Vec& yo, const Vec& yt)
 {
     for (std::size_t i = 0; i < yo.size(); i++) {
         if (lossType == CROSS_ENTROPY) {
-            E[i] = -yt[i] * log(yo[i] + 1e-9);
+            E[i] = -yt[i] * log(yo[i]);
         } else if (lossType == MSE){
             E[i] = yo[i] - yt[i];
         }
@@ -197,7 +202,7 @@ void RL::Layer::loss(Vec &l)
     return;
 }
 
-void RL::Layer::gradient(Vec& x)
+void RL::Layer::gradient(const Vec& x)
 {
     for (std::size_t i = 0; i < dW.size(); i++) {
         double dy = dActivate(O[i]);
@@ -210,7 +215,7 @@ void RL::Layer::gradient(Vec& x)
     return;
 }
 
-void RL::Layer::softmaxGradient(Vec& x, Vec& yo, Vec& yt)
+void RL::Layer::softmaxGradient(const Vec& x, const Vec& yo, const Vec& yt)
 {
     for (std::size_t i = 0; i < dW.size(); i++) {
         double dOutput = yo[i] - yt[i];
@@ -324,9 +329,9 @@ void RL::Layer::RMSPropWithClip(double rho, double learningRate, double threshol
 RL::BPNN::BPNN(std::size_t inputDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t outputDim,
              bool trainFlag, ActiveType activeType, LossType lossType)
 {
-    layers.push_back(Layer(inputDim, hiddenDim, Layer::INPUT, activeType, MSE, trainFlag));
+    layers.push_back(Layer(inputDim, hiddenDim, Layer::INPUT, SIGMOID, MSE, trainFlag));
     for (std::size_t i = 1; i < hiddenLayerNum; i++) {
-        layers.push_back(Layer(hiddenDim, hiddenDim, Layer::HIDDEN, activeType, MSE, trainFlag));
+        layers.push_back(Layer(hiddenDim, hiddenDim, Layer::HIDDEN, SIGMOID, MSE, trainFlag));
     }
     if (lossType == MSE) {
         layers.push_back(Layer(hiddenDim, outputDim, Layer::OUTPUT, activeType, MSE, trainFlag));
@@ -369,7 +374,7 @@ void RL::BPNN::softUpdateTo(BPNN &dstNet, double alpha)
     return;
 }
 
-RL::BPNN &RL::BPNN::feedForward(Vec& x)
+RL::BPNN &RL::BPNN::feedForward(const Vec& x)
 {
     layers[0].feedForward(x);
     for (std::size_t i = 1; i < layers.size(); i++) {
@@ -383,7 +388,7 @@ RL::Vec& RL::BPNN::output()
     return layers.back().O;
 }
 
-void RL::BPNN::backPropagate(Vec& yo, Vec& yt)
+void RL::BPNN::backPropagate(const Vec& yo, const Vec& yt)
 {
     /*  loss */
     layers[outputIndex].loss(yo, yt);
@@ -414,7 +419,7 @@ void RL::BPNN::grad(Vec &x, Vec &y, Vec &loss)
     return;
 }
 
-void RL::BPNN::gradient(Vec &x, Vec &y)
+void RL::BPNN::gradient(const Vec &x, const Vec &y)
 {
     feedForward(x);
     backPropagate(layers[outputIndex].O, y);

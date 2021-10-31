@@ -122,3 +122,44 @@ double RL::covariance(const std::vector<double> &x1, const std::vector<double> &
     }
     return covar;
 }
+
+double RL::clip(double x, double sup, double inf)
+{
+    double y = x;
+    if (x < sup) {
+        y = sup;
+    } else if (x > inf) {
+        y = inf;
+    }
+    return y;
+}
+
+double RL::normalDistribution(double mu, double sigma, double bound)
+{
+    std::default_random_engine engine;
+    std::normal_distribution<double> distribution(mu, sigma);
+    double value = bound + 1;
+    while (1) {
+        value = distribution(engine);
+        if (value <= bound && value >= -bound) {
+            break;
+        }
+    }
+    return value;
+}
+
+void RL::normalDistribution(double mu, double sigma, double sup, double inf, std::vector<double> &x, std::size_t N)
+{
+    std::default_random_engine engine;
+    std::normal_distribution<double> distribution(mu, sigma);
+    std::size_t i = 0;
+    while (i < N) {
+        double value = distribution(engine);
+        if (value > inf || value < sup) {
+            continue;
+        }
+        x.push_back(value);
+        i++;
+    }
+    return;
+}

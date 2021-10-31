@@ -3,7 +3,6 @@
 RL::DDPG::DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t actionDim)
 {
     this->gamma = 0.99;
-    this->alpha = 0.01;
     this->beta = 1;
     this->exploringRate = 1;
     this->stateDim = stateDim;
@@ -12,18 +11,17 @@ RL::DDPG::DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLa
     /* actor: a = P(s, theta) */
     this->actorP = BPNN(stateDim, hiddenDim, hiddenLayerNum, actionDim, true, SIGMOID, CROSS_ENTROPY);
     this->actorQ = BPNN(stateDim, hiddenDim, hiddenLayerNum, actionDim, false, SIGMOID, CROSS_ENTROPY);
-    //this->actorP.softUpdateTo(actorQ, alpha);
-    this->actorP.softUpdateTo(actorQ, alpha);
+    this->actorP.copyTo(actorQ);
     /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
-    this->criticMainNet = BPNN(stateDim + actionDim, hiddenDim, hiddenLayerNum, actionDim, true);
-    this->criticTargetNet = BPNN(stateDim + actionDim, hiddenDim, hiddenLayerNum, actionDim, false);
-    this->criticMainNet.softUpdateTo(criticTargetNet, alpha);
+    this->criticP = BPNN(stateDim + actionDim, hiddenDim, hiddenLayerNum, actionDim, true, SIGMOID, MSE);
+    this->criticQ = BPNN(stateDim + actionDim, hiddenDim, hiddenLayerNum, actionDim, false, SIGMOID, MSE);
+    this->criticP.copyTo(criticQ);
     return;
 }
 
-void RL::DDPG::perceive(Vec& state,
-        Vec &action,
-        Vec& nextState,
+void RL::DDPG::perceive(const Vec& state,
+        const Vec &action,
+        const Vec& nextState,
         double reward,
         bool done)
 {
@@ -34,18 +32,18 @@ void RL::DDPG::perceive(Vec& state,
     return;
 }
 
-void RL::DDPG::setSA(Vec &state, Vec &Action)
+void RL::DDPG::setSA(const Vec &state, const Vec &actions)
 {
     for (std::size_t i = 0; i < stateDim; i++) {
         sa[i] = state[i];
     }
     for (std::size_t i = stateDim; i < stateDim + actionDim; i++) {
-        sa[i] = Action[i];
+        sa[i] = actions[i];
     }
     return;
 }
 
-int RL::DDPG::noiseAction(Vec &state)
+int RL::DDPG::noiseAction(const Vec &state)
 {
     int index = 0;
     actorP.feedForward(state);
@@ -65,7 +63,7 @@ int RL::DDPG::randomAction()
     return rand() % actionDim;
 }
 
-RL::Vec& RL::DDPG::greedyAction(Vec &state)
+RL::Vec& RL::DDPG::greedyAction(const Vec &state)
 {
     double p = double(rand() % 10000) / 10000;
     Vec &out = actorP.output();
@@ -79,40 +77,34 @@ RL::Vec& RL::DDPG::greedyAction(Vec &state)
     return out;
 }
 
-int RL::DDPG::action(Vec &state)
+int RL::DDPG::action(const Vec &state)
 {
-    return actorP.feedForward(state).argmax();
+    return actorP.show(), actorP.feedForward(state).argmax();
 }
 
 void RL::DDPG::experienceReplay(Transition& x)
 {
     Vec cTarget(actionDim);
-    Vec& p = actorP.output();
-    Vec& q = actorQ.output();
-    Vec& cTargetOutput = criticTargetNet.output();
-    Vec& cMainOutput = criticMainNet.output();
     /* estimate action value */
-    int i = RL::argmax(x.action);
-    actorP.feedForward(x.state);
+    Vec &p = actorP.feedForward(x.state).output();
+    int i = RL::argmax(p);
     setSA(x.state, p);
-    criticMainNet.feedForward(sa);
-    cTarget = cMainOutput;
+    Vec &cMain = criticP.feedForward(sa).output();
+    cTarget = cMain;
     if (x.done == true) {
         cTarget[i] = x.reward;
     } else {
-        actorQ.feedForward(x.nextState);
+        Vec &q = actorQ.feedForward(x.nextState).output();
+        int j = RL::argmax(q);
         setSA(x.nextState, q);
-        criticTargetNet.feedForward(sa);
-        int k = criticMainNet.feedForward(sa).argmax();
-        cTarget[i] = x.reward + gamma * cTargetOutput[k];
+        Vec &cTargetOutput = criticQ.feedForward(sa).output();
+        cTarget[i] = x.reward + gamma * cTargetOutput[j];
     }
     /* update actorMainNet */
-    Vec aTarget(q);
-    aTarget[i] *= cTarget[i];
-    actorP.gradient(x.state, aTarget);
+    actorP.gradient(x.state, cMain);
     /* update criticMainNet */
     setSA(x.state, p);
-    criticMainNet.gradient(sa, cTarget);
+    criticP.gradient(sa, cTarget);
     return;
 }
 
@@ -128,14 +120,14 @@ void RL::DDPG::learn(OptType optType,
     }
     if (learningSteps % replaceTargetIter == 0) {
         std::cout<<"update target net"<<std::endl;
-        /* update tagetNet */
-        criticMainNet.softUpdateTo(criticTargetNet, alpha);
+        /* update critic */
+        criticP.softUpdateTo(criticQ, 0.01);
         learningSteps = 0;
     }
-    if (learningSteps % 10 == 0) {
+    if (learningSteps % replaceTargetIter == 0) {
         std::cout<<"update target net"<<std::endl;
-        /* update tagetNet */
-        actorP.softUpdateTo(actorQ, alpha);
+        /* update actor */
+        actorP.softUpdateTo(actorQ, 0.01);
     }
     /* experience replay */
     for (std::size_t i = 0; i < batchSize; i++) {
@@ -143,7 +135,7 @@ void RL::DDPG::learn(OptType optType,
         experienceReplay(memories[k]);
     }
     actorP.optimize(optType, actorLearningRate);
-    criticMainNet.optimize(optType, criticLearningRate);
+    criticP.optimize(optType, criticLearningRate);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 3;
@@ -161,16 +153,15 @@ void RL::DDPG::learn(OptType optType,
 void RL::DDPG::save(const std::string& actorPara, const std::string& criticPara)
 {
     actorP.save(actorPara);
-    criticMainNet.save(criticPara);
+    criticP.save(criticPara);
     return;
 }
 
 void RL::DDPG::load(const std::string& actorPara, const std::string& criticPara)
 {
     actorP.load(actorPara);
-    actorP.softUpdateTo(actorQ, alpha);
-    criticMainNet.load(criticPara);
-    criticMainNet.softUpdateTo(criticTargetNet, alpha);
+    actorP.copyTo(actorQ);
+    criticP.load(criticPara);
+    criticP.copyTo(criticQ);
     return;
 }
-

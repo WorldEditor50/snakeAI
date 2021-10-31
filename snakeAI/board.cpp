@@ -1,4 +1,5 @@
 #include "board.h"
+#include <iostream>
 
 void Board::init(size_t w, size_t h)
 {
@@ -9,6 +10,7 @@ void Board::init(size_t w, size_t h)
     this->blockNum = 0;
     this->rows = width / unitLen - 2;
     this->cols = height / unitLen - 2;
+    std::cout<<"rows:"<<rows<<"cols:"<<cols<<std::endl;
     /* init map */
     map.resize(rows);
     for (std::size_t i = 0; i < rows; i++) {
@@ -26,16 +28,7 @@ void Board::init(size_t w, size_t h)
         }
     }
     /* set block */
-    blockNum = 0;
-    for (std::size_t i = 0; i < blockNum; i++) {
-        int x = rand() % (rows - 10);
-        int y = rand() % (cols - 10);
-        while (x < 10 || y < 10) {
-            x = rand() % rows;
-            y = rand() % cols;
-        }
-        map[x][y] = 1;
-    }
+    //setBlocks(0);
     /* set target */
     this->setTarget();
     return;
@@ -54,7 +47,7 @@ void Board::setTarget()
     return;
 }
 
-void Board::setTarget(vector<Point> &body)
+void Board::setTarget(const std::vector<Point> &body)
 {
     setTarget();
     for (std::size_t i = 0; i < body.size(); i++) {
@@ -63,5 +56,23 @@ void Board::setTarget(vector<Point> &body)
             i = 0;
         }
     }
+    return;
+}
+
+void Board::setBlocks(int N)
+{
+    if (blockNum >= N) {
+        return;
+    }
+    for (int i = 0; i < N - blockNum; i++) {
+        int x = rand() % (rows - 10);
+        int y = rand() % (cols - 10);
+        while (x < 10 || y < 10) {
+            x = rand() % rows;
+            y = rand() % cols;
+        }
+        map[x][y] = 1;
+    }
+    blockNum = N;
     return;
 }

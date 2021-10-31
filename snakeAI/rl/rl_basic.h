@@ -1,8 +1,11 @@
 #ifndef RL_DEF_H
 #define RL_DEF_H
 #include <vector>
+#include <random>
 
 namespace RL {
+
+constexpr static double pi = 3.1415926535898;
 
 struct Transition
 {
@@ -12,15 +15,12 @@ struct Transition
     double reward;
     bool done;
     Transition(){}
-    explicit Transition(std::vector<double>& s, std::vector<double>& a,
-               std::vector<double>& s_, double r, bool d)
-    {
-        state = s;
-        action = a;
-        nextState = s_;
-        reward = r;
-        done = d;
-    }
+    explicit Transition(const std::vector<double>& s,
+                        const std::vector<double>& a,
+                        const std::vector<double>& s_,
+                        double r,
+                        bool d)
+        :state(s), action(a), nextState(s_), reward(r), done(d){}
 };
 
 struct Step
@@ -32,7 +32,9 @@ struct Step
     Step(std::vector<double>& s, std::vector<double>& a, double r)
         :state(s), action(a), reward(r) {}
 };
-
+double normalDistribution(double mu, double sigma, double bound);
+void normalDistribution(double mu, double sigma, double sup, double inf, std::vector<double> &x, std::size_t N);
+double clip(double x, double sup, double inf);
 int argmax(const std::vector<double> &x);
 int argmin(const std::vector<double> &x);
 double max(const std::vector<double> &x);

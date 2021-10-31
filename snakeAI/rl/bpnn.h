@@ -13,6 +13,7 @@ enum ActiveType {
     SIGMOID = 0,
     TANH,
     RELU,
+    LEAKY_RELU,
     LINEAR
 };
 /* Optimize method */
@@ -41,24 +42,17 @@ public:
     Layer():inputDim(0), layerDim(0){}
     virtual ~Layer(){}
     explicit Layer(std::size_t inputDim, std::size_t layerDim, LayerType layerType, ActiveType activeType, LossType lossType, bool tarinFlag);
-    void feedForward(Vec& x);
-    void loss(Vec& yo, Vec& yt);
+    void feedForward(const Vec &x);
+    void loss(const Vec &yo, const Vec &yt);
     void loss(Vec& l);
-    void error(Vec& nextE, Mat& nextW);
-    void gradient(Vec& x);
-    void gradient(Vec& x, double threshold);
-    void softmaxGradient(Vec& x, Vec& yo, Vec& yt);
+    void error(const Vec &nextE, const Mat &nextW);
+    void gradient(const Vec& x);
+    void softmaxGradient(const Vec &x, const Vec &yo, const Vec &yt);
     void SGD(double learningRate);
     void RMSProp(double rho, double learningRate);
     void Adam(double alpha1, double alpha2, double learningRate);
     void RMSPropWithClip(double rho, double learningRate, double threshold);
 public:
-    /* BN */
-    Vec xu;
-    Vec sigma;
-    Vec xh;
-    double gamma;
-    double beta;
     /* output */
     Mat W;
     Vec B;
@@ -70,15 +64,14 @@ public:
     ActiveType activeType;
     LossType lossType;
     LayerType layerType;
-    std::string name;
 protected:
     double activate(double x);
     double dActivate(double y);
     void softmax(Vec& x, Vec& y);
-    Vec softmax(Vec &x);
-    double max(Vec& x);
-    int argmax(Vec& x);
-    double dotProduct(Vec& x1, Vec& x2);
+    Vec softmax(const Vec &x);
+    double max(const Vec& x);
+    int argmax(const Vec& x);
+    double dotProduct(const Vec &x1, const Vec &x2);
     /* buffer for optimization */
     Mat dW;
     Mat Sw;
@@ -100,10 +93,10 @@ public:
     void copyTo(BPNN& dstNet);
     void softUpdateTo(BPNN& dstNet, double alpha);
     Vec& output();
-    BPNN &feedForward(Vec& x);
-    void backPropagate(Vec& yo, Vec& yt);
+    BPNN &feedForward(const Vec &x);
+    void backPropagate(const Vec &yo, const Vec &yt);
     void grad(Vec &x, Vec &y, Vec &loss);
-    void gradient(Vec &x, Vec &y);
+    void gradient(const Vec &x, const Vec &y);
     void SGD(double learningRate = 0.001);
     void RMSProp(double rho = 0.9, double learningRate = 0.001);
     void Adam(double alpha1 = 0.9, double alpha2 = 0.99, double learningRate = 0.001);
@@ -120,6 +113,7 @@ public:
     void show();
     void load(const std::string& fileName);
     void save(const std::string& fileName);
+protected:
     std::size_t outputIndex;
     std::vector<Layer> layers;
 };

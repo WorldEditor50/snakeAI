@@ -2,15 +2,11 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QPainter>
-#include <QPaintEvent>
-#include <QTimer>
-#include <ctime>
-#include <cstdlib>
-#include "board.h"
-#include "snake.h"
-#include "controller.h"
-#include "axis.h"
+#include "gamewidget.h"
+
+QT_BEGIN_NAMESPACE
+namespace Ui { class MainWindow; }
+QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
 {
@@ -19,15 +15,12 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    void init();
-    QRect getRect(int x, int y);
-    void paintEvent(QPaintEvent* ev);
-    void play1();
-    void play2();
-    Board board;
-    Snake snake;
-    Controller controller;
+protected:
+    void closeEvent(QCloseEvent *ev) override;
+private:
+    Ui::MainWindow *ui;
+    GameWidget *gameWidget;
     /* visualize */
-    Axis *axis;
+    AxisWidget *totalRewardWidget;
 };
 #endif // MAINWINDOW_H

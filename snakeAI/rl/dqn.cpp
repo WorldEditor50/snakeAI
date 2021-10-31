@@ -38,29 +38,33 @@ RL::Vec& RL::DQN::greedyAction(Vec &state)
     return out;
 }
 
-int RL::DQN::action(Vec &state)
+RL::Vec &RL::DQN::output()
 {
-    return QMainNet.feedForward(state).argmax();
+    return QMainNet.output();
 }
 
-void RL::DQN::experienceReplay(Transition& x)
+int RL::DQN::action(const Vec &state)
+{
+    int a = QMainNet.feedForward(state).argmax();
+    QMainNet.show();
+    return a;
+}
+
+void RL::DQN::experienceReplay(const Transition& x)
 {
     Vec qTarget(actionDim);
-    Vec& QTargetNetOutput = QTargetNet.output();
-    Vec& QMainNetOutput = QMainNet.output();
     /* estimate q-target: Q-Regression */
     /* select Action to estimate q-value */
     int i = RL::argmax(x.action);
-    QMainNet.feedForward(x.state);
-    qTarget = QMainNetOutput;
+    qTarget = QMainNet.feedForward(x.state).output();
     if (x.done == true) {
         qTarget[i] = x.reward;
     } else {
         /* select optimal Action in the QMainNet */
         int k = QMainNet.feedForward(x.nextState).argmax();
         /* select value in the QTargetNet */
-        QTargetNet.feedForward(x.nextState);
-        qTarget[i] = x.reward + gamma * QTargetNetOutput[k];
+        Vec &v = QTargetNet.feedForward(x.nextState).output();
+        qTarget[i] = x.reward + gamma * v[k];
     }
     /* train QMainNet */
     QMainNet.gradient(x.state, qTarget);
@@ -97,7 +101,7 @@ void RL::DQN::learn(OptType optType,
         }
     }
     /* update step */
-    exploringRate = exploringRate * 0.99999;
+    exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     learningSteps++;
     return;

@@ -37,24 +37,20 @@ int RL::DPG::randomAction()
     return index;
 }
 
-int RL::DPG::action(Vec &state)
+int RL::DPG::action(const Vec &state)
 {
-    return policyNet.feedForward(state).argmax();
+    return policyNet.show(), policyNet.feedForward(state).argmax();
 }
 
 void RL::DPG::reinforce(OptType optType, double learningRate, std::vector<Step>& x)
 {
     double r = 0;
-    double u = 0;
-    double n = 0;
     Vec discoutedReward(x.size());
     for (int i = x.size() - 1; i >= 0; i--) {
         r = gamma * r + x[i].reward;
         discoutedReward[i] = r;
-        u += r;
-        n++;
     }
-    u = u / n;
+    double u = RL::mean(discoutedReward);
     for (std::size_t i = 0; i < x.size(); i++) {
         int k = RL::argmax(x[i].action);
         x[i].action[k] *= discoutedReward[i] - u;

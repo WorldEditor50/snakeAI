@@ -1,6 +1,6 @@
 #include "axis.h"
 
-Axis::Axis(QWidget *parent) :
+AxisWidget::AxisWidget(QWidget *parent) :
     QWidget(parent),
     interval(40),
     scale(1)
@@ -11,7 +11,7 @@ Axis::Axis(QWidget *parent) :
     x = 0;
 }
 
-void Axis::addPoint(double y)
+void AxisWidget::addPoint(double y)
 {
     QPointF p(x, y);
     points.append(p);
@@ -20,23 +20,23 @@ void Axis::addPoint(double y)
     return;
 }
 
-void Axis::setInterval(int value)
+void AxisWidget::setInterval(int value)
 {
     interval = value;
     update();
     return;
 }
 
-void Axis::setScale(int value)
+void AxisWidget::setScale(int value)
 {
     scale = value;
     update();
     return;
 }
 
-void Axis::paintEvent(QPaintEvent *ev)
+void AxisWidget::paintEvent(QPaintEvent *event)
 {
-    Q_UNUSED(ev)
+    Q_UNUSED(event)
     int w = this->width() / 2;
     int h = this->height() / 2;
     QPainter painter(this);
@@ -55,7 +55,7 @@ void Axis::paintEvent(QPaintEvent *ev)
     painter.drawLine(-w, 0, w, 0);
     painter.drawLine(0, h, 0, -h);
     /* draw scale */
-    painter.drawText(-w + 20, -h + 20, QString("SCALE:x%1").arg(scale));
+    painter.drawText(-w + 20, -h + 20, QString("Y-SCALE:x%1").arg(scale));
     /* grid */
     pen.setWidthF(0.3);
     pen.setColor(Qt::gray);
@@ -81,10 +81,10 @@ void Axis::paintEvent(QPaintEvent *ev)
         painter.drawText(i, 20, QString("%1").arg(i));
     }
     for (int i = -interval; i >= -h; i -= interval) {
-         painter.drawText(-40, i, QString("%1").arg(-i));
+         painter.drawText(-40, i, QString("%1").arg(-i / scale));
     }
     for (int i = interval; i < h; i += interval) {
-        painter.drawText(-40, i, QString("%1").arg(-i));
+        painter.drawText(-40, i, QString("%1").arg(-i / scale));
     }
     /* curve */
     pen.setColor(QColor(0, 150, 250));
@@ -92,9 +92,9 @@ void Axis::paintEvent(QPaintEvent *ev)
     painter.setPen(pen);
     for (int i = 1; i < points.size(); i++) {
         qreal x1 = points.at(i - 1).x();
-        qreal y1 = points.at(i - 1).y();
+        qreal y1 = points.at(i - 1).y() * scale;
         qreal x2 = points.at(i).x();
-        qreal y2 = points.at(i).y();
+        qreal y2 = points.at(i).y() * scale;
         painter.drawLine(x1, -y1, x2, -y2);
         //points.replace(i - 1, points.at(i));
     }
@@ -109,7 +109,7 @@ void Axis::paintEvent(QPaintEvent *ev)
     return;
 }
 
-void Axis::timerEvent(QTimerEvent *event)
+void AxisWidget::timerEvent(QTimerEvent *event)
 {
     if (event->timerId() == timerID) {
         double y = rand() % 200 - rand() % 200;
@@ -118,6 +118,19 @@ void Axis::timerEvent(QTimerEvent *event)
         x++;
         update();
     }
+    return;
+}
+
+void AxisWidget::wheelEvent(QWheelEvent *event)
+{
+    if (event->delta() < 0) {
+        scale /= 2;
+        scale = scale < 1 ? 1 : scale;
+    } else {
+        scale *= 2;
+        scale = scale > 32 ? 32 : scale;
+    }
+    event->accept();
     return;
 }
 

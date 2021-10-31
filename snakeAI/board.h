@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <cmath>
 #include "common.h"
-using namespace std;
+
 #define BLANK   0
 #define BLOCK   1
 #define TARGET  2
@@ -12,20 +12,22 @@ using namespace std;
 class Board
 {
 public:
-    Board(){}
+    Board():blockNum(0){}
     ~Board(){}
     void init(std::size_t w, std::size_t h);
     void setTarget();
-    void setTarget(vector<Point>& body);
+    void setTarget(const std::vector<Point> &body);
+    void setBlocks(int N);
+public:
     std::size_t width;
     std::size_t height;
     std::size_t rows;
     std::size_t cols;
     std::size_t unitLen;
-    std::size_t blockNum;
+    int blockNum;
     int xt;
     int yt;
-    vector<vector<int> > map;
+    std::vector<std::vector<int> > map;
 };
 
 #endif // BOARD_H
