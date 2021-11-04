@@ -17,7 +17,7 @@ class PPO
 {
 public:
     PPO(){}
-    explicit PPO(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim);
+    explicit PPO(int stateDim, int hiddenDim, int actionDim);
     ~PPO(){}
     void continousAction(const Vec &state, Vec& act);
     BPNN &greedyAction(const Vec &state);

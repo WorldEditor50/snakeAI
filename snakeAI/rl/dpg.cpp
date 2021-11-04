@@ -1,15 +1,16 @@
 #include "dpg.h"
-RL::DPG::DPG(std::size_t stateDim,
-             std::size_t hiddenDim,
-             std::size_t hiddenLayerNum,
-             std::size_t actionDim)
+RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
 {
     this->gamma = 0.9;
     this->exploringRate = 1;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->policyNet = BPNN(stateDim, hiddenDim, hiddenLayerNum, actionDim,
-                              true, SIGMOID, CROSS_ENTROPY);
+    this->policyNet =  BPNN(BPNN::Layers{
+                                Layer::_(stateDim, hiddenDim),
+                                Layer::_(hiddenDim, hiddenDim),
+                                Layer::_(hiddenDim, hiddenDim),
+                                Layer::_(hiddenDim, actionDim)
+                            });;
     return;
 }
 
@@ -54,7 +55,7 @@ void RL::DPG::reinforce(OptType optType, double learningRate, std::vector<Step>&
     for (std::size_t i = 0; i < x.size(); i++) {
         int k = RL::argmax(x[i].action);
         x[i].action[k] *= discoutedReward[i] - u;
-        policyNet.gradient(x[i].state, x[i].action);
+        policyNet.gradient(x[i].state, x[i].action, Loss::CROSS_EMTROPY);
     }
     policyNet.optimize(optType, learningRate);
     exploringRate *= 0.9999;

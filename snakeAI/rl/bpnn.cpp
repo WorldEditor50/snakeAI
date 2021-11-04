@@ -1,124 +1,14 @@
 #include "bpnn.h"
 
-double RL::Layer::dotProduct(const Vec& x1, const Vec& x2)
+RL::Layer::Layer(std::size_t inputDim,
+                 std::size_t layerDim,
+                 Activate activate_,
+                 DActivate dActivate_,
+                 bool trainFlag)
+    :LayerParam(inputDim, layerDim, trainFlag)
 {
-    double p = 0;
-    for (std::size_t i = 0; i < x1.size(); i++) {
-        p += x1[i] * x2[i];
-    }
-    return p;
-}
-
-void RL::Layer::softmax(Vec& x, Vec& y)
-{
-    double s = 0;
-    double maxValue = max(x);
-    for (std::size_t i = 0; i < x.size(); i++) {
-        s += exp(x[i] - maxValue);
-    }
-    for (std::size_t i = 0; i < x.size(); i++) {
-        y[i] = exp(x[i] - maxValue) / s;
-    }
-    return;
-}
-
-RL::Vec RL::Layer::softmax(const Vec &x)
-{
-    double s = 0;
-    double maxValue = max(x);
-    for (std::size_t i = 0; i < x.size(); i++) {
-        s += exp(x[i] - maxValue);
-    }
-    Vec y(x.size());
-    for (std::size_t i = 0; i < x.size(); i++) {
-        y[i] = exp(x[i] - maxValue) / s;
-    }
-    return y;
-}
-
-double RL::Layer::max(const Vec &x)
-{
-    double value = x[0];
-    for (std::size_t i = 0; i < x.size(); i++) {
-        if (value < x[i]) {
-            value = x[i];
-        }
-    }
-    return value;
-}
-
-int RL::Layer::argmax(const Vec &x)
-{
-    int index = 0;
-    double value = x[0];
-    for (std::size_t i = 0; i < x.size(); i++) {
-        if (value < x[i]) {
-            index = i;
-            value = x[i];
-        }
-    }
-    return index;
-}
-
-double RL::Layer::activate(double x)
-{
-    double y = 0;
-    switch (activeType) {
-        case SIGMOID:
-            y = exp(x) / (exp(x) + 1);
-            break;
-        case RELU:
-            y = x > 0 ? x : 0;
-            break;
-        case LEAKY_RELU:
-            y = x > 0 ? x : 0.01*x;
-            break;
-        case TANH:
-            y = tanh(x);
-            break;
-        case LINEAR:
-            y = x;
-            break;
-        default:
-            y = exp(x) / (exp(x) + 1);
-            break;
-    }
-    return y;
-}
-
-double RL::Layer::dActivate(double y)
-{
-    double dy = 0;
-    switch (activeType) {
-        case SIGMOID:
-            dy = y * (1 - y);
-            break;
-        case RELU:
-            dy = y  > 0 ? 1 : 0;
-            break;
-        case LEAKY_RELU:
-            dy = y  > 0 ? 1 : 0.01;
-            break;
-        case TANH:
-            dy = 1 - y * y;
-            break;
-        case LINEAR:
-            dy = 1;
-            break;
-        default:
-            dy = y * (1 - y);
-            break;
-    }
-    return dy;
-}
-
-RL::Layer::Layer(std::size_t inputDim, std::size_t layerDim, LayerType layerType, ActiveType activeType, LossType lossType, bool trainFlag)
-{
-    this->inputDim = inputDim;
-    this->layerDim = layerDim;
-    this->lossType = lossType;
-    this->activeType = activeType;
-    this->layerType = layerType;
+    activate = activate_;
+    dActivate = dActivate_;
     W = Mat(layerDim);
     B = Vec(layerDim);
     O = Vec(layerDim);
@@ -126,28 +16,12 @@ RL::Layer::Layer(std::size_t inputDim, std::size_t layerDim, LayerType layerType
     for (std::size_t i = 0; i < W.size(); i++) {
         W[i] = Vec(inputDim, 0);
     }
-    /* buffer for optimization */
-    if (trainFlag == true) {
-        dW = Mat(layerDim);
-        dB = Vec(layerDim, 0);
-        Sw = Mat(layerDim);
-        Sb = Vec(layerDim, 0);
-        Vw = Mat(layerDim);
-        Vb = Vec(layerDim, 0);
-        this->alpha1_t = 1;
-        this->alpha2_t = 1;
-        for (std::size_t i = 0; i < W.size(); i++) {
-            dW[i] = Vec(inputDim, 0);
-            Sw[i] = Vec(inputDim, 0);
-            Vw[i] = Vec(inputDim, 0);
+    /* init */
+    for (std::size_t i = 0; i < W.size(); i++) {
+        for (std::size_t j = 0; j < W[0].size(); j++) {
+            W[i][j] = double(rand() % 10000 - rand() % 10000) / 10000;
         }
-        /* init */
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                W[i][j] = double(rand() % 10000 - rand() % 10000) / 10000;
-            }
-            B[i] = double(rand() % 10000 - rand() % 10000) / 10000;
-        }
+        B[i] = double(rand() % 10000 - rand() % 10000) / 10000;
     }
     return;
 }
@@ -163,13 +37,23 @@ void RL::Layer::feedForward(const Vec& x)
         double y = dotProduct(W[i], x) + B[i];
         O[i] = activate(y);
     }
-    if (lossType == CROSS_ENTROPY) {
-        softmax(O, O);
+    return;
+}
+
+void RL::Layer::gradient(const Vec& x, const Vec&)
+{
+    for (std::size_t i = 0; i < dW.size(); i++) {
+        double dy = dActivate(O[i]) * E[i];
+        for (std::size_t j = 0; j < dW[0].size(); j++) {
+            dW[i][j] += dy * x[j];
+        }
+        dB[i] += dy;
+        E[i] = 0;
     }
     return;
 }
 
-void RL::Layer::error(const Vec& nextE, const Mat& nextW)
+void RL::Layer::backpropagate(const Vec& nextE, const Mat& nextW)
 {
     if (E.size() != nextW[0].size()) {
         std::cout<<"size is not matching"<<std::endl;;
@@ -178,51 +62,6 @@ void RL::Layer::error(const Vec& nextE, const Mat& nextW)
         for (std::size_t j = 0; j < nextW.size(); j++) {
             E[i] += nextE[j] * nextW[j][i];
         }
-    }
-    return;
-}
-
-void RL::Layer::loss(const Vec& yo, const Vec& yt)
-{
-    for (std::size_t i = 0; i < yo.size(); i++) {
-        if (lossType == CROSS_ENTROPY) {
-            E[i] = -yt[i] * log(yo[i]);
-        } else if (lossType == MSE){
-            E[i] = yo[i] - yt[i];
-        }
-    }
-    return;
-}
-
-void RL::Layer::loss(Vec &l)
-{
-    for (std::size_t i = 0; i < l.size(); i++) {
-        E[i] = l[i];
-    }
-    return;
-}
-
-void RL::Layer::gradient(const Vec& x)
-{
-    for (std::size_t i = 0; i < dW.size(); i++) {
-        double dy = dActivate(O[i]);
-        for (std::size_t j = 0; j < dW[0].size(); j++) {
-            dW[i][j] += E[i] * dy * x[j];
-        }
-        dB[i] += E[i] * dy;
-        E[i] = 0;
-    }
-    return;
-}
-
-void RL::Layer::softmaxGradient(const Vec& x, const Vec& yo, const Vec& yt)
-{
-    for (std::size_t i = 0; i < dW.size(); i++) {
-        double dOutput = yo[i] - yt[i];
-        for (std::size_t j = 0; j < dW[0].size(); j++) {
-            dW[i][j] += dOutput * x[j];
-        }
-        dB[i] += dOutput;
     }
     return;
 }
@@ -285,61 +124,38 @@ void RL::Layer::Adam(double alpha1, double alpha2, double learningRate)
     return;
 }
 
-void RL::Layer::RMSPropWithClip(double rho, double learningRate, double threshold)
+void RL::SoftmaxLayer::feedForward(const RL::Vec &x)
 {
-    /* RMSProp */
+    double s = 0;
     for (std::size_t i = 0; i < W.size(); i++) {
-        for (std::size_t j = 0; j < W[0].size(); j++) {
-            Sw[i][j] = rho * Sw[i][j] + (1 - rho) * dW[i][j] * dW[i][j];
-            dW[i][j] = dW[i][j] / (sqrt(Sw[i][j]) + 1e-9);
-        }
-        Sb[i] = rho * Sb[i] + (1 - rho) * dB[i] * dB[i];
-        dB[i] = dB[i] / (sqrt(Sb[i]) + 1e-9);
+        O[i] = RL::dotProduct(W[i], x) + B[i];
+        s += exp(O[i]);
     }
-    /* l2 norm of gradient */
-    Vec Wl2(layerDim, 0);
-    double bl2 = 0;
-    for (std::size_t i = 0; i < dW.size(); i++) {
-        for (std::size_t j = 0; j < dW[0].size(); j++) {
-            Wl2[i] += dW[i][j] * dW[i][j];
-        }
-        bl2 += dB[i] * dB[i];
+    for (std::size_t i = 0; i < O.size(); i++) {
+        O[i] = exp(O[i]) / s;
     }
-
-    for (std::size_t i = 0; i < layerDim; i++) {
-        Wl2[i] = sqrt(Wl2[i] / layerDim);
-    }
-    bl2 = sqrt(bl2 / layerDim);
-    /* clip gradient */
-    for (std::size_t i = 0; i < dW.size(); i++) {
-        for (std::size_t j = 0; j < dW[0].size(); j++) {
-            if (dW[i][j] * dW[i][j] >= threshold * threshold ) {
-                dW[i][j] *= threshold / Wl2[i];
-            }
-        }
-        if (dB[i] * dB[i] >= threshold * threshold) {
-            dB[i] *= threshold / bl2;
-        }
-    }
-    /* SGD */
-    SGD(learningRate);
     return;
 }
 
-RL::BPNN::BPNN(std::size_t inputDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t outputDim,
-             bool trainFlag, ActiveType activeType, LossType lossType)
+void RL::SoftmaxLayer::gradient(const RL::Vec &x, const Vec &y)
 {
-    layers.push_back(Layer(inputDim, hiddenDim, Layer::INPUT, SIGMOID, MSE, trainFlag));
-    for (std::size_t i = 1; i < hiddenLayerNum; i++) {
-        layers.push_back(Layer(hiddenDim, hiddenDim, Layer::HIDDEN, SIGMOID, MSE, trainFlag));
+    for (std::size_t i = 0; i < dW.size(); i++) {
+        double dy = O[i] - y[i];
+        for (std::size_t j = 0; j < dW[0].size(); j++) {
+            dW[i][j] += dy * x[j];
+        }
+        dB[i] += dy;
     }
-    if (lossType == MSE) {
-        layers.push_back(Layer(hiddenDim, outputDim, Layer::OUTPUT, activeType, MSE, trainFlag));
-    } else if (lossType == CROSS_ENTROPY) {
-        layers.push_back(Layer(hiddenDim, outputDim, Layer::OUTPUT, LINEAR, lossType, trainFlag));
-    }
-    this->outputIndex = layers.size() - 1;
     return;
+}
+
+RL::BPNN &RL::BPNN::operator =(const RL::BPNN &r)
+{
+    if (this == &r) {
+        return *this;
+    }
+    layers = r.layers;
+    return *this;
 }
 
 void RL::BPNN::copyTo(BPNN& dstNet)
@@ -348,11 +164,11 @@ void RL::BPNN::copyTo(BPNN& dstNet)
         return;
     }
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i].W.size(); j++) {
-            for (std::size_t k = 0; k < layers[i].W[j].size(); k++) {
-                dstNet.layers[i].W[j][k] = layers[i].W[j][k];
+        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
+            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
+                dstNet.layers[i]->W[j][k] = layers[i]->W[j][k];
             }
-            dstNet.layers[i].B[j] = layers[i].B[j];
+            dstNet.layers[i]->B[j] = layers[i]->B[j];
         }
     }
     return;
@@ -364,11 +180,11 @@ void RL::BPNN::softUpdateTo(BPNN &dstNet, double alpha)
         return;
     }
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i].W.size(); j++) {
-            for (std::size_t k = 0; k < layers[i].W[j].size(); k++) {
-                dstNet.layers[i].W[j][k] = (1 - alpha) * dstNet.layers[i].W[j][k] + alpha * layers[i].W[j][k];
+        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
+            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
+                dstNet.layers[i]->W[j][k] = (1 - alpha) * dstNet.layers[i]->W[j][k] + alpha * layers[i]->W[j][k];
             }
-            dstNet.layers[i].B[j] = (1 - alpha) * dstNet.layers[i].B[j] + alpha * layers[i].B[j];
+            dstNet.layers[i]->B[j] = (1 - alpha) * dstNet.layers[i]->B[j] + alpha * layers[i]->B[j];
         }
     }
     return;
@@ -376,61 +192,31 @@ void RL::BPNN::softUpdateTo(BPNN &dstNet, double alpha)
 
 RL::BPNN &RL::BPNN::feedForward(const Vec& x)
 {
-    layers[0].feedForward(x);
+    layers[0]->feedForward(x);
     for (std::size_t i = 1; i < layers.size(); i++) {
-        layers[i].feedForward(layers[i - 1].O);
+        layers[i]->feedForward(layers[i - 1]->O);
     }
     return *this;
 }
 
 RL::Vec& RL::BPNN::output()
 {
-    return layers.back().O;
+    return layers.back()->O;
 }
 
-void RL::BPNN::backPropagate(const Vec& yo, const Vec& yt)
-{
-    /*  loss */
-    layers[outputIndex].loss(yo, yt);
-    /* error Backpropagate */
-    for (int i = outputIndex - 1; i >= 0; i--) {
-        layers[i].error(layers[i + 1].E, layers[i + 1].W);
-    }
-    return;
-}
-
-void RL::BPNN::grad(Vec &x, Vec &y, Vec &loss)
-{
-    /*  loss */
-    layers[outputIndex].loss(loss);
-    /* error Backpropagate */
-    for (int i = outputIndex - 1; i >= 0; i--) {
-        layers[i].error(layers[i + 1].E, layers[i + 1].W);
-    }
-    /* gradient */
-    layers[0].gradient(x);
-    for (std::size_t j = 1; j < layers.size(); j++) {
-        if (layers[j].lossType == CROSS_ENTROPY) {
-            layers[j].softmaxGradient(layers[j - 1].O, layers[outputIndex].O, y);
-        } else {
-            layers[j].gradient(layers[j - 1].O);
-        }
-    }
-    return;
-}
-
-void RL::BPNN::gradient(const Vec &x, const Vec &y)
+void RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y, RL::BPNN::LossFunc loss)
 {
     feedForward(x);
-    backPropagate(layers[outputIndex].O, y);
+    std::size_t outputIndex = layers.size() - 1;
+    loss(layers[outputIndex]->E, layers[outputIndex]->O, y);
+    /* error Backpropagate */
+    for (int i = outputIndex - 1; i >= 0; i--) {
+        layers[i]->backpropagate(layers[i + 1]->E, layers[i + 1]->W);
+    }
     /* gradient */
-    layers[0].gradient(x);
+    layers[0]->gradient(x, y);
     for (std::size_t j = 1; j < layers.size(); j++) {
-        if (layers[j].lossType == CROSS_ENTROPY) {
-            layers[j].softmaxGradient(layers[j - 1].O, layers[outputIndex].O, y);
-        } else {
-            layers[j].gradient(layers[j - 1].O);
-        }
+        layers[j]->gradient(layers[j - 1]->O, y);
     }
     return;
 }
@@ -439,7 +225,7 @@ void RL::BPNN::SGD(double learningRate)
 {
     /* gradient descent */
     for (std::size_t i = 0; i < layers.size(); i++) {
-        layers[i].SGD(learningRate);
+        layers[i]->SGD(learningRate);
     }
     return;
 }
@@ -447,7 +233,7 @@ void RL::BPNN::SGD(double learningRate)
 void RL::BPNN::RMSProp(double rho, double learningRate)
 {
     for (std::size_t i = 0; i < layers.size(); i++) {
-        layers[i].RMSProp(rho, learningRate);
+        layers[i]->RMSProp(rho, learningRate);
     }
     return;
 }
@@ -455,15 +241,7 @@ void RL::BPNN::RMSProp(double rho, double learningRate)
 void RL::BPNN::Adam(double alpha1, double alpha2, double learningRate)
 {
     for (std::size_t i = 0; i < layers.size(); i++) {
-        layers[i].Adam(alpha1, alpha2, learningRate);
-    }
-    return;
-}
-
-void RL::BPNN::RMSPropWithClip(double rho, double learningRate, double threshold)
-{
-    for (std::size_t i = 0; i < layers.size(); i++) {
-        layers[i].RMSPropWithClip(rho, learningRate, threshold);
+        layers[i]->Adam(alpha1, alpha2, learningRate);
     }
     return;
 }
@@ -502,11 +280,12 @@ void RL::BPNN::train(Mat& x,
         std::cout<<"x != y"<<std::endl;
         return;
     }
-    if (x[0].size() != layers[0].W[0].size()) {
+    if (x[0].size() != layers[0]->W[0].size()) {
         std::cout<<"x != w"<<std::endl;
         return;
     }
-    if (y[0].size() != layers[outputIndex].O.size()) {
+    Vec &v = layers.back()->O;
+    if (y[0].size() != v.size()) {
         std::cout<<"y != output"<<std::endl;
         return;
     }
@@ -514,7 +293,7 @@ void RL::BPNN::train(Mat& x,
     for (std::size_t i = 0; i < iterateNum; i++) {
         for (std::size_t j = 0; j < batchSize; j++) {
             int k = rand() % len;
-            gradient(x[k], y[k]);
+            gradient(x[k], y[k], Loss::CROSS_EMTROPY);
         }
         optimize(optType, learningRate);
     }
@@ -524,10 +303,11 @@ void RL::BPNN::train(Mat& x,
 int RL::BPNN::argmax()
 {
     int index = 0;
-    double maxValue = layers[outputIndex].O[0];
-    for (std::size_t i = 0; i < layers[outputIndex].O.size(); i++) {
-        if (maxValue < layers[outputIndex].O[i]) {
-            maxValue = layers[outputIndex].O[i];
+    Vec &v = layers.back()->O;
+    double maxValue = v[0];
+    for (std::size_t i = 0; i < v.size(); i++) {
+        if (maxValue < v[i]) {
+            maxValue = v[i];
             index = i;
         }
     }
@@ -537,10 +317,11 @@ int RL::BPNN::argmax()
 int RL::BPNN::argmin()
 {
     int index = 0;
-    double minValue = layers[outputIndex].O[0];
-    for (std::size_t i = 0; i < layers[outputIndex].O.size(); i++) {
-        if (minValue > layers[outputIndex].O[i]) {
-            minValue = layers[outputIndex].O[i];
+    Vec &v = layers.back()->O;
+    double minValue = v[0];
+    for (std::size_t i = 0; i < v.size(); i++) {
+        if (minValue > v[i]) {
+            minValue = v[i];
             index = i;
         }
     }
@@ -549,8 +330,9 @@ int RL::BPNN::argmin()
 
 void RL::BPNN::show()
 {
-    for (std::size_t i = 0; i < layers[outputIndex].O.size(); i++) {
-        std::cout<<layers[outputIndex].O[i]<<" ";
+    Vec &v = layers.back()->O;
+    for (std::size_t i = 0; i < v.size(); i++) {
+        std::cout<<v[i]<<" ";
     }
     std::cout<<std::endl;
     return;
@@ -561,11 +343,11 @@ void RL::BPNN::load(const std::string& fileName)
     std::ifstream file;
     file.open(fileName);
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i].W.size(); j++) {
-            for (std::size_t k = 0; k < layers[i].W[j].size(); k++) {
-                file >> layers[i].W[j][k];
+        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
+            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
+                file >> layers[i]->W[j][k];
             }
-            file >> layers[i].B[j];
+            file >> layers[i]->B[j];
         }
     }
     return;
@@ -576,11 +358,11 @@ void RL::BPNN::save(const std::string& fileName)
     std::ofstream file;
     file.open(fileName);
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i].W.size(); j++) {
-            for (std::size_t k = 0; k < layers[i].W[j].size(); k++) {
-                file << layers[i].W[j][k];
+        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
+            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
+                file << layers[i]->W[j][k];
             }
-            file << layers[i].B[j];
+            file << layers[i]->B[j];
             file << std::endl;
         }
     }

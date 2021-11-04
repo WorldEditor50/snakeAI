@@ -1,12 +1,22 @@
 #include "dqn.h"
-RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t actionDim)
+RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
 {
     this->gamma = 0.99;
     this->exploringRate = 1;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->QMainNet = BPNN(stateDim, hiddenDim, hiddenLayerNum, actionDim, true, SIGMOID);
-    this->QTargetNet = BPNN(stateDim, hiddenDim, hiddenLayerNum, actionDim, false, SIGMOID);
+    this->QMainNet = BPNN(BPNN::Layers{
+                              Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                              Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                              Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                              Layer::_(hiddenDim, actionDim, Sigmoid::_, Sigmoid::d, true)
+                          });
+    this->QTargetNet = BPNN(BPNN::Layers{
+                                 Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
+                                 Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
+                                 Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
+                                 Layer::_(hiddenDim, actionDim, Sigmoid::_, Sigmoid::d, false)
+                             });
     this->QMainNet.copyTo(QTargetNet);
     return;
 }
@@ -67,7 +77,7 @@ void RL::DQN::experienceReplay(const Transition& x)
         qTarget[i] = x.reward + gamma * v[k];
     }
     /* train QMainNet */
-    QMainNet.gradient(x.state, qTarget);
+    QMainNet.gradient(x.state, qTarget, Loss::MSE);
     return;
 }
 

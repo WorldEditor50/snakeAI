@@ -16,7 +16,7 @@ class DPG
 {
 public:
     DPG(){}
-    explicit DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t actionDim);
+    explicit DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     ~DPG(){}
     int greedyAction(Vec& state);
     int randomAction();

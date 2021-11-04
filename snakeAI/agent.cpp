@@ -11,7 +11,12 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     this->dpg = DPG(stateDim, 16, 4, 4);
     this->ddpg = DDPG(stateDim, 16, 4, 4);
     this->ppo = PPO(stateDim, 16, 4, 4);
-    this->bpnn = BPNN(stateDim, 16, 4, 4, true, SIGMOID, CROSS_ENTROPY);
+    this->bpnn = BPNN(BPNN::Layers{
+                          Layer::_(stateDim, 16, Sigmoid::_, Sigmoid::d, true),
+                          Layer::_(16, 16, Sigmoid::_, Sigmoid::d, true),
+                          Layer::_(16, 16, Sigmoid::_, Sigmoid::d, true),
+                          Layer::_(16, 4, Sigmoid::_, Sigmoid::d, true)
+                      });
     this->state.resize(stateDim);
     this->nextState.resize(stateDim);
     dqn.load("./dqn");
@@ -70,9 +75,9 @@ double Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
     double d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
     double r = 0;
     if (d1 > d2) {
-        r = 0.1;
+        r = 0.8;
     } else {
-        r = -0.1;
+        r = -0.8;
     }
     return r;
 }
@@ -329,7 +334,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
             }
             state = nextState;
         }
-        emit totalReward(total*10);
+        emit totalReward(total);
         /* training */
         ppo.learnWithClipObject(OPT_RMSPROP, 0.01, trans);
     }
@@ -356,7 +361,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt)
             if (direct1 != direct2) {
                 vector<double> target(4, 0);
                 target[direct2] = 1;
-                bpnn.gradient(state, target);
+                bpnn.gradient(state, target, Loss::MSE);
                 m++;
             }
             if ((xn == xt) && (yn == yt)) {

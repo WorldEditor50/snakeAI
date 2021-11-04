@@ -19,7 +19,7 @@ class DDPG
 public:
     DDPG(){}
     ~DDPG(){}
-    explicit DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t actionDim);
+    explicit DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     void perceive(const Vec& state,
                   const Vec& action,
                   const Vec& nextState,

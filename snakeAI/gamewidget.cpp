@@ -3,7 +3,7 @@
 GameWidget::GameWidget(QWidget *parent) :
     QWidget(parent),
     agent(this, board.map, snake),
-    agentName("astar"),
+    agentName("dqn"),
     winCount(0),
     lostCount(0)
 {
@@ -17,6 +17,7 @@ GameWidget::GameWidget(QWidget *parent) :
     agentMethod.insert("dqn", &Agent::dqnAction);
     agentMethod.insert("dpg", &Agent::dpgAction);
     agentMethod.insert("ppo", &Agent::ppoAction);
+    agentMethod.insert("ddpg", &Agent::ddpgAction);
 }
 
 QRect GameWidget::getRect(int x, int y)

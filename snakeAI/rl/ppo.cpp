@@ -1,10 +1,7 @@
 #include "ppo.h"
 
-RL::PPO::PPO(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim)
+RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
 {
-    if (stateDim < 1 || hiddenDim < 1 || hiddenLayerNum < 1 || actionDim < 1) {
-        return;
-    }
     this->gamma = 0.99;
     this->beta = 0.5;
     this->delta = 0.01;
@@ -13,9 +10,29 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int hiddenLayerNum, int actionDim)
     this->learningSteps = 0;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->actorP = BPNN(stateDim, hiddenDim, hiddenLayerNum, actionDim, true, SIGMOID, CROSS_ENTROPY);
-    this->actorQ = BPNN(stateDim, hiddenDim, hiddenLayerNum, actionDim, false, SIGMOID, CROSS_ENTROPY);
-    this->critic = BPNN(stateDim, hiddenDim, 2, 1, 1, RELU, MSE);
+    this->actorP = BPNN(BPNN::Layers{
+                            Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            SoftmaxLayer::_(hiddenDim, actionDim, true)
+                        });
+    this->actorQ = BPNN(BPNN::Layers{
+                            Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
+                            SoftmaxLayer::_(hiddenDim, actionDim, false)
+                        });
+    this->critic = BPNN(BPNN::Layers{
+                            Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            Layer::_(hiddenDim, 1, Sigmoid::_, Sigmoid::d, true)
+                        });
     return;
 }
 
@@ -72,7 +89,7 @@ void RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::vect
         /* critic */
         Vec discounted_r(1);
         discounted_r[0] = x[i].reward;
-        critic.gradient(x[i].state, discounted_r);
+        critic.gradient(x[i].state, discounted_r, Loss::MSE);
         /* actor */
         Vec& q = x[i].action;
         Vec& p = actorP.feedForward(x[i].state).output();
@@ -80,7 +97,7 @@ void RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::vect
         double kl = p[k] * log(p[k]/q[k]);
         q[k] += p[k] / q[k] * advantage - beta * kl;
         KLexpect += kl;
-        actorP.gradient(x[i].state, q);
+        actorP.gradient(x[i].state, q, Loss::CROSS_EMTROPY);
     }
     /* KL-Penalty */
     KLexpect /= double(x.size());
@@ -120,20 +137,20 @@ void RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::vec
         /* critic */
         Vec discount_r(1);
         discount_r[0] = x[i].reward;
-        critic.gradient(x[i].state, discount_r);
+        critic.gradient(x[i].state, discount_r, Loss::MSE);
         /* actor */
         Vec& q = x[i].action;
         Vec& p = actorP.feedForward(x[i].state).output();
         int k = RL::argmax(q);
         double ratio = p[k]/q[k];
-        if (advantage > 0) {
-            ratio = (ratio > 1 + epsilon) ? (1 + epsilon) : ratio;
-        } else {
-            ratio = (ratio < 1 - epsilon) ? (1 - epsilon) : ratio;
-        }
-        //ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
+//        if (advantage > 0) {
+//            ratio = (ratio > 1 + epsilon) ? (1 + epsilon) : ratio;
+//        } else {
+//            ratio = (ratio < 1 - epsilon) ? (1 - epsilon) : ratio;
+//        }
+        ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
         q[k] += ratio * advantage;
-        actorP.gradient(x[i].state, q);
+        actorP.gradient(x[i].state, q, Loss::CROSS_EMTROPY);
     }
     actorP.optimize(optType, learningRate);
     critic.optimize(optType, 0.0001);

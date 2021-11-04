@@ -11,7 +11,7 @@ MainWindow::MainWindow(QWidget *parent)
     palette.setColor(QPalette::WindowText, Qt::white);
     setPalette(palette);
     /* info */
-    ui->agentComboBox->addItems(QStringList{"astar", "rand", "dqn", "dpg", "ppo"});
+    ui->agentComboBox->addItems(QStringList{"dqn", "dpg", "ppo", "ddpg", "astar", "rand"});
     /* game */
     gameWidget = new GameWidget(ui->gamewidget);
     gameWidget->move(0, 0);

@@ -17,7 +17,7 @@ class DQN
 {
 public:
     DQN(){}
-    explicit DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t hiddenLayerNum, std::size_t actionDim);
+    explicit DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     ~DQN(){}
     void perceive(Vec& state,
                   Vec& action,
