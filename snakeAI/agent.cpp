@@ -7,10 +7,10 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     trainFlag(true)
 {
     int stateDim = 4;
-    this->dqn = DQN(stateDim, 16, 4, 4);
-    this->dpg = DPG(stateDim, 16, 4, 4);
-    this->ddpg = DDPG(stateDim, 16, 4, 4);
-    this->ppo = PPO(stateDim, 16, 4, 4);
+    this->dqn = DQN(stateDim, 16, 4);
+    this->dpg = DPG(stateDim, 16, 4);
+    this->ddpg = DDPG(stateDim, 16, 4);
+    this->ppo = PPO(stateDim, 16, 4);
     this->bpnn = BPNN(BPNN::Layers{
                           Layer::_(stateDim, 16, Sigmoid::_, Sigmoid::d, true),
                           Layer::_(16, 16, Sigmoid::_, Sigmoid::d, true),
@@ -23,7 +23,7 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     dpg.load("./dpg");
     ddpg.load("./ddpg_actor", "./ddpg_critic");
     bpnn.load("./bpnn");
-    ppo.load("./ppo_actor", "./ppo_critic");
+    //ppo.load("./ppo_actor", "./ppo_critic");
 }
 
 Agent::~Agent()

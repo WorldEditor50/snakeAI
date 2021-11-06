@@ -3,7 +3,7 @@
 GameWidget::GameWidget(QWidget *parent) :
     QWidget(parent),
     agent(this, board.map, snake),
-    agentName("dqn"),
+    agentName("ppo"),
     winCount(0),
     lostCount(0)
 {

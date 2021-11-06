@@ -53,7 +53,7 @@ struct Loss
     static void MSE(Vec& E, const Vec& O, const Vec& y)
     {
         for (std::size_t i = 0; i < O.size(); i++) {
-             E[i] = O[i] - y[i];
+             E[i] = 2*(O[i] - y[i]);
         }
         return;
     }
@@ -160,6 +160,11 @@ public:
     }
     virtual void feedForward(const Vec &x) override;
     virtual void gradient(const Vec& x, const Vec& y) override;
+};
+class MergeLayer
+{
+public:
+
 };
 
 class BPNN
