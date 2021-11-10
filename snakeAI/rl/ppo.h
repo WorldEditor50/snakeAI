@@ -23,8 +23,8 @@ public:
     BPNN &greedyAction(const Vec &state);
     BPNN &action(const Vec &state);
     Vec& output(){return actorP.output();}
-    void learnWithKLpenalty(OptType optType, double learningRate, std::vector<Transition>& x);
-    void learnWithClipObject(OptType optType, double learningRate, std::vector<Transition>& x);
+    double learnWithKLpenalty(OptType optType, double learningRate, std::vector<Transition>& x);
+    double learnWithClipObject(OptType optType, double learningRate, std::vector<Transition>& x);
     void save(const std::string &actorPara, const std::string &criticPara);
     void load(const std::string &actorPara, const std::string &criticPara);
 protected:

@@ -10,7 +10,7 @@ RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
                                 Layer::_(hiddenDim, hiddenDim),
                                 Layer::_(hiddenDim, hiddenDim),
                                 Layer::_(hiddenDim, actionDim)
-                            });;
+                            });
     return;
 }
 

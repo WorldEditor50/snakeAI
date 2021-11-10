@@ -221,7 +221,7 @@ int Agent::dqnAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        dqn.learn(OPT_RMSPROP, 8192, 256, 64, 0.001);
+        dqn.learn(OPT_RMSPROP, 8192, 256, 64, 0.0001);
     }
     /* making decision */
     return dqn.action(state_);

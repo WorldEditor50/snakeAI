@@ -163,3 +163,10 @@ void RL::normalDistribution(double mu, double sigma, double sup, double inf, std
     }
     return;
 }
+
+double RL::uniformDistribution(double sup, double inf)
+{
+    std::default_random_engine engine(time(nullptr));
+    std::uniform_real_distribution<double> distribution(sup, inf);
+    return distribution(engine);
+}

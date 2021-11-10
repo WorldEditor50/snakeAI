@@ -9,13 +9,13 @@ RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
                               Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
                               Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
                               Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                              Layer::_(hiddenDim, actionDim, Sigmoid::_, Sigmoid::d, true)
+                              Layer::_(hiddenDim, actionDim, Linear::_, Linear::d, true)
                           });
     this->QTargetNet = BPNN(BPNN::Layers{
                                  Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
                                  Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
                                  Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
-                                 Layer::_(hiddenDim, actionDim, Sigmoid::_, Sigmoid::d, false)
+                                 Layer::_(hiddenDim, actionDim, Linear::_, Linear::d, false)
                              });
     this->QMainNet.copyTo(QTargetNet);
     return;

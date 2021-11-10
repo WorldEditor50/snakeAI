@@ -9,13 +9,10 @@ RL::Layer::Layer(std::size_t inputDim,
 {
     activate = activate_;
     dActivate = dActivate_;
-    W = Mat(layerDim);
+    W = Mat(layerDim, Vec(inputDim, 0));
     B = Vec(layerDim);
     O = Vec(layerDim);
     E = Vec(layerDim);
-    for (std::size_t i = 0; i < W.size(); i++) {
-        W[i] = Vec(inputDim, 0);
-    }
     /* init */
     for (std::size_t i = 0; i < W.size(); i++) {
         for (std::size_t j = 0; j < W[0].size(); j++) {
@@ -34,8 +31,11 @@ void RL::Layer::feedForward(const Vec& x)
         return;
     }
     for (std::size_t i = 0; i < W.size(); i++) {
-        double y = dotProduct(W[i], x) + B[i];
-        O[i] = activate(y);
+        O[i] = 0;
+        for (std::size_t j = 0; j < W[0].size(); j++) {
+            O[i] += W[i][j] * x[j];
+        }
+        O[i] = activate(O[i] + B[i]);
     }
     return;
 }
@@ -60,7 +60,7 @@ void RL::Layer::backpropagate(const Vec& nextE, const Mat& nextW)
     }
     for (std::size_t i = 0; i < nextW[0].size(); i++) {
         for (std::size_t j = 0; j < nextW.size(); j++) {
-            E[i] += nextE[j] * nextW[j][i];
+            E[i] +=  nextW[j][i] * nextE[j];
         }
     }
     return;
@@ -154,6 +154,7 @@ RL::BPNN &RL::BPNN::operator =(const RL::BPNN &r)
     if (this == &r) {
         return *this;
     }
+    evalTotalError = r.evalTotalError;
     layers = r.layers;
     return *this;
 }
@@ -204,11 +205,18 @@ RL::Vec& RL::BPNN::output()
     return layers.back()->O;
 }
 
-void RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y, RL::BPNN::LossFunc loss)
+double RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y, RL::BPNN::LossFunc loss)
 {
     feedForward(x);
     std::size_t outputIndex = layers.size() - 1;
     loss(layers[outputIndex]->E, layers[outputIndex]->O, y);
+    double total = 0;
+    if (evalTotalError == true) {
+        for (std::size_t i = 0; i < y.size(); i++) {
+            total += (layers[outputIndex]->O[i] - y[i])*(layers[outputIndex]->O[i] - y[i]);
+        }
+        total /= y.size();
+    }
     /* error Backpropagate */
     for (int i = outputIndex - 1; i >= 0; i--) {
         layers[i]->backpropagate(layers[i + 1]->E, layers[i + 1]->W);
@@ -218,7 +226,7 @@ void RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y, RL::BPNN::LossFunc l
     for (std::size_t j = 1; j < layers.size(); j++) {
         layers[j]->gradient(layers[j - 1]->O, y);
     }
-    return;
+    return total;
 }
 
 void RL::BPNN::SGD(double learningRate)

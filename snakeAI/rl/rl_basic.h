@@ -4,7 +4,8 @@
 #include <random>
 
 namespace RL {
-
+using Mat = std::vector<std::vector<double> >;
+using Vec = std::vector<double>;
 constexpr static double pi = 3.1415926535898;
 
 struct Transition
@@ -32,6 +33,7 @@ struct Step
     Step(std::vector<double>& s, std::vector<double>& a, double r)
         :state(s), action(a), reward(r) {}
 };
+double uniformDistribution(double sup, double inf);
 double normalDistribution(double mu, double sigma, double bound);
 void normalDistribution(double mu, double sigma, double sup, double inf, std::vector<double> &x, std::size_t N);
 double clip(double x, double sup, double inf);
