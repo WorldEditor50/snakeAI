@@ -72,8 +72,8 @@ public:
             Bo[i] = 0;
         }
         for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < Wi[0].size(); j++) {
-                Wi[i][j] = 0;
+            for (std::size_t j = 0; j < W[0].size(); j++) {
+                W[i][j] = 0;
             }
             B[i] = 0;
         }
@@ -108,8 +108,8 @@ public:
             Bo[i] = uniform();
         }
         for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < Wi[0].size(); j++) {
-                Wi[i][j] = uniform();
+            for (std::size_t j = 0; j < W[0].size(); j++) {
+                W[i][j] = uniform();
             }
             B[i] = uniform();
         }
@@ -205,6 +205,8 @@ protected:
     std::size_t inputDim;
     std::size_t hiddenDim;
     std::size_t outputDim;
+    Vec h;
+    Vec c;
     LstmParam dP;
     LstmParam Mp;
     LstmParam Vp;
@@ -216,8 +218,10 @@ public:
     Lstm(){}
     Lstm(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
     void show();
-    State feedForward(const Vec &x);
+    void clear();
+    State feedForward(const Vec &x, const Vec &_h, const Vec &_c);
     void forward(const std::vector<Vec> &seq);
+    Vec forward(const Vec &x);
     void gradient(const std::vector<Vec> &seq, const std::vector<Vec> &target);
     void SGD(double learningRate);
     void RMSProp(double learningRate, double rho = 0.9);

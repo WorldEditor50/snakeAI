@@ -13,12 +13,21 @@ RL::Lstm::Lstm(std::size_t inputDim_,
         Mp = LstmParam(inputDim_, hiddenDim_, outputDim_);
         Vp = LstmParam(inputDim_, hiddenDim_, outputDim_);
     }
+    h = Vec(hiddenDim, 0);
+    c = Vec(hiddenDim, 0);
     alpha_t = 1;
     beta_t = 1;
     LstmParam::random();
 }
 
-RL::Lstm::State RL::Lstm::feedForward(const RL::Vec &x)
+void RL::Lstm::clear()
+{
+    h.assign(hiddenDim, 0);
+    c.assign(hiddenDim, 0);
+    return;
+}
+
+RL::Lstm::State RL::Lstm::feedForward(const RL::Vec &x, const RL::Vec &_h, const RL::Vec &_c)
 {
     /*
                                                         y
@@ -46,7 +55,6 @@ RL::Lstm::State RL::Lstm::feedForward(const RL::Vec &x)
         yt = sigmoid(W*ht + b)
     */
     State state(hiddenDim, outputDim);
-    State &state_ = states.size() > 0 ? states.back():state;
     for (std::size_t i = 0; i < Wi.size(); i++) {
         double sf = 0;
         double si = 0;
@@ -59,21 +67,21 @@ RL::Lstm::State RL::Lstm::feedForward(const RL::Vec &x)
             so += Wo[i][j] * x[j];
         }
         for (std::size_t j = 0; j < Ui[0].size(); j++) {
-            sf += Uf[i][j] * state_.h[j];
-            si += Ui[i][j] * state_.h[j];
-            sg += Ug[i][j] * state_.h[j];
-            so += Uo[i][j] * state_.h[j];
+            sf += Uf[i][j] * _h[j];
+            si += Ui[i][j] * _h[j];
+            sg += Ug[i][j] * _h[j];
+            so += Uo[i][j] * _h[j];
         }
         state.f[i] = Sigmoid::_(sf + Bi[i]);
         state.i[i] = Sigmoid::_(si + Bf[i]);
         state.g[i] = Tanh::_(sg + Bg[i]);
         state.o[i] = Sigmoid::_(so + Bo[i]);
-        state.c[i] = state.f[i] * state_.c[i] + state.i[i] * state.g[i];
+        state.c[i] = state.f[i] * _c[i] + state.i[i] * state.g[i];
         state.h[i] = state.o[i] * Tanh::_(state.c[i]);
     }
 
-    double sy = 0;
     for (std::size_t i = 0; i < W.size(); i++) {
+        double sy = 0;
         for (std::size_t j = 0; j < W[0].size(); j++) {
             sy += W[i][j] * state.h[j];
         }
@@ -84,11 +92,23 @@ RL::Lstm::State RL::Lstm::feedForward(const RL::Vec &x)
 
 void RL::Lstm::forward(const std::vector<RL::Vec> &sequence)
 {
+    h.assign(hiddenDim, 0);
+    c.assign(hiddenDim, 0);
     for (auto &x : sequence) {
-        State state = feedForward(x);
+        State state = feedForward(x, h, c);
+        h = state.h;
+        c = state.c;
         states.push_back(state);
     }
     return;
+}
+
+RL::Vec RL::Lstm::forward(const RL::Vec &x)
+{
+    State state = feedForward(x, h, c);
+    h = state.h;
+    c = state.c;
+    return state.y;
 }
 
 void RL::Lstm::gradient(const std::vector<RL::Vec> &x,
@@ -96,8 +116,7 @@ void RL::Lstm::gradient(const std::vector<RL::Vec> &x,
 {
     State delta(hiddenDim, outputDim);
     State delta_(hiddenDim, outputDim);
-    for (int t = states.size() - 2; t >= 1; t--) {
-        delta.zero();
+    for (int t = states.size() - 1; t >= 0; t--) {
         /* loss */
         for (std::size_t i = 0; i < delta.y.size(); i++) {
             delta.y[i] = 2 * (states[t].y[i] - yt[t][i]);
@@ -124,14 +143,15 @@ void RL::Lstm::gradient(const std::vector<RL::Vec> &x,
             δit = δct ⊙ gt ⊙ dsigmoid(it)
             δft = δct ⊙ ct-1 ⊙ dsigmoid(ft)      
         */
+        Vec f_ = t < states.size() - 1 ? states[t + 1].f : Vec(hiddenDim, 0);
+        Vec _c = t > 0 ? states[t - 1].c : Vec(hiddenDim, 0);
         for (std::size_t i = 0; i < delta.o.size(); i++) {
-
             delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::d(states[t].c[i]) +
-                    delta_.c[i] * states[t + 1].f[i];
+                    delta_.c[i] * f_[i];
             delta.o[i] = delta.h[i] * Tanh::_(states[t].c[i]) * Sigmoid::d(states[t].o[i]);
             delta.g[i] = delta.c[i] * states[t].i[i] * Tanh::d(states[t].g[i]);
             delta.i[i] = delta.c[i] * states[t].g[i] * Sigmoid::d(states[t].i[i]);
-            delta.f[i] = delta.c[i] * states[t - 1].c[i] * Sigmoid::d(states[t].f[i]);
+            delta.f[i] = delta.c[i] * _c[i] * Sigmoid::d(states[t].f[i]);
         }
         /* gradient */
         for (std::size_t i = 0; i < W.size(); i++) {
@@ -148,12 +168,13 @@ void RL::Lstm::gradient(const std::vector<RL::Vec> &x,
                 dP.Wo[i][j] += delta.o[i] * x[t][j];
             }
         }
+        Vec _h = t > 0 ? states[t - 1].h : Vec(hiddenDim, 0);
         for (std::size_t i = 0; i < Ui.size(); i++) {
             for (std::size_t j = 0; j < Ui[0].size(); j++) {
-                dP.Ui[i][j] += delta.i[i] * states[t - 1].h[j];
-                dP.Uf[i][j] += delta.f[i] * states[t - 1].h[j];
-                dP.Ug[i][j] += delta.g[i] * states[t - 1].h[j];
-                dP.Uo[i][j] += delta.o[i] * states[t - 1].h[j];
+                dP.Ui[i][j] += delta.i[i] * _h[j];
+                dP.Uf[i][j] += delta.f[i] * _h[j];
+                dP.Ug[i][j] += delta.g[i] * _h[j];
+                dP.Uo[i][j] += delta.o[i] * _h[j];
             }
         }
         for (std::size_t i = 0; i < Bi.size(); i++) {
@@ -164,6 +185,7 @@ void RL::Lstm::gradient(const std::vector<RL::Vec> &x,
         }
         /* next */
         delta_ = delta;
+        delta.zero();
     }
     states.clear();
     return;
@@ -302,7 +324,7 @@ void RL::Lstm::test()
     srand((unsigned int)time(nullptr));
     Lstm lstm(2, 4, 1, true);
     auto zeta = [](double x, double y) -> double {
-        return sin(x*x + y*y);
+        return x*x + y*y;
     };
     auto uniform = []()->double{
         int r1 = rand()%10;
@@ -336,23 +358,20 @@ void RL::Lstm::test()
     for (int i = 0; i < 10000; i++) {
         std::vector<Vec> batchData;
         std::vector<Vec> batchTarget;
-        sample(batchData, batchTarget, 16);
+        sample(batchData, batchTarget, 512);
         lstm.forward(batchData);
         lstm.gradient(batchData, batchTarget);
-        lstm.RMSProp(0.001);
+        lstm.RMSProp(0.0001);
     }
-//    for (int i = 0; i < 1000; i++) {
-//        lstm.forward(data);
-//        lstm.gradient(data, target);
-//        lstm.RMSProp(0.0001);
-//    }
-    auto show = [](Lstm::State &state){
-        for (std::size_t i = 0; i < state.y.size(); i++) {
-            std::cout<<state.y[i]<<" ";
+
+    auto show = [](Vec &y){
+        for (std::size_t i = 0; i < y.size(); i++) {
+            std::cout<<y[i]<<" ";
         }
         std::cout<<std::endl;
         return;
     };
+    lstm.clear();
     for (int i = 0; i < 5; i++) {
         Vec p(2);
         double x = uniform();
@@ -361,7 +380,7 @@ void RL::Lstm::test()
         p[0] = x;
         p[1] = y;
         std::cout<<"x = "<<x<<" y = "<<y<<" z = "<<z<<"  predict: ";
-        auto s = lstm.feedForward(p);
+        auto s = lstm.forward(p);
         show(s);
     }
     return;
