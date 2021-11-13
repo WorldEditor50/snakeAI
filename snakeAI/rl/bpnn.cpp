@@ -14,11 +14,12 @@ RL::Layer::Layer(std::size_t inputDim,
     O = Vec(layerDim);
     E = Vec(layerDim);
     /* init */
+    std::uniform_real_distribution<double> distributionReal(-1, 1);
     for (std::size_t i = 0; i < W.size(); i++) {
         for (std::size_t j = 0; j < W[0].size(); j++) {
-            W[i][j] = double(rand() % 10000 - rand() % 10000) / 10000;
+            W[i][j] = distributionReal(Rand::engine);
         }
-        B[i] = double(rand() % 10000 - rand() % 10000) / 10000;
+        B[i] = distributionReal(Rand::engine);
     }
     return;
 }

@@ -9,33 +9,24 @@ RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
                                 Layer::_(stateDim, hiddenDim),
                                 Layer::_(hiddenDim, hiddenDim),
                                 Layer::_(hiddenDim, hiddenDim),
-                                Layer::_(hiddenDim, actionDim)
+                                SoftmaxLayer::_(hiddenDim, actionDim, true)
                             });
     return;
 }
 
-int RL::DPG::greedyAction(Vec &state)
+RL::Vec &RL::DPG::sample(const Vec &state)
 {
-    if (state.size() != stateDim) {
-        return -1;
-    }
-    double p = double(rand() % 10000) / 10000;
-    int index = 0;
+    std::uniform_real_distribution<double> distributionReal(0, 1);
+    double p = distributionReal(Rand::engine);
     if (p < exploringRate) {
-        index = randomAction();
+        policyNet.output().assign(actionDim, 0);
+        std::uniform_int_distribution<int> distribution(0, actionDim - 1);
+        int index = distribution(Rand::engine);
+        policyNet.output()[index] = 1;
     } else {
-        index = action(state);
+        policyNet.feedForward(state);
     }
-    return index;
-}
-
-int RL::DPG::randomAction()
-{
-    Vec& out = policyNet.output();
-    out.assign(actionDim, 0);
-    int index = rand() % actionDim;
-    out[index] = 1;
-    return index;
+    return policyNet.output();
 }
 
 int RL::DPG::action(const Vec &state)
@@ -46,7 +37,7 @@ int RL::DPG::action(const Vec &state)
 void RL::DPG::reinforce(OptType optType, double learningRate, std::vector<Step>& x)
 {
     double r = 0;
-    Vec discoutedReward(x.size());
+    Vec discoutedReward(x.size(), 0);
     for (int i = x.size() - 1; i >= 0; i--) {
         r = gamma * r + x[i].reward;
         discoutedReward[i] = r;
@@ -71,6 +62,6 @@ void RL::DPG::save(const std::string &fileName)
 
 void RL::DPG::load(const std::string &fileName)
 {
-    policyNet.load(fileName);
+    //policyNet.load(fileName);
     return;
 }

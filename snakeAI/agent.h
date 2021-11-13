@@ -8,15 +8,15 @@
 #include "ppo.h"
 #include "common.h"
 #include "snake.h"
-using namespace std;
+
 using namespace RL;
 class Agent : public QObject
 {
     Q_OBJECT
 public:
-    explicit Agent(QObject *parent, vector<vector<int> >& map, Snake& s);
+    explicit Agent(QObject *parent, std::vector<std::vector<int> >& map, Snake& s);
     ~Agent();
-    void observe(vector<double>& statex, int x, int y, int xt, int yt, vector<double> &output);
+    void observe(std::vector<double>& statex, int x, int y, int xt, int yt, std::vector<double> &output);
     int acting(int x, int y, int xt, int yt);
     int astarAction(int x, int y, int xt, int yt);
     int randAction(int x, int y, int xt, int yt);
@@ -38,10 +38,10 @@ private:
     double reward5(int xi, int yi, int xn, int yn, int xt, int yt);
     bool simulateMove(int& x, int& y, int direct);
 private:
-    vector<vector<int> >& map;
+    std::vector<std::vector<int> >& map;
     Snake &snake;
-    vector<double> state;
-    vector<double> nextState;
+    std::vector<double> state;
+    std::vector<double> nextState;
     DQN dqn;
     BPNN bpnn;
     DPG dpg;

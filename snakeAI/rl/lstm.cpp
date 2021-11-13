@@ -1,33 +1,32 @@
 #include "lstm.h"
-#include <iostream>
 
-RL::Lstm::Lstm(std::size_t inputDim_,
+RL::LSTM::LSTM(std::size_t inputDim_,
                std::size_t hiddenDim_,
                std::size_t outputDim_,
                bool trainFlag):
-    LstmParam(inputDim_, hiddenDim_, outputDim_),
+    LSTMParam(inputDim_, hiddenDim_, outputDim_),
     inputDim(inputDim_), hiddenDim(hiddenDim_), outputDim(outputDim_)
 {
     if (trainFlag == true) {
-        dP = LstmParam(inputDim_, hiddenDim_, outputDim_);
-        Mp = LstmParam(inputDim_, hiddenDim_, outputDim_);
-        Vp = LstmParam(inputDim_, hiddenDim_, outputDim_);
+        d = LSTMParam(inputDim_, hiddenDim_, outputDim_);
+        v = LSTMParam(inputDim_, hiddenDim_, outputDim_);
+        s = LSTMParam(inputDim_, hiddenDim_, outputDim_);
     }
     h = Vec(hiddenDim, 0);
     c = Vec(hiddenDim, 0);
     alpha_t = 1;
     beta_t = 1;
-    LstmParam::random();
+    LSTMParam::random();
 }
 
-void RL::Lstm::clear()
+void RL::LSTM::clear()
 {
     h.assign(hiddenDim, 0);
     c.assign(hiddenDim, 0);
     return;
 }
 
-RL::Lstm::State RL::Lstm::feedForward(const RL::Vec &x, const RL::Vec &_h, const RL::Vec &_c)
+RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const RL::Vec &_c)
 {
     /*
                                                         y
@@ -90,7 +89,7 @@ RL::Lstm::State RL::Lstm::feedForward(const RL::Vec &x, const RL::Vec &_h, const
     return state;
 }
 
-void RL::Lstm::forward(const std::vector<RL::Vec> &sequence)
+void RL::LSTM::forward(const std::vector<RL::Vec> &sequence)
 {
     h.assign(hiddenDim, 0);
     c.assign(hiddenDim, 0);
@@ -103,7 +102,7 @@ void RL::Lstm::forward(const std::vector<RL::Vec> &sequence)
     return;
 }
 
-RL::Vec RL::Lstm::forward(const RL::Vec &x)
+RL::Vec RL::LSTM::forward(const RL::Vec &x)
 {
     State state = feedForward(x, h, c);
     h = state.h;
@@ -111,7 +110,7 @@ RL::Vec RL::Lstm::forward(const RL::Vec &x)
     return state.y;
 }
 
-void RL::Lstm::gradient(const std::vector<RL::Vec> &x,
+void RL::LSTM::gradient(const std::vector<RL::Vec> &x,
                         const std::vector<RL::Vec> &yt)
 {
     State delta(hiddenDim, outputDim);
@@ -122,17 +121,17 @@ void RL::Lstm::gradient(const std::vector<RL::Vec> &x,
             delta.y[i] = 2 * (states[t].y[i] - yt[t][i]);
         }
         /* backward */
-        for (std::size_t i = 0; i < W[0].size(); i++) {
-            for (std::size_t j = 0; j < W.size(); j++) {
-                delta.h[i] += W[j][i] * delta.y[j];
+        for (std::size_t i = 0; i < W.size(); i++) {
+            for (std::size_t j = 0; j < W[0].size(); j++) {
+                delta.h[j] += W[i][j] * delta.y[i];
             }
         }
-        for (std::size_t i = 0; i < Ui[0].size(); i++) {
-            for (std::size_t j = 0; j < Ui.size(); j++) {
-                delta.h[i] += Ui[j][i] * delta_.i[j];
-                delta.h[i] += Uf[j][i] * delta_.f[j];
-                delta.h[i] += Ug[j][i] * delta_.g[j];
-                delta.h[i] += Uo[j][i] * delta_.o[j];
+        for (std::size_t i = 0; i < Ui.size(); i++) {
+            for (std::size_t j = 0; j < Ui[0].size(); j++) {
+                delta.h[j] += Ui[i][j] * delta_.i[i];
+                delta.h[j] += Uf[i][j] * delta_.f[i];
+                delta.h[j] += Ug[i][j] * delta_.g[i];
+                delta.h[j] += Uo[i][j] * delta_.o[i];
             }
         }
         /*
@@ -156,32 +155,32 @@ void RL::Lstm::gradient(const std::vector<RL::Vec> &x,
         /* gradient */
         for (std::size_t i = 0; i < W.size(); i++) {
             for (std::size_t j = 0; j < W[0].size(); j++) {
-                dP.W[i][j] += delta.y[i] * Linear::d(states[t].y[i]) * states[t].h[j];
+                d.W[i][j] += delta.y[i] * Linear::d(states[t].y[i]) * states[t].h[j];
             }
-            dP.B[i] += delta.y[i] * Linear::d(states[t].y[i]);
+            d.B[i] += delta.y[i] * Linear::d(states[t].y[i]);
         }
         for (std::size_t i = 0; i < Wi.size(); i++) {
             for (std::size_t j = 0; j < Wi[0].size(); j++) {
-                dP.Wi[i][j] += delta.i[i] * x[t][j];
-                dP.Wf[i][j] += delta.f[i] * x[t][j];
-                dP.Wg[i][j] += delta.g[i] * x[t][j];
-                dP.Wo[i][j] += delta.o[i] * x[t][j];
+                d.Wi[i][j] += delta.i[i] * x[t][j];
+                d.Wf[i][j] += delta.f[i] * x[t][j];
+                d.Wg[i][j] += delta.g[i] * x[t][j];
+                d.Wo[i][j] += delta.o[i] * x[t][j];
             }
         }
         Vec _h = t > 0 ? states[t - 1].h : Vec(hiddenDim, 0);
         for (std::size_t i = 0; i < Ui.size(); i++) {
             for (std::size_t j = 0; j < Ui[0].size(); j++) {
-                dP.Ui[i][j] += delta.i[i] * _h[j];
-                dP.Uf[i][j] += delta.f[i] * _h[j];
-                dP.Ug[i][j] += delta.g[i] * _h[j];
-                dP.Uo[i][j] += delta.o[i] * _h[j];
+                d.Ui[i][j] += delta.i[i] * _h[j];
+                d.Uf[i][j] += delta.f[i] * _h[j];
+                d.Ug[i][j] += delta.g[i] * _h[j];
+                d.Uo[i][j] += delta.o[i] * _h[j];
             }
         }
         for (std::size_t i = 0; i < Bi.size(); i++) {
-            dP.Bi[i] += delta.i[i];
-            dP.Bf[i] += delta.f[i];
-            dP.Bg[i] += delta.g[i];
-            dP.Bo[i] += delta.o[i];
+            d.Bi[i] += delta.i[i];
+            d.Bf[i] += delta.f[i];
+            d.Bg[i] += delta.g[i];
+            d.Bo[i] += delta.o[i];
         }
         /* next */
         delta_ = delta;
@@ -191,89 +190,89 @@ void RL::Lstm::gradient(const std::vector<RL::Vec> &x,
     return;
 }
 
-void RL::Lstm::SGD(double learningRate)
+void RL::LSTM::SGD(double learningRate)
 {
     for (std::size_t i = 0; i < W.size(); i++) {
         for (std::size_t j = 0; j < W[0].size(); j++) {
-            W[i][j] -= learningRate * dP.W[i][j];
+            W[i][j] -= learningRate * d.W[i][j];
         }
-        B[i] -= learningRate * dP.B[i];
+        B[i] -= learningRate * d.B[i];
     }
     for (std::size_t i = 0; i < Wi.size(); i++) {
         for (std::size_t j = 0; j < Wi[0].size(); j++) {
-            Wi[i][j] -= learningRate * dP.Wi[i][j];
-            Wf[i][j] -= learningRate * dP.Wf[i][j];
-            Wg[i][j] -= learningRate * dP.Wg[i][j];
-            Wo[i][j] -= learningRate * dP.Wo[i][j];
+            Wi[i][j] -= learningRate * d.Wi[i][j];
+            Wf[i][j] -= learningRate * d.Wf[i][j];
+            Wg[i][j] -= learningRate * d.Wg[i][j];
+            Wo[i][j] -= learningRate * d.Wo[i][j];
         }
     }
     for (std::size_t i = 0; i < Ui.size(); i++) {
         for (std::size_t j = 0; j < Ui[0].size(); j++) {
-            Ui[i][j] -= learningRate * dP.Ui[i][j];
-            Uf[i][j] -= learningRate * dP.Uf[i][j];
-            Ug[i][j] -= learningRate * dP.Ug[i][j];
-            Uo[i][j] -= learningRate * dP.Uo[i][j];
+            Ui[i][j] -= learningRate * d.Ui[i][j];
+            Uf[i][j] -= learningRate * d.Uf[i][j];
+            Ug[i][j] -= learningRate * d.Ug[i][j];
+            Uo[i][j] -= learningRate * d.Uo[i][j];
         }
     }
     for (std::size_t i = 0; i < Bi.size(); i++) {
-        Bi[i] -= learningRate * dP.Bi[i];
-        Bf[i] -= learningRate * dP.Bf[i];
-        Bg[i] -= learningRate * dP.Bg[i];
-        Bo[i] -= learningRate * dP.Bo[i];
+        Bi[i] -= learningRate * d.Bi[i];
+        Bf[i] -= learningRate * d.Bf[i];
+        Bg[i] -= learningRate * d.Bg[i];
+        Bo[i] -= learningRate * d.Bo[i];
     }
-    dP.zero();
+    d.zero();
     return;
 }
 
-void RL::Lstm::RMSProp(double learningRate, double rho)
+void RL::LSTM::RMSProp(double learningRate, double rho)
 {
     for (std::size_t i = 0; i < W.size(); i++) {
         for (std::size_t j = 0; j < W[0].size(); j++) {
-            Vp.W[i][j] = rho * Vp.W[i][j] + (1 - rho) * dP.W[i][j] * dP.W[i][j];
-            W[i][j] -= learningRate * dP.W[i][j] / (sqrt(Vp.W[i][j]) + 1e-9);
+            s.W[i][j] = rho * s.W[i][j] + (1 - rho) * d.W[i][j] * d.W[i][j];
+            W[i][j] -= learningRate * d.W[i][j] / (sqrt(s.W[i][j]) + 1e-9);
         }
-        Vp.B[i] = rho * Vp.B[i] + (1 - rho) * dP.B[i] * dP.B[i];
-        B[i] -= learningRate * dP.B[i] / (sqrt(Vp.B[i]) + 1e-9);
+        s.B[i] = rho * s.B[i] + (1 - rho) * d.B[i] * d.B[i];
+        B[i] -= learningRate * d.B[i] / (sqrt(s.B[i]) + 1e-9);
     }
     for (std::size_t i = 0; i < Wi.size(); i++) {
         for (std::size_t j = 0; j < Wi[0].size(); j++) {
-            Vp.Wi[i][j] = rho * Vp.Wi[i][j] + (1 - rho) * dP.Wi[i][j] * dP.Wi[i][j];
-            Vp.Wf[i][j] = rho * Vp.Wf[i][j] + (1 - rho) * dP.Wf[i][j] * dP.Wf[i][j];
-            Vp.Wg[i][j] = rho * Vp.Wg[i][j] + (1 - rho) * dP.Wg[i][j] * dP.Wg[i][j];
-            Vp.Wo[i][j] = rho * Vp.Wo[i][j] + (1 - rho) * dP.Wo[i][j] * dP.Wo[i][j];
-            Wi[i][j] -= learningRate * dP.Wi[i][j] / (sqrt(Vp.Wi[i][j]) + 1e-9);
-            Wf[i][j] -= learningRate * dP.Wf[i][j] / (sqrt(Vp.Wf[i][j]) + 1e-9);
-            Wg[i][j] -= learningRate * dP.Wg[i][j] / (sqrt(Vp.Wg[i][j]) + 1e-9);
-            Wo[i][j] -= learningRate * dP.Wo[i][j] / (sqrt(Vp.Wo[i][j]) + 1e-9);
+            s.Wi[i][j] = rho * s.Wi[i][j] + (1 - rho) * d.Wi[i][j] * d.Wi[i][j];
+            s.Wf[i][j] = rho * s.Wf[i][j] + (1 - rho) * d.Wf[i][j] * d.Wf[i][j];
+            s.Wg[i][j] = rho * s.Wg[i][j] + (1 - rho) * d.Wg[i][j] * d.Wg[i][j];
+            s.Wo[i][j] = rho * s.Wo[i][j] + (1 - rho) * d.Wo[i][j] * d.Wo[i][j];
+            Wi[i][j] -= learningRate * d.Wi[i][j] / (sqrt(s.Wi[i][j]) + 1e-9);
+            Wf[i][j] -= learningRate * d.Wf[i][j] / (sqrt(s.Wf[i][j]) + 1e-9);
+            Wg[i][j] -= learningRate * d.Wg[i][j] / (sqrt(s.Wg[i][j]) + 1e-9);
+            Wo[i][j] -= learningRate * d.Wo[i][j] / (sqrt(s.Wo[i][j]) + 1e-9);
         }
     }
     for (std::size_t i = 0; i < Ui.size(); i++) {
         for (std::size_t j = 0; j < Ui[0].size(); j++) {
-            Vp.Ui[i][j] = rho * Vp.Ui[i][j] + (1 - rho) * dP.Ui[i][j] * dP.Ui[i][j];
-            Vp.Uf[i][j] = rho * Vp.Uf[i][j] + (1 - rho) * dP.Uf[i][j] * dP.Uf[i][j];
-            Vp.Ug[i][j] = rho * Vp.Ug[i][j] + (1 - rho) * dP.Ug[i][j] * dP.Ug[i][j];
-            Vp.Uo[i][j] = rho * Vp.Uo[i][j] + (1 - rho) * dP.Uo[i][j] * dP.Uo[i][j];
-            Ui[i][j] -= learningRate * dP.Ui[i][j] / (sqrt(Vp.Ui[i][j]) + 1e-9);
-            Uf[i][j] -= learningRate * dP.Uf[i][j] / (sqrt(Vp.Uf[i][j]) + 1e-9);
-            Ug[i][j] -= learningRate * dP.Ug[i][j] / (sqrt(Vp.Ug[i][j]) + 1e-9);
-            Uo[i][j] -= learningRate * dP.Uo[i][j] / (sqrt(Vp.Uo[i][j]) + 1e-9);
+            s.Ui[i][j] = rho * s.Ui[i][j] + (1 - rho) * d.Ui[i][j] * d.Ui[i][j];
+            s.Uf[i][j] = rho * s.Uf[i][j] + (1 - rho) * d.Uf[i][j] * d.Uf[i][j];
+            s.Ug[i][j] = rho * s.Ug[i][j] + (1 - rho) * d.Ug[i][j] * d.Ug[i][j];
+            s.Uo[i][j] = rho * s.Uo[i][j] + (1 - rho) * d.Uo[i][j] * d.Uo[i][j];
+            Ui[i][j] -= learningRate * d.Ui[i][j] / (sqrt(s.Ui[i][j]) + 1e-9);
+            Uf[i][j] -= learningRate * d.Uf[i][j] / (sqrt(s.Uf[i][j]) + 1e-9);
+            Ug[i][j] -= learningRate * d.Ug[i][j] / (sqrt(s.Ug[i][j]) + 1e-9);
+            Uo[i][j] -= learningRate * d.Uo[i][j] / (sqrt(s.Uo[i][j]) + 1e-9);
         }
     }
     for (std::size_t i = 0; i < Bi.size(); i++) {
-        Vp.Bi[i] = rho * Vp.Bi[i] + (1 - rho) * dP.Bi[i] * dP.Bi[i];
-        Vp.Bf[i] = rho * Vp.Bf[i] + (1 - rho) * dP.Bf[i] * dP.Bf[i];
-        Vp.Bg[i] = rho * Vp.Bg[i] + (1 - rho) * dP.Bg[i] * dP.Bg[i];
-        Vp.Bo[i] = rho * Vp.Bo[i] + (1 - rho) * dP.Bo[i] * dP.Bo[i];
-        Bi[i] -= learningRate * dP.Bi[i] / (sqrt(Vp.Bi[i]) + 1e-9);
-        Bf[i] -= learningRate * dP.Bf[i] / (sqrt(Vp.Bf[i]) + 1e-9);
-        Bg[i] -= learningRate * dP.Bg[i] / (sqrt(Vp.Bg[i]) + 1e-9);
-        Bo[i] -= learningRate * dP.Bo[i] / (sqrt(Vp.Bo[i]) + 1e-9);
+        s.Bi[i] = rho * s.Bi[i] + (1 - rho) * d.Bi[i] * d.Bi[i];
+        s.Bf[i] = rho * s.Bf[i] + (1 - rho) * d.Bf[i] * d.Bf[i];
+        s.Bg[i] = rho * s.Bg[i] + (1 - rho) * d.Bg[i] * d.Bg[i];
+        s.Bo[i] = rho * s.Bo[i] + (1 - rho) * d.Bo[i] * d.Bo[i];
+        Bi[i] -= learningRate * d.Bi[i] / (sqrt(s.Bi[i]) + 1e-9);
+        Bf[i] -= learningRate * d.Bf[i] / (sqrt(s.Bf[i]) + 1e-9);
+        Bg[i] -= learningRate * d.Bg[i] / (sqrt(s.Bg[i]) + 1e-9);
+        Bo[i] -= learningRate * d.Bo[i] / (sqrt(s.Bo[i]) + 1e-9);
     }
-    dP.zero();
+    d.zero();
     return;
 }
 
-void RL::Lstm::Adam(double learningRate,  double alpha, double beta)
+void RL::LSTM::Adam(double learningRate,  double alpha, double beta)
 {
     alpha_t *= alpha;
     beta_t *= beta;
@@ -297,32 +296,32 @@ void RL::Lstm::Adam(double learningRate,  double alpha, double beta)
             b[i] -= learningRate * m / (sqrt(v) + 1e-9);
         }
     };
-    AdamMatImpl(Mp.W, Vp.W, W, dP.W);
-    AdamVecImpl(Mp.B, Vp.B, B, dP.B);
+    AdamMatImpl(v.W, s.W, W, d.W);
+    AdamVecImpl(v.B, s.B, B, d.B);
 
-    AdamMatImpl(Mp.Wi, Vp.Wi, Wi, dP.Wi);
-    AdamMatImpl(Mp.Wg, Vp.Wg, Wg, dP.Wg);
-    AdamMatImpl(Mp.Wf, Vp.Wf, Wf, dP.Wf);
-    AdamMatImpl(Mp.Wo, Vp.Wo, Wo, dP.Wo);
+    AdamMatImpl(v.Wi, s.Wi, Wi, d.Wi);
+    AdamMatImpl(v.Wg, s.Wg, Wg, d.Wg);
+    AdamMatImpl(v.Wf, s.Wf, Wf, d.Wf);
+    AdamMatImpl(v.Wo, s.Wo, Wo, d.Wo);
 
-    AdamMatImpl(Mp.Ui, Vp.Ui, Ui, dP.Ui);
-    AdamMatImpl(Mp.Ug, Vp.Ug, Ug, dP.Ug);
-    AdamMatImpl(Mp.Uf, Vp.Uf, Uf, dP.Uf);
-    AdamMatImpl(Mp.Uo, Vp.Uo, Uo, dP.Uo);
+    AdamMatImpl(v.Ui, s.Ui, Ui, d.Ui);
+    AdamMatImpl(v.Ug, s.Ug, Ug, d.Ug);
+    AdamMatImpl(v.Uf, s.Uf, Uf, d.Uf);
+    AdamMatImpl(v.Uo, s.Uo, Uo, d.Uo);
 
-    AdamVecImpl(Mp.Bi, Vp.Bi, Bi, dP.Bi);
-    AdamVecImpl(Mp.Bg, Vp.Bg, Bg, dP.Bg);
-    AdamVecImpl(Mp.Bf, Vp.Bf, Bf, dP.Bf);
-    AdamVecImpl(Mp.Bo, Vp.Bo, Bo, dP.Bo);
+    AdamVecImpl(v.Bi, s.Bi, Bi, d.Bi);
+    AdamVecImpl(v.Bg, s.Bg, Bg, d.Bg);
+    AdamVecImpl(v.Bf, s.Bf, Bf, d.Bf);
+    AdamVecImpl(v.Bo, s.Bo, Bo, d.Bo);
 
-    dP.zero();
+    d.zero();
     return;
 }
 
-void RL::Lstm::test()
+void RL::LSTM::test()
 {
     srand((unsigned int)time(nullptr));
-    Lstm lstm(2, 4, 1, true);
+    LSTM lstm(2, 8, 1, true);
     auto zeta = [](double x, double y) -> double {
         return x*x + y*y;
     };
@@ -334,18 +333,17 @@ void RL::Lstm::test()
     };
     std::vector<Vec> data;
     std::vector<Vec> target;
-    for (int i = 0; i < 10000; i++) {
-        Vec p(2);
-        double x = uniform();
-        double y = uniform();
-        double z = zeta(x, y);
-        p[0] = x;
-        p[1] = y;
-        Vec q(1);
-        q[0] = z;
-        data.push_back(p);
-        target.push_back(q);
-
+    for (double i = 0; i < 1; i += 0.001) {
+        for (double j = 0; j < 1; j += 0.001) {
+            Vec p(2);
+            double z = zeta(i, j);
+            p[0] = i;
+            p[1] = j;
+            Vec q(1);
+            q[0] = z;
+            data.push_back(p);
+            target.push_back(q);
+        }
     }
     auto sample = [&](std::vector<Vec> &batchData,
             std::vector<Vec> &batchTarget, int batchSize){
@@ -358,10 +356,10 @@ void RL::Lstm::test()
     for (int i = 0; i < 10000; i++) {
         std::vector<Vec> batchData;
         std::vector<Vec> batchTarget;
-        sample(batchData, batchTarget, 512);
+        sample(batchData, batchTarget, 16);
         lstm.forward(batchData);
         lstm.gradient(batchData, batchTarget);
-        lstm.RMSProp(0.0001);
+        lstm.RMSProp(0.001);
     }
 
     auto show = [](Vec &y){
@@ -372,16 +370,16 @@ void RL::Lstm::test()
         return;
     };
     lstm.clear();
-    for (int i = 0; i < 5; i++) {
-        Vec p(2);
-        double x = uniform();
-        double y = uniform();
-        double z = zeta(x, y);
-        p[0] = x;
-        p[1] = y;
-        std::cout<<"x = "<<x<<" y = "<<y<<" z = "<<z<<"  predict: ";
-        auto s = lstm.forward(p);
-        show(s);
+    for (double i = 0; i < 1; i += 0.3) {
+        for (double j = 0; j < 1; j += 0.3) {
+            Vec p(2);
+            double z = zeta(i, j);
+            p[0] = i;
+            p[1] = j;
+            auto s = lstm.forward(p);
+            std::cout<<"x = "<<i<<" y = "<<j<<" z = "<<z<<"  predict: "
+                    <<s[0]<<" error:"<<s[0] - z<<std::endl;
+        }
     }
     return;
 }

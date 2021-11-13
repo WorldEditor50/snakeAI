@@ -36,7 +36,7 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
     return;
 }
 
-void RL::PPO::continousAction(const Vec &state, Vec &act)
+void RL::PPO::continousSample(const Vec &state, Vec &act)
 {
     double mu = RL::mean(state);
     double sigma = RL::variance(state);
@@ -47,19 +47,19 @@ void RL::PPO::continousAction(const Vec &state, Vec &act)
     return;
 }
 
-RL::BPNN &RL::PPO::greedyAction(const Vec &state)
+RL::Vec &RL::PPO::sample(const Vec &state)
 {
-    Vec& out = actorQ.output();
-    double p = double(rand() % 10000) / 10000;
-    int index = 0;
+    std::uniform_real_distribution<double> distributionReal(0, 1);
+    double p = distributionReal(Rand::engine);
     if (p < exploringRate) {
-        out.assign(actionDim, 0);
-        index = rand() % actionDim;
-        out[index] = 1;
+        actorQ.output().assign(actionDim, 0);
+        std::uniform_int_distribution<int> distribution(0, actionDim - 1);
+        int index = distribution(Rand::engine);
+        actorQ.output()[index] = 1;
     } else {
-        index = actorQ.feedForward(state).argmax();
+        actorQ.feedForward(state);
     }
-    return actorQ;
+    return actorQ.output();
 }
 
 RL::BPNN &RL::PPO::action(const Vec &state)

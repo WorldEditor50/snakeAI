@@ -18,9 +18,8 @@ public:
     DPG(){}
     explicit DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     ~DPG(){}
-    int greedyAction(Vec& state);
-    int randomAction();
-    Vec& output(){return policyNet.output();}
+    Vec &sample(const Vec &state);
+    Vec &output(){return policyNet.output();}
     int action(const Vec &state);
     void zscore(Vec& x);
     void reinforce(OptType optType, double learningRate, std::vector<Step>& x);

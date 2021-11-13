@@ -1,4 +1,5 @@
 #include "dqn.h"
+
 RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
 {
     this->gamma = 0.99;
@@ -9,15 +10,16 @@ RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
                               Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
                               Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
                               Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                              Layer::_(hiddenDim, actionDim, Linear::_, Linear::d, true)
+                              Layer::_(hiddenDim, actionDim, Sigmoid::_, Sigmoid::d, true)
                           });
     this->QTargetNet = BPNN(BPNN::Layers{
                                  Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
                                  Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
                                  Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
-                                 Layer::_(hiddenDim, actionDim, Linear::_, Linear::d, false)
+                                 Layer::_(hiddenDim, actionDim, Sigmoid::_, Sigmoid::d, false)
                              });
     this->QMainNet.copyTo(QTargetNet);
+
     return;
 }
 
@@ -34,13 +36,15 @@ void RL::DQN::perceive(Vec& state,
     return;
 }
 
-RL::Vec& RL::DQN::greedyAction(Vec &state)
+RL::Vec& RL::DQN::sample(Vec &state)
 {
-    double p = double(rand() % 10000) / 10000;
+    std::uniform_real_distribution<double> distributionReal(0, 1);
+    double p = distributionReal(Rand::engine);
     Vec &out = QMainNet.output();
     if (p < exploringRate) {
         out.assign(actionDim, 0);
-        int index = rand() % actionDim;
+        std::uniform_int_distribution<int> distribution(0, actionDim - 1);
+        int index = distribution(Rand::engine);
         out[index] = 1;
     } else {
         QMainNet.feedForward(state);
@@ -98,8 +102,9 @@ void RL::DQN::learn(OptType optType,
         learningSteps = 0;
     }
     /* experience replay */
+    std::uniform_int_distribution<int> distribution(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
-        int k = rand() % memories.size();
+        int k = distribution(Rand::engine);
         experienceReplay(memories[k]);
     }
     QMainNet.optimize(optType, learningRate);

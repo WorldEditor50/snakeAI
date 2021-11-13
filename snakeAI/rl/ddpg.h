@@ -28,7 +28,7 @@ public:
     void setSA(const Vec& state, const Vec& action);
     int noiseAction(const Vec &state);
     int randomAction();
-    Vec& greedyAction(const Vec &state);
+    Vec& sample(const Vec &state);
     Vec& output() {return actorP.output();}
     int action(const Vec& state);
     void experienceReplay(Transition& x);

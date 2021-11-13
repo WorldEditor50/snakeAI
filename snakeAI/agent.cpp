@@ -6,7 +6,7 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     snake(s),
     trainFlag(true)
 {
-    int stateDim = 4;
+    int stateDim = 8;
     this->dqn = DQN(stateDim, 16, 4);
     this->dpg = DPG(stateDim, 16, 4);
     this->ddpg = DDPG(stateDim, 16, 4);
@@ -23,7 +23,7 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     dpg.load("./dpg");
     ddpg.load("./ddpg_actor", "./ddpg_critic");
     bpnn.load("./bpnn");
-    //ppo.load("./ppo_actor", "./ppo_critic");
+    ppo.load("./ppo_actor", "./ppo_critic");
 }
 
 Agent::~Agent()
@@ -93,7 +93,7 @@ double Agent::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
     double d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
     double d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
     double r = sqrt(d1) - sqrt(d2);
-    return RL::pi / 2 * r / (1 + r * r);
+    return 1.5 * r / (1 + r * r);
 }
 
 double Agent::reward5(int xi, int yi, int xn, int yn, int xt, int yt)
@@ -117,10 +117,10 @@ void Agent::observe(vector<double>& statex, int x, int y, int xt, int yt, vector
     statex[1] = (y - yc) / yc;
     statex[2] = (xt - xc) / xc;
     statex[3] = (yt - yc) / yc;
-//    statex[4] = output[0];
-//    statex[5] = output[1];
-//    statex[6] = output[2];
-//    statex[7] = output[3];
+    statex[4] = output[0];
+    statex[5] = output[1];
+    statex[6] = output[2];
+    statex[7] = output[3];
     return;
 }
 
@@ -159,7 +159,7 @@ int Agent::randAction(int x, int y, int xt, int yt)
     int direct = 0;
     double gamma = 0.9;
     double T = 10000;
-    vector<double> act(4, 0);
+    std::vector<double> act(4, 0);
     while (T > 0.001) {
         /* do experiment */
         while (T > 0.01) {
@@ -195,16 +195,15 @@ int Agent::dqnAction(int x, int y, int xt, int yt)
     double r = 0;
     double total = 0;
     observe(state, x, y, xt, yt, dqn.output());
-    vector<double> state_ = state;
+    std::vector<double> state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 128; j++) {
             int xi = xn;
             int yi = yn;
-            Vec& action = dqn.greedyAction(state);
+            Vec& action = dqn.sample(state);
             int k = RL::argmax(action);
             simulateMove(xn, yn, k);
             r = reward1(xi, yi, xn, yn, xt, yt);
-            //std::cout<<r<<std::endl;
             total += r;
             observe(nextState, xn, yn, xt, yt, action);
             if (map[xn][yn] == 1) {
@@ -231,25 +230,25 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
 {
     int direct = 0;
     /* exploring environment */
-    vector<Step> steps;
+    std::vector<Step> steps;
     int xn = x;
     int yn = y;
     double total = 0;
     observe(state, x, y, xt, yt, dpg.output());
-    vector<double> state_ = state;
+    std::vector<double> state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 64; j++) {
+        for (std::size_t j = 0; j < 4; j++) {
             int xi = xn;
             int yi = yn;
-            /* Monte Carlo method */
-            direct = dpg.greedyAction(state);
-            /* Markov Chain */
+            /* sample */
+            Vec &output = dpg.sample(state);
+            direct = RL::argmax(output);
             simulateMove(xn, yn, direct);
-            observe(nextState, xn, yn, xt, yt, dpg.output());
+            observe(nextState, xn, yn, xt, yt, output);
             Step s;
             s.state = state;
-            s.action  = dpg.output();
-            s.reward  = reward4(xi, yi, xn, yn, xt, yt);
+            s.action  = output;
+            s.reward  = reward1(xi, yi, xn, yn, xt, yt);
             total += s.reward;
             steps.push_back(s);
             if (map[xn][yn] == 1 || (xn == xt && yn == yt)) {
@@ -257,9 +256,9 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
             }
             state = nextState;
         }
-        emit totalReward(total*10);
+        emit totalReward(total);
         /* training */
-        dpg.reinforce(OPT_RMSPROP, 0.01, steps);
+        dpg.reinforce(OPT_RMSPROP, 0.001, steps);
     }
     /* making decision */
     direct = dpg.action(state_);
@@ -279,7 +278,7 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
         for (std::size_t j = 0; j < 32; j++) {
             int xi = xn;
             int yi = yn;
-            Vec & action = ddpg.greedyAction(state);
+            Vec & action = ddpg.sample(state);
             int k = RL::argmax(action);
             simulateMove(xn, yn, k);
             r = reward4(xi, yi, xn, yn, xt, yt);
@@ -299,7 +298,7 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        ddpg.learn(OPT_RMSPROP, 8192, 256, 32, 0.01, 0.001);
+        ddpg.learn(OPT_RMSPROP, 8192, 256, 32, 0.001, 0.001);
     }
     return ddpg.action(state_);
 }
@@ -311,21 +310,21 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
     int yn = y;
     double total = 0;
     observe(state, x, y, xt, yt, ppo.output());
-    vector<double> state_ = state;
+    std::vector<double> state_ = state;
     if (trainFlag == true) {
-        vector<Transition> trans;
+        std::vector<Transition> trans;
         for (std::size_t j = 0; j < 32; j++) {
             int xi = xn;
             int yi = yn;
-            /* Monte Carlo method */
-            auto &q = ppo.greedyAction(state);
-            int direct = q.argmax();
-            /* Markov Chain */
+            /* sample */
+            Vec &output = ppo.sample(state);
+            int direct = RL::argmax(output);
+            /* move */
             simulateMove(xn, yn, direct);
-            observe(nextState, xn, yn, xt, yt, ppo.output());
+            observe(nextState, xn, yn, xt, yt, output);
             Transition transition;
             transition.state = state;
-            transition.action = q.output();
+            transition.action = output;
             transition.reward = reward4(xi, yi, xn, yn, xt, yt);
             total += transition.reward;
             trans.push_back(transition);
@@ -351,7 +350,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt)
     int xn = x;
     int yn = y;
     double m = 0;
-    vector<double>& action = bpnn.output();
+    std::vector<double>& action = bpnn.output();
     if (trainFlag == true) {
         observe(state, xn, yn, xt, yt, action);
         for (std::size_t i = 0; i < 128; i++) {
@@ -359,7 +358,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt)
             direct1 = RL::argmax(action);
             direct2 = astarAction(xn, yn, xt, yt);
             if (direct1 != direct2) {
-                vector<double> target(4, 0);
+                std::vector<double> target(4, 0);
                 target[direct2] = 1;
                 bpnn.gradient(state, target, Loss::MSE);
                 m++;

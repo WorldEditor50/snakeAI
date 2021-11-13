@@ -83,18 +83,19 @@ int RL::DDPG::randomAction()
     return rand() % actionDim;
 }
 
-RL::Vec& RL::DDPG::greedyAction(const Vec &state)
+RL::Vec& RL::DDPG::sample(const Vec &state)
 {
-    double p = double(rand() % 10000) / 10000;
-    Vec &out = actorP.output();
+    std::uniform_real_distribution<double> distributionReal(0, 1);
+    double p = distributionReal(Rand::engine);
     if (p < exploringRate) {
-        out.assign(actionDim, 0);
-        int index = rand() % actionDim;
-        out[index] = 1;
+        actorP.output().assign(actionDim, 0);
+        std::uniform_int_distribution<int> distribution(0, actionDim - 1);
+        int index = distribution(Rand::engine);
+        actorP.output()[index] = 1;
     } else {
         actorP.feedForward(state);
     }
-    return out;
+    return actorP.output();
 }
 
 int RL::DDPG::action(const Vec &state)
@@ -122,9 +123,7 @@ void RL::DDPG::experienceReplay(Transition& x)
     }
     /* update actorMainNet */
     Vec a(p);
-    for (int i = 0; i < actionDim; i++) {
-        a[i] += cTarget[i] - cMain[i] - p[i] * log(cMain[i]);
-    }
+    a[i] += cTarget[i] - cMain[i] - p[i] * log(cMain[i]);
     actorP.gradient(x.state, a, Loss::CROSS_EMTROPY);
     /* update criticMainNet */
     setSA(x.state, p);
@@ -154,8 +153,9 @@ void RL::DDPG::learn(OptType optType,
         actorP.softUpdateTo(actorQ, 0.01);
     }
     /* experience replay */
+    std::uniform_int_distribution<int> distribution(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
-        int k = rand() % memories.size();
+        int k = distribution(Rand::engine);
         experienceReplay(memories[k]);
     }
     actorP.optimize(optType, actorLearningRate);

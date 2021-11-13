@@ -1,6 +1,8 @@
 #include "rl_basic.h"
 #include <cmath>
 
+std::default_random_engine RL::Rand::engine(std::random_device{}());
+
 int RL::argmax(const std::vector<double> &x)
 {
     int index = 0;
@@ -61,7 +63,7 @@ void RL::zscore(std::vector<double> &x)
 
 double RL::mean(const std::vector<double> &x)
 {
-    return sum(x) / x.size();
+    return sum(x) / double(x.size());
 }
 
 double RL::sum(const std::vector<double> &x)
@@ -134,14 +136,13 @@ double RL::clip(double x, double sup, double inf)
     return y;
 }
 
-double RL::normalDistribution(double mu, double sigma, double bound)
+double RL::normalDistribution(double mu, double sigma, double sup, double inf)
 {
-    std::default_random_engine engine;
     std::normal_distribution<double> distribution(mu, sigma);
-    double value = bound + 1;
+    double value = 0;
     while (1) {
-        value = distribution(engine);
-        if (value <= bound && value >= -bound) {
+        value = distribution(Rand::engine);
+        if (value >= sup && value <= inf) {
             break;
         }
     }
@@ -150,11 +151,10 @@ double RL::normalDistribution(double mu, double sigma, double bound)
 
 void RL::normalDistribution(double mu, double sigma, double sup, double inf, std::vector<double> &x, std::size_t N)
 {
-    std::default_random_engine engine;
     std::normal_distribution<double> distribution(mu, sigma);
     std::size_t i = 0;
     while (i < N) {
-        double value = distribution(engine);
+        double value = distribution(Rand::engine);
         if (value > inf || value < sup) {
             continue;
         }
@@ -164,9 +164,14 @@ void RL::normalDistribution(double mu, double sigma, double sup, double inf, std
     return;
 }
 
+int RL::uniformDistribution(int sup, int inf)
+{
+    std::uniform_int_distribution<int> distribution(sup, inf);
+    return distribution(Rand::engine);
+}
+
 double RL::uniformDistribution(double sup, double inf)
 {
-    std::default_random_engine engine(time(nullptr));
     std::uniform_real_distribution<double> distribution(sup, inf);
-    return distribution(engine);
+    return distribution(Rand::engine);
 }
