@@ -27,6 +27,27 @@ void RL::GRU::clear()
 RL::GRU::State RL::GRU::feedForward(const RL::Vec &x, const RL::Vec &_h)
 {
     /*
+
+
+
+
+            h(t-1) -->----------------------------------
+                        |                              |
+                        |                              |
+                        |                   ----(1-)---x
+                        |                   |          |
+                        |                   |          |
+                  ------|-------------------x----------+
+                  |     |                   |          |
+                  |     x----------         |          h(t)
+                  |__ g |        r |        | z
+                        |          |        |
+                        |       sigmoid  sigmoid
+                        |          |        |
+                        ---------------------
+                        |
+                        x(t)
+
         rt = sigmoid(Wr*xt + Ur*ht-1 + Br)
         zt = sigmoid(Wr*xt + Uz*ht-1 + Bz)
         gt = tanh(Wg*xt + Ug*(rt ⊙ ht-1) + Bg)

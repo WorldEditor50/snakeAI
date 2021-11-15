@@ -323,32 +323,30 @@ void RL::LSTM::test()
     srand((unsigned int)time(nullptr));
     LSTM lstm(2, 8, 1, true);
     auto zeta = [](double x, double y) -> double {
-        return x*x + y*y;
+        return sin(x*x + y*y);
     };
-    auto uniform = []()->double{
-        int r1 = rand()%10;
-        int r2 = rand()%10;
-        double s = r1 > r2 ? 1 : -1;
-        return s * double(rand()%10000) / 10000;
-    };
+    std::uniform_real_distribution<double> uniform(-1, 1);
     std::vector<Vec> data;
     std::vector<Vec> target;
-    for (double i = 0; i < 1; i += 0.001) {
-        for (double j = 0; j < 1; j += 0.001) {
+    for (int i = 0; i < 100; i++) {
+        for (int j = 0; j < 100; j++) {
             Vec p(2);
-            double z = zeta(i, j);
-            p[0] = i;
-            p[1] = j;
+            double x = uniform(Rand::engine);
+            double y = uniform(Rand::engine);
+            double z = zeta(x, y);
+            p[0] = x;
+            p[1] = y;
             Vec q(1);
             q[0] = z;
             data.push_back(p);
             target.push_back(q);
         }
     }
+    std::uniform_int_distribution<int> selectIndex(0, data.size() - 1);
     auto sample = [&](std::vector<Vec> &batchData,
             std::vector<Vec> &batchTarget, int batchSize){
         for (int i = 0; i < batchSize; i++) {
-            int k = rand() % data.size();
+            int k = selectIndex(Rand::engine);
             batchData.push_back(data[k]);
             batchTarget.push_back(target[k]);
         }
@@ -356,26 +354,21 @@ void RL::LSTM::test()
     for (int i = 0; i < 10000; i++) {
         std::vector<Vec> batchData;
         std::vector<Vec> batchTarget;
-        sample(batchData, batchTarget, 16);
+        sample(batchData, batchTarget, 4);
         lstm.forward(batchData);
         lstm.gradient(batchData, batchTarget);
         lstm.RMSProp(0.001);
     }
 
-    auto show = [](Vec &y){
-        for (std::size_t i = 0; i < y.size(); i++) {
-            std::cout<<y[i]<<" ";
-        }
-        std::cout<<std::endl;
-        return;
-    };
     lstm.clear();
-    for (double i = 0; i < 1; i += 0.3) {
-        for (double j = 0; j < 1; j += 0.3) {
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
             Vec p(2);
-            double z = zeta(i, j);
-            p[0] = i;
-            p[1] = j;
+            double x = uniform(Rand::engine);
+            double y = uniform(Rand::engine);
+            double z = zeta(x, y);
+            p[0] = x;
+            p[1] = y;
             auto s = lstm.forward(p);
             std::cout<<"x = "<<i<<" y = "<<j<<" z = "<<z<<"  predict: "
                     <<s[0]<<" error:"<<s[0] - z<<std::endl;

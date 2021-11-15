@@ -237,7 +237,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
     observe(state, x, y, xt, yt, dpg.output());
     std::vector<double> state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 4; j++) {
+        for (std::size_t j = 0; j < 16; j++) {
             int xi = xn;
             int yi = yn;
             /* sample */
@@ -258,7 +258,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        dpg.reinforce(OPT_RMSPROP, 0.001, steps);
+        dpg.reinforce(OPT_RMSPROP, 0.0001, steps);
     }
     /* making decision */
     direct = dpg.action(state_);

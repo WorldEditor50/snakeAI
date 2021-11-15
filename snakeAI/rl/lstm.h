@@ -73,37 +73,32 @@ public:
     }
     void random()
     {
-        auto uniform = []()->double{
-            int r1 = rand()%10;
-            int r2 = rand()%10;
-            double s = r1 > r2 ? 1 : -1;
-            return s * double(rand()%10000) / 10000;
-        };
+        std::uniform_real_distribution<double> uniform(-1, 1);
         for (std::size_t i = 0; i < Wi.size(); i++) {
             for (std::size_t j = 0; j < Wi[0].size(); j++) {
-                Wi[i][j] = uniform();
-                Wg[i][j] = uniform();
-                Wf[i][j] = uniform();
-                Wo[i][j] = uniform();
+                Wi[i][j] = uniform(Rand::engine);
+                Wg[i][j] = uniform(Rand::engine);
+                Wf[i][j] = uniform(Rand::engine);
+                Wo[i][j] = uniform(Rand::engine);
             }
         }
         for (std::size_t i = 0; i < Ui.size(); i++) {
             for (std::size_t j = 0; j < Ui[0].size(); j++) {
-                Ui[i][j] = uniform();
-                Ug[i][j] = uniform();
-                Uf[i][j] = uniform();
-                Uo[i][j] = uniform();
+                Ui[i][j] = uniform(Rand::engine);
+                Ug[i][j] = uniform(Rand::engine);
+                Uf[i][j] = uniform(Rand::engine);
+                Uo[i][j] = uniform(Rand::engine);
             }
-            Bi[i] = uniform();
-            Bg[i] = uniform();
-            Bf[i] = uniform();
-            Bo[i] = uniform();
+            Bi[i] = uniform(Rand::engine);
+            Bg[i] = uniform(Rand::engine);
+            Bf[i] = uniform(Rand::engine);
+            Bo[i] = uniform(Rand::engine);
         }
         for (std::size_t i = 0; i < W.size(); i++) {
             for (std::size_t j = 0; j < W[0].size(); j++) {
-                W[i][j] = uniform();
+                W[i][j] = uniform(Rand::engine);
             }
-            B[i] = uniform();
+            B[i] = uniform(Rand::engine);
         }
         return;
     }
