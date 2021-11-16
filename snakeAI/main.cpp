@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include <QApplication>
 #include "lstm.h"
+#include "gru.h"
 
 int main(int argc, char *argv[])
 {

@@ -29,20 +29,20 @@ void RL::LSTM::clear()
 RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const RL::Vec &_c)
 {
     /*
-                                                        y
-                                                        |
-                                                       h(t)
-                                          c(t)          |
-            c(t-1) -->--x-----------------+----------------->--- c(t)
-                        |                 |             |
-                        |                 |            tanh
-                        |                 |             |
-                        |          -------x      -------x
+                                                             y
+                                                             |
+                                                            h(t)
+                                          c(t)               |
+            c(t-1) -->--x-----------------+----------------------->-- c(t)
+                        |                 |             |    |
+                        |                 |            tanh  |
+                        |                 |             |    |
+                        |          -------x      -------x-----
                      f  |        i |      | g    | o    |
                         |          |      |      |      |
                      sigmoid    sigmoid  tanh  sigmoid  |
                         |          |      |      |      |
-            h(t-1) -->----------------------------      ---->--- h(t)
+            h(t-1) -->----------------------------      --------->--- h(t)
                         |
                         x(t)
         ft = sigmoid(Wf*xt + Uf*ht-1 + bf);
@@ -51,7 +51,7 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
         ot = sigmoid(Wo*xt + Uo*ht-1 + bo);
         ct = ft ⊙ ct-1 + it ⊙ gt
         ht = ot ⊙ tanh(ct)
-        yt = sigmoid(W*ht + b)
+        yt = linear(W*ht + b)
     */
     State state(hiddenDim, outputDim);
     for (std::size_t i = 0; i < Wi.size(); i++) {
@@ -120,6 +120,12 @@ void RL::LSTM::gradient(const std::vector<RL::Vec> &x,
         for (std::size_t i = 0; i < delta.y.size(); i++) {
             delta.y[i] = 2 * (states[t].y[i] - yt[t][i]);
         }
+        for (std::size_t i = 0; i < W.size(); i++) {
+            for (std::size_t j = 0; j < W[0].size(); j++) {
+                d.W[i][j] += delta.y[i] * Linear::d(states[t].y[i]) * states[t].h[j];
+            }
+            d.B[i] += delta.y[i] * Linear::d(states[t].y[i]);
+        }
         /* backward */
         for (std::size_t i = 0; i < W.size(); i++) {
             for (std::size_t j = 0; j < W[0].size(); j++) {
@@ -153,12 +159,6 @@ void RL::LSTM::gradient(const std::vector<RL::Vec> &x,
             delta.f[i] = delta.c[i] * _c[i] * Sigmoid::d(states[t].f[i]);
         }
         /* gradient */
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                d.W[i][j] += delta.y[i] * Linear::d(states[t].y[i]) * states[t].h[j];
-            }
-            d.B[i] += delta.y[i] * Linear::d(states[t].y[i]);
-        }
         for (std::size_t i = 0; i < Wi.size(); i++) {
             for (std::size_t j = 0; j < Wi[0].size(); j++) {
                 d.Wi[i][j] += delta.i[i] * x[t][j];
@@ -328,8 +328,8 @@ void RL::LSTM::test()
     std::uniform_real_distribution<double> uniform(-1, 1);
     std::vector<Vec> data;
     std::vector<Vec> target;
-    for (int i = 0; i < 100; i++) {
-        for (int j = 0; j < 100; j++) {
+    for (int i = 0; i < 200; i++) {
+        for (int j = 0; j < 200; j++) {
             Vec p(2);
             double x = uniform(Rand::engine);
             double y = uniform(Rand::engine);
@@ -354,15 +354,15 @@ void RL::LSTM::test()
     for (int i = 0; i < 10000; i++) {
         std::vector<Vec> batchData;
         std::vector<Vec> batchTarget;
-        sample(batchData, batchTarget, 4);
+        sample(batchData, batchTarget, 8);
         lstm.forward(batchData);
         lstm.gradient(batchData, batchTarget);
-        lstm.RMSProp(0.001);
+        lstm.Adam(0.001);
     }
 
     lstm.clear();
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
             Vec p(2);
             double x = uniform(Rand::engine);
             double y = uniform(Rand::engine);
@@ -370,7 +370,7 @@ void RL::LSTM::test()
             p[0] = x;
             p[1] = y;
             auto s = lstm.forward(p);
-            std::cout<<"x = "<<i<<" y = "<<j<<" z = "<<z<<"  predict: "
+            std::cout<<"x = "<<x<<" y = "<<y<<" z = "<<z<<"  predict: "
                     <<s[0]<<" error:"<<s[0] - z<<std::endl;
         }
     }

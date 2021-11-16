@@ -64,28 +64,29 @@ public:
     }
     void random()
     {
-        auto uniform = []()->double{
-            int r1 = rand()%10;
-            int r2 = rand()%10;
-            double s = r1 > r2 ? 1 : -1;
-            return s * double(rand()%10000) / 10000;
-        };
+        std::uniform_real_distribution<double> uniform(-1, 1);
         for (std::size_t i = 0; i < Wr.size(); i++) {
             for (std::size_t j = 0; j < Wr[0].size(); j++) {
-                Wr[i][j] = uniform(); Wz[i][j] = uniform(); Wg[i][j] = uniform();
+                Wr[i][j] = uniform(Rand::engine);
+                Wz[i][j] = uniform(Rand::engine);
+                Wg[i][j] = uniform(Rand::engine);
             }
         }
         for (std::size_t i = 0; i < Ur.size(); i++) {
             for (std::size_t j = 0; j < Ur[0].size(); j++) {
-                Ur[i][j] = uniform(); Uz[i][j] = uniform(); Ug[i][j] = uniform();
+                Ur[i][j] = uniform(Rand::engine);
+                Uz[i][j] = uniform(Rand::engine);
+                Ug[i][j] = uniform(Rand::engine);
             }
-            Br[i] = uniform(); Bz[i] = uniform(); Bg[i] = uniform();
+            Br[i] = uniform(Rand::engine);
+            Bz[i] = uniform(Rand::engine);
+            Bg[i] = uniform(Rand::engine);
         }
         for (std::size_t i = 0; i < W.size(); i++) {
             for (std::size_t j = 0; j < W[0].size(); j++) {
-                W[i][j] = uniform();
+                W[i][j] = uniform(Rand::engine);
             }
-            B[i] = uniform();
+            B[i] = uniform(Rand::engine);
         }
         return;
     }
@@ -105,7 +106,7 @@ public:
     public:
         State(){}
         State(std::size_t hiddenDim, std::size_t outputDim):
-            r(Vec(hiddenDim, 0)),z(Vec(hiddenDim, 0)),
+            r(Vec(hiddenDim, 0)), z(Vec(hiddenDim, 0)),
             g(Vec(hiddenDim, 0)), h(Vec(hiddenDim, 0)), y(Vec(outputDim, 0)){}
         void zero()
         {
@@ -140,7 +141,7 @@ public:
     Vec forward(const Vec &x);
     void gradient(const std::vector<Vec> &x, const std::vector<Vec> &yt);
     void SGD(double learningRate);
-    void RMSProp(double learningRate, double rho);
+    void RMSProp(double learningRate = 0.001, double rho = 0.9);
     static void test();
 };
 

@@ -3,14 +3,13 @@
 RL::GRU::GRU(std::size_t inputDim_,
              std::size_t hiddenDim_,
              std::size_t outputDim_,
-             bool trainFlag):
-  GRUParam(inputDim_, hiddenDim_, outputDim_),
+             bool trainFlag): GRUParam(inputDim_, hiddenDim_, outputDim_),
   inputDim(inputDim_), hiddenDim(hiddenDim_), outputDim(outputDim_)
 {
     if (trainFlag == true) {
-      d = GRUParam(inputDim_, hiddenDim_, outputDim_);
-      v = GRUParam(inputDim_, hiddenDim_, outputDim_);
-      s = GRUParam(inputDim_, hiddenDim_, outputDim_);
+        d = GRUParam(inputDim_, hiddenDim_, outputDim_);
+        v = GRUParam(inputDim_, hiddenDim_, outputDim_);
+        s = GRUParam(inputDim_, hiddenDim_, outputDim_);
     }
     h = Vec(hiddenDim, 0);
     alpha_t = 1;
@@ -27,10 +26,6 @@ void RL::GRU::clear()
 RL::GRU::State RL::GRU::feedForward(const RL::Vec &x, const RL::Vec &_h)
 {
     /*
-
-
-
-
             h(t-1) -->----------------------------------
                         |                              |
                         |                              |
@@ -52,7 +47,7 @@ RL::GRU::State RL::GRU::feedForward(const RL::Vec &x, const RL::Vec &_h)
         zt = sigmoid(Wr*xt + Uz*ht-1 + Bz)
         gt = tanh(Wg*xt + Ug*(rt ⊙ ht-1) + Bg)
         ht = (1 - zt) ⊙ ht-1 + zt ⊙ gt
-        yt = sigmoid(W*ht + B)
+        yt = linear(W*ht + B)
     */
     State state(hiddenDim, outputDim);
     for (std::size_t i = 0; i < Wr.size(); i++) {
@@ -111,7 +106,7 @@ void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
     State delta_(hiddenDim, outputDim);
     for (int t = states.size() - 1; t >= 0; t--) {
         /* loss */
-        for (std::size_t i = 0; i < yt.size(); i++) {
+        for (std::size_t i = 0; i < delta.y.size(); i++) {
             delta.y[i] = 2 * (states[t].y[i] - yt[t][i]);
         }
         /* backward */
@@ -129,7 +124,7 @@ void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
             }
         }
         /*
-            dht/dzt = ht-1 + gt
+            dht/dzt = -ht-1 + gt
             dht/dWz = (dht/dzt ⊙ zt ⊙ (1 - zt))*xTt
             dht/dUz = (dht/dzt ⊙ zt ⊙ (1 - zt))*hTt-1
             dht/dWg = (zt ⊙ (1 - gt^2) * xTt
@@ -147,12 +142,13 @@ void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
             --------------------------------------------------
             δg = zt ⊙ dtanh(gt)
             δr = (UTg * δg) ⊙ ht-1 ⊙ dsigmoid(rt)
-            δz = (ht-1 + gt) ⊙ dsigmoid(zt)
+            δz = (gt - ht-1) ⊙ dsigmoid(zt)
 
         */
+        Vec _h = t > 0 ? states[t - 1].h : Vec(hiddenDim, 0);
         for (std::size_t i = 0; i < Ug.size(); i++) {
-            delta.g[i] = states[t].z[i] * Tanh::d(states[t].g[i]);
-            delta.z[i] = (states[t - 1].h[i] + states[t].g[i]) * Sigmoid::d(states[t].z[i]);
+            delta.g[i] = delta.h[i] * states[t].z[i] * Tanh::d(states[t].g[i]);
+            delta.z[i] = delta.h[i] * (states[t].g[i] - _h[i]) * Sigmoid::d(states[t].z[i]);
         }
         Vec dhr(hiddenDim, 0);
         for (std::size_t i = 0; i < Ug.size(); i++) {
@@ -161,9 +157,8 @@ void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
             }
         }
         for (std::size_t i = 0; i < Ug.size(); i++) {
-            delta.r[i] = dhr[i] * states[t - 1].h[i] *Sigmoid::d(states[t].r[i]);
+            delta.r[i] = delta.h[i] * dhr[i] * _h[i] *Sigmoid::d(states[t].r[i]);
         }
-
         /* gradient */
         for (std::size_t i = 0; i < W.size(); i++) {
             for (std::size_t j = 0; j < W[0].size(); j++) {
@@ -178,7 +173,6 @@ void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
                 d.Wg[i][j] += delta.g[i] * x[t][j];
             }
         }
-        Vec _h = t > 0 ? states[t - 1].h : Vec(hiddenDim, 0);
         for (std::size_t i = 0; i < Ur.size(); i++) {
             for (std::size_t j = 0; j < Ur[0].size(); j++) {
                 d.Ur[i][j] += delta.r[i] * _h[j];
@@ -238,5 +232,64 @@ void RL::GRU::RMSProp(double learningRate, double rho)
         Bg[i] -= learningRate * d.Bg[i] / (sqrt(s.Bg[i]) + 1e-9);
     }
     d.zero();
+    return;
+}
+
+void RL::GRU::test()
+{
+    srand((unsigned int)time(nullptr));
+    GRU gru(2, 8, 1, true);
+    auto zeta = [](double x, double y) -> double {
+        return x*x + y*y + x*y;
+    };
+    std::uniform_real_distribution<double> uniform(-1, 1);
+    std::vector<Vec> data;
+    std::vector<Vec> target;
+    for (int i = 0; i < 200; i++) {
+        for (int j = 0; j < 200; j++) {
+            Vec p(2);
+            double x = uniform(Rand::engine);
+            double y = uniform(Rand::engine);
+            double z = zeta(x, y);
+            p[0] = x;
+            p[1] = y;
+            Vec q(1);
+            q[0] = z;
+            data.push_back(p);
+            target.push_back(q);
+        }
+    }
+    std::uniform_int_distribution<int> selectIndex(0, data.size() - 1);
+    auto sample = [&](std::vector<Vec> &batchData,
+            std::vector<Vec> &batchTarget, int batchSize){
+        for (int i = 0; i < batchSize; i++) {
+            int k = selectIndex(Rand::engine);
+            batchData.push_back(data[k]);
+            batchTarget.push_back(target[k]);
+        }
+    };
+    for (int i = 0; i < 10000; i++) {
+        std::vector<Vec> batchData;
+        std::vector<Vec> batchTarget;
+        sample(batchData, batchTarget, 16);
+        gru.forward(batchData);
+        gru.gradient(batchData, batchTarget);
+        gru.RMSProp(0.001, 0.9);
+    }
+
+    gru.clear();
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            Vec p(2);
+            double x = uniform(Rand::engine);
+            double y = uniform(Rand::engine);
+            double z = zeta(x, y);
+            p[0] = x;
+            p[1] = y;
+            auto s = gru.forward(p);
+            std::cout<<"x = "<<x<<" y = "<<y<<" z = "<<z<<"  predict: "
+                    <<s[0]<<" error:"<<s[0] - z<<std::endl;
+        }
+    }
     return;
 }
