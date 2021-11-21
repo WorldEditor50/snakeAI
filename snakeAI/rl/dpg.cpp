@@ -6,9 +6,10 @@ RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
     this->stateDim = stateDim;
     this->actionDim = actionDim;
     this->policyNet =  BPNN(BPNN::Layers{
-                                Layer::_(stateDim, hiddenDim),
-                                Layer::_(hiddenDim, hiddenDim),
-                                Layer::_(hiddenDim, hiddenDim),
+                                Layer<Sigmoid>::_(stateDim, hiddenDim),
+                                DropoutLayer<Sigmoid>::_(hiddenDim, hiddenDim, true, 0.4),
+                                DropoutLayer<Sigmoid>::_(hiddenDim, hiddenDim, true, 0.4),
+                                LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                                 SoftmaxLayer::_(hiddenDim, actionDim, true)
                             });
     return;
@@ -62,6 +63,6 @@ void RL::DPG::save(const std::string &fileName)
 
 void RL::DPG::load(const std::string &fileName)
 {
-    //policyNet.load(fileName);
+    policyNet.load(fileName);
     return;
 }

@@ -11,7 +11,12 @@ int main(int argc, char *argv[])
     w.show();
     return a.exec();
 #else
-    LSTM::test();
+    //LSTM::test();
+    std::bernoulli_distribution bernoulli;
+    for (int i = 0; i < 10; i++) {
+        std::cout<<bernoulli(Rand::engine)<<" ";
+    }
+    std::cout<<std::endl;
     return 0;
 #endif
 }

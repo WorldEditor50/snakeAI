@@ -139,9 +139,12 @@ public:
     State feedForward(const Vec &x, const Vec &_h);
     void forward(const std::vector<Vec> &sequence);
     Vec forward(const Vec &x);
+    void backward(const std::vector<Vec> &x, const std::vector<Vec> &E);
     void gradient(const std::vector<Vec> &x, const std::vector<Vec> &yt);
-    void SGD(double learningRate);
+    void gradient(const std::vector<Vec> &x, const Vec &yt);
+    void SGD(double learningRate = 0.001);
     void RMSProp(double learningRate = 0.001, double rho = 0.9);
+    void Adam(double learningRate = 0.001, double alpha = 0.9, double beta = 0.99);
     static void test();
 };
 

@@ -100,22 +100,17 @@ RL::Vec RL::GRU::forward(const RL::Vec &x)
     return state.y;
 }
 
-void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec> &yt)
+void RL::GRU::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec> &E)
 {
     State delta(hiddenDim, outputDim);
     State delta_(hiddenDim, outputDim);
     for (int t = states.size() - 1; t >= 0; t--) {
-        /* loss */
-        for (std::size_t i = 0; i < delta.y.size(); i++) {
-            delta.y[i] = 2 * (states[t].y[i] - yt[t][i]);
-        }
         /* backward */
         for (std::size_t i = 0; i < W.size(); i++) {
             for (std::size_t j = 0; j < W[0].size(); j++) {
-                delta.h[j] += W[i][j] * delta.y[i];
+                delta.h[j] += W[i][j] * E[t][i];
             }
         }
-
         for (std::size_t i = 0; i < Ur.size(); i++) {
             for (std::size_t j = 0; j < Ur[0].size(); j++) {
                 delta.h[j] += Ur[i][j] * delta_.r[i];
@@ -140,9 +135,10 @@ void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
                         UTr * ((UTg*(zt ⊙ (1 - gt^2))) ⊙ ht-1 ⊙ rt ⊙ (1 -rt) +
                         (UTg*(zt ⊙ (1 - gt^2))) ⊙ rt
             --------------------------------------------------
-            δg = zt ⊙ dtanh(gt)
-            δr = (UTg * δg) ⊙ ht-1 ⊙ dsigmoid(rt)
-            δz = (gt - ht-1) ⊙ dsigmoid(zt)
+            δh = E + δht+1
+            δg = δh ⊙ zt ⊙ dtanh(gt)
+            δr = δh ⊙ (UTg * δg) ⊙ ht-1 ⊙ dsigmoid(rt)
+            δz = δh ⊙ (gt - ht-1) ⊙ dsigmoid(zt)
 
         */
         Vec _h = t > 0 ? states[t - 1].h : Vec(hiddenDim, 0);
@@ -162,9 +158,9 @@ void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
         /* gradient */
         for (std::size_t i = 0; i < W.size(); i++) {
             for (std::size_t j = 0; j < W[0].size(); j++) {
-                d.W[i][j] += delta.y[i] * Linear::d(states[t].y[i]) * states[t].h[j];
+                d.W[i][j] += E[t][i] * Linear::d(states[t].y[i]) * states[t].h[j];
             }
-            d.B[i] += delta.y[i] * Linear::d(states[t].y[i]);
+            d.B[i] += E[t][i] * Linear::d(states[t].y[i]);
         }
         for (std::size_t i = 0; i < Wr.size(); i++) {
             for (std::size_t j = 0; j < Wr[0].size(); j++) {
@@ -193,44 +189,92 @@ void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
     return;
 }
 
+void RL::GRU::gradient(const std::vector<RL::Vec> &x, const std::vector<RL::Vec> &yt)
+{
+    /* loss */
+    std::vector<RL::Vec> E(yt.size(), Vec(outputDim, 0));
+    for (int t = states.size() - 1; t >= 0; t--) {
+        for (std::size_t i = 0; i < outputDim; i++) {
+            E[t][i] = 2 * (states[t].y[i] - yt[t][i]);
+        }
+    }
+    /* backward */
+    backward(x, E);
+    return;
+}
+
+void RL::GRU::gradient(const std::vector<RL::Vec> &x, const RL::Vec &yt)
+{
+    /* loss */
+    std::vector<RL::Vec> E(states.size(), Vec(outputDim, 0));
+    int t = states.size() - 1;
+    for (std::size_t i = 0; i < outputDim; i++) {
+        E[t][i] = 2 * (states[t].y[i] - yt[i]);
+    }
+    /* backward */
+    backward(x, E);
+    return;
+}
+
+void RL::GRU::SGD(double learningRate)
+{
+    Optimizer::SGD(d.W, W, learningRate);
+    Optimizer::SGD(d.B, B, learningRate);
+
+    Optimizer::SGD(d.Wr, Wr, learningRate);
+    Optimizer::SGD(d.Wz, Wz, learningRate);
+    Optimizer::SGD(d.Wg, Wg, learningRate);
+
+    Optimizer::SGD(d.Ur, Ur, learningRate);
+    Optimizer::SGD(d.Uz, Uz, learningRate);
+    Optimizer::SGD(d.Ug, Ug, learningRate);
+
+    Optimizer::SGD(d.Br, Br, learningRate);
+    Optimizer::SGD(d.Bz, Bz, learningRate);
+    Optimizer::SGD(d.Bg, Bg, learningRate);
+    d.zero();
+    return;
+}
+
 void RL::GRU::RMSProp(double learningRate, double rho)
 {
-    for (std::size_t i = 0; i < W.size(); i++) {
-        for (std::size_t j = 0; j < W[0].size(); j++) {
-            s.W[i][j] = rho * s.W[i][j] + (1 - rho) * d.W[i][j] * d.W[i][j];
-            W[i][j] -= learningRate * d.W[i][j] / (sqrt(s.W[i][j]) + 1e-9);
-        }
-        s.B[i] = rho * s.B[i] + (1 - rho) * d.B[i] * d.B[i];
-        B[i] -= learningRate * d.B[i] / (sqrt(s.B[i]) + 1e-9);
-    }
-    for (std::size_t i = 0; i < Wr.size(); i++) {
-        for (std::size_t j = 0; j < Wr[0].size(); j++) {
-            s.Wr[i][j] = rho * s.Wr[i][j] + (1 - rho) * d.Wr[i][j] * d.Wr[i][j];
-            s.Wz[i][j] = rho * s.Wz[i][j] + (1 - rho) * d.Wz[i][j] * d.Wz[i][j];
-            s.Wg[i][j] = rho * s.Wg[i][j] + (1 - rho) * d.Wg[i][j] * d.Wg[i][j];
-            Wr[i][j] -= learningRate * d.Wr[i][j] / (sqrt(s.Wr[i][j]) + 1e-9);
-            Wz[i][j] -= learningRate * d.Wz[i][j] / (sqrt(s.Wz[i][j]) + 1e-9);
-            Wg[i][j] -= learningRate * d.Wg[i][j] / (sqrt(s.Wg[i][j]) + 1e-9);
-        }
-    }
-    for (std::size_t i = 0; i < Ur.size(); i++) {
-        for (std::size_t j = 0; j < Ur[0].size(); j++) {
-            s.Ur[i][j] = rho * s.Ur[i][j] + (1 - rho) * d.Ur[i][j] * d.Ur[i][j];
-            s.Uz[i][j] = rho * s.Uz[i][j] + (1 - rho) * d.Uz[i][j] * d.Uz[i][j];
-            s.Ug[i][j] = rho * s.Ug[i][j] + (1 - rho) * d.Ug[i][j] * d.Ug[i][j];
-            Ur[i][j] -= learningRate * d.Ur[i][j] / (sqrt(s.Ur[i][j]) + 1e-9);
-            Uz[i][j] -= learningRate * d.Uz[i][j] / (sqrt(s.Uz[i][j]) + 1e-9);
-            Ug[i][j] -= learningRate * d.Ug[i][j] / (sqrt(s.Ug[i][j]) + 1e-9);
-        }
-    }
-    for (std::size_t i = 0; i < Br.size(); i++) {
-        s.Br[i] = rho * s.Br[i] + (1 - rho) * d.Br[i] * d.Br[i];
-        s.Bz[i] = rho * s.Bz[i] + (1 - rho) * d.Bz[i] * d.Bz[i];
-        s.Bg[i] = rho * s.Bg[i] + (1 - rho) * d.Bg[i] * d.Bg[i];
-        Br[i] -= learningRate * d.Br[i] / (sqrt(s.Br[i]) + 1e-9);
-        Bz[i] -= learningRate * d.Bz[i] / (sqrt(s.Bz[i]) + 1e-9);
-        Bg[i] -= learningRate * d.Bg[i] / (sqrt(s.Bg[i]) + 1e-9);
-    }
+    Optimizer::RMSProp(d.W, s.W, W, learningRate, rho);
+    Optimizer::RMSProp(d.B, s.B, B, learningRate, rho);
+
+    Optimizer::RMSProp(d.Wr, s.Wr, Wr, learningRate, rho);
+    Optimizer::RMSProp(d.Wz, s.Wz, Wz, learningRate, rho);
+    Optimizer::RMSProp(d.Wg, s.Wg, Wg, learningRate, rho);
+
+    Optimizer::RMSProp(d.Ur, s.Ur, Ur, learningRate, rho);
+    Optimizer::RMSProp(d.Uz, s.Uz, Uz, learningRate, rho);
+    Optimizer::RMSProp(d.Ug, s.Ug, Ug, learningRate, rho);
+
+    Optimizer::RMSProp(d.Br, s.Br, Br, learningRate, rho);
+    Optimizer::RMSProp(d.Bz, s.Bz, Bz, learningRate, rho);
+    Optimizer::RMSProp(d.Bg, s.Bg, Bg, learningRate, rho);
+
+    d.zero();
+    return;
+}
+
+void RL::GRU::Adam(double learningRate,  double alpha, double beta)
+{
+    alpha_t *= alpha;
+    beta_t *= beta;
+    Optimizer::Adam(d.W, s.W, v.W, W, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.B, s.B, v.B, B, alpha_t, beta_t, learningRate, alpha, beta);
+
+    Optimizer::Adam(d.Wr, s.Wr, v.Wr, Wr, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Wz, s.Wz, v.Wz, Wz, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Wg, s.Wg, v.Wg, Wg, alpha_t, beta_t, learningRate, alpha, beta);
+
+    Optimizer::Adam(d.Ur, s.Ur, v.Ur, Ur, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Uz, s.Uz, v.Uz, Uz, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Ug, s.Ug, v.Ug, Ug, alpha_t, beta_t, learningRate, alpha, beta);
+
+    Optimizer::Adam(d.Br, s.Br, v.Br, Br, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Bz, s.Bz, v.Bz, Bz, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Bg, s.Bg, v.Bg, Bg, alpha_t, beta_t, learningRate, alpha, beta);
     d.zero();
     return;
 }
@@ -274,7 +318,7 @@ void RL::GRU::test()
         sample(batchData, batchTarget, 16);
         gru.forward(batchData);
         gru.gradient(batchData, batchTarget);
-        gru.RMSProp(0.001, 0.9);
+        gru.RMSProp(0.001);
     }
 
     gru.clear();

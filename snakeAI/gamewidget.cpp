@@ -18,6 +18,7 @@ GameWidget::GameWidget(QWidget *parent) :
     agentMethod.insert("dpg", &Agent::dpgAction);
     agentMethod.insert("ppo", &Agent::ppoAction);
     agentMethod.insert("ddpg", &Agent::ddpgAction);
+    agentMethod.insert("qlstm", &Agent::qlstmAction);
 }
 
 QRect GameWidget::getRect(int x, int y)

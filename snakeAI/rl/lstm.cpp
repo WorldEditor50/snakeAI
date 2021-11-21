@@ -14,6 +14,7 @@ RL::LSTM::LSTM(std::size_t inputDim_,
     }
     h = Vec(hiddenDim, 0);
     c = Vec(hiddenDim, 0);
+    y = Vec(outputDim, 0);
     alpha_t = 1;
     beta_t = 1;
     LSTMParam::random();
@@ -23,28 +24,30 @@ void RL::LSTM::clear()
 {
     h.assign(hiddenDim, 0);
     c.assign(hiddenDim, 0);
+    states.clear();
     return;
 }
 
 RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const RL::Vec &_c)
 {
     /*
-                                                             y
-                                                             |
-                                                            h(t)
-                                          c(t)               |
-            c(t-1) -->--x-----------------+----------------------->-- c(t)
-                        |                 |             |    |
-                        |                 |            tanh  |
-                        |                 |             |    |
-                        |          -------x      -------x-----
-                     f  |        i |      | g    | o    |
-                        |          |      |      |      |
-                     sigmoid    sigmoid  tanh  sigmoid  |
-                        |          |      |      |      |
-            h(t-1) -->----------------------------      --------->--- h(t)
-                        |
-                        x(t)
+                                                         y
+                                                         |
+                                                        h(t)
+                                      c(t)               |
+        c(t-1) -->--x-----------------+----------------------->-- c(t)
+                    |                 |             |    |
+                    |                 |            tanh  |
+                    |                 |             |    |
+                    |          -------x      -------x-----
+                 f  |        i |      | g    | o    |
+                    |          |      |      |      |
+                 sigmoid    sigmoid  tanh  sigmoid  |
+                    |          |      |      |      |
+        h(t-1) -->----------------------------      --------->--- h(t)
+                    |
+                    x(t)
+
         ft = sigmoid(Wf*xt + Uf*ht-1 + bf);
         it = sigmoid(Wi*xt + Ui*ht-1 + bi);
         gt = tanh(Wg*xt + Ug*ht-1 + bg);
@@ -55,36 +58,31 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
     */
     State state(hiddenDim, outputDim);
     for (std::size_t i = 0; i < Wi.size(); i++) {
-        double sf = 0;
-        double si = 0;
-        double sg = 0;
-        double so = 0;
         for (std::size_t j = 0; j < Wi[0].size(); j++) {
-            sf += Wf[i][j] * x[j];
-            si += Wi[i][j] * x[j];
-            sg += Wg[i][j] * x[j];
-            so += Wo[i][j] * x[j];
+            state.f[i] += Wf[i][j] * x[j];
+            state.i[i] += Wi[i][j] * x[j];
+            state.g[i] += Wg[i][j] * x[j];
+            state.o[i] += Wo[i][j] * x[j];
         }
         for (std::size_t j = 0; j < Ui[0].size(); j++) {
-            sf += Uf[i][j] * _h[j];
-            si += Ui[i][j] * _h[j];
-            sg += Ug[i][j] * _h[j];
-            so += Uo[i][j] * _h[j];
+            state.f[i] += Uf[i][j] * _h[j];
+            state.i[i] += Ui[i][j] * _h[j];
+            state.g[i] += Ug[i][j] * _h[j];
+            state.o[i] += Uo[i][j] * _h[j];
         }
-        state.f[i] = Sigmoid::_(sf + Bi[i]);
-        state.i[i] = Sigmoid::_(si + Bf[i]);
-        state.g[i] = Tanh::_(sg + Bg[i]);
-        state.o[i] = Sigmoid::_(so + Bo[i]);
+        state.f[i] = Sigmoid::_(state.f[i] + Bi[i]);
+        state.i[i] = Sigmoid::_(state.i[i] + Bf[i]);
+        state.g[i] = Tanh::_(state.g[i] + Bg[i]);
+        state.o[i] = Sigmoid::_(state.o[i] + Bo[i]);
         state.c[i] = state.f[i] * _c[i] + state.i[i] * state.g[i];
         state.h[i] = state.o[i] * Tanh::_(state.c[i]);
     }
 
     for (std::size_t i = 0; i < W.size(); i++) {
-        double sy = 0;
         for (std::size_t j = 0; j < W[0].size(); j++) {
-            sy += W[i][j] * state.h[j];
+            state.y[i] += W[i][j] * state.h[j];
         }
-        state.y[i] = Linear::_(sy + B[i]);
+        state.y[i] = Sigmoid::_(state.y[i] + B[i]);
     }
     return state;
 }
@@ -102,34 +100,24 @@ void RL::LSTM::forward(const std::vector<RL::Vec> &sequence)
     return;
 }
 
-RL::Vec RL::LSTM::forward(const RL::Vec &x)
+RL::Vec &RL::LSTM::forward(const RL::Vec &x)
 {
     State state = feedForward(x, h, c);
     h = state.h;
     c = state.c;
-    return state.y;
+    y = state.y;
+    return y;
 }
 
-void RL::LSTM::gradient(const std::vector<RL::Vec> &x,
-                        const std::vector<RL::Vec> &yt)
+void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec> &E)
 {
     State delta(hiddenDim, outputDim);
     State delta_(hiddenDim, outputDim);
+    /* backward through time */
     for (int t = states.size() - 1; t >= 0; t--) {
-        /* loss */
-        for (std::size_t i = 0; i < delta.y.size(); i++) {
-            delta.y[i] = 2 * (states[t].y[i] - yt[t][i]);
-        }
         for (std::size_t i = 0; i < W.size(); i++) {
             for (std::size_t j = 0; j < W[0].size(); j++) {
-                d.W[i][j] += delta.y[i] * Linear::d(states[t].y[i]) * states[t].h[j];
-            }
-            d.B[i] += delta.y[i] * Linear::d(states[t].y[i]);
-        }
-        /* backward */
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                delta.h[j] += W[i][j] * delta.y[i];
+                delta.h[j] += W[i][j] * E[t][i];
             }
         }
         for (std::size_t i = 0; i < Ui.size(); i++) {
@@ -146,7 +134,7 @@ void RL::LSTM::gradient(const std::vector<RL::Vec> &x,
             δot = δht ⊙ tanh(ct) ⊙ dsigmoid(ot)
             δgt = δct ⊙ it ⊙ dtanh(gt)
             δit = δct ⊙ gt ⊙ dsigmoid(it)
-            δft = δct ⊙ ct-1 ⊙ dsigmoid(ft)      
+            δft = δct ⊙ ct-1 ⊙ dsigmoid(ft)
         */
         Vec f_ = t < states.size() - 1 ? states[t + 1].f : Vec(hiddenDim, 0);
         Vec _c = t > 0 ? states[t - 1].c : Vec(hiddenDim, 0);
@@ -159,6 +147,12 @@ void RL::LSTM::gradient(const std::vector<RL::Vec> &x,
             delta.f[i] = delta.c[i] * _c[i] * Sigmoid::d(states[t].f[i]);
         }
         /* gradient */
+        for (std::size_t i = 0; i < W.size(); i++) {
+            for (std::size_t j = 0; j < W[0].size(); j++) {
+                d.W[i][j] += E[t][i] * Sigmoid::d(states[t].y[i]) * states[t].h[j];
+            }
+            d.B[i] += E[t][i] * Sigmoid::d(states[t].y[i]);
+        }
         for (std::size_t i = 0; i < Wi.size(); i++) {
             for (std::size_t j = 0; j < Wi[0].size(); j++) {
                 d.Wi[i][j] += delta.i[i] * x[t][j];
@@ -190,84 +184,77 @@ void RL::LSTM::gradient(const std::vector<RL::Vec> &x,
     return;
 }
 
-void RL::LSTM::SGD(double learningRate)
+void RL::LSTM::gradient(const std::vector<RL::Vec> &x,
+                        const std::vector<RL::Vec> &yt)
 {
-    for (std::size_t i = 0; i < W.size(); i++) {
-        for (std::size_t j = 0; j < W[0].size(); j++) {
-            W[i][j] -= learningRate * d.W[i][j];
-        }
-        B[i] -= learningRate * d.B[i];
-    }
-    for (std::size_t i = 0; i < Wi.size(); i++) {
-        for (std::size_t j = 0; j < Wi[0].size(); j++) {
-            Wi[i][j] -= learningRate * d.Wi[i][j];
-            Wf[i][j] -= learningRate * d.Wf[i][j];
-            Wg[i][j] -= learningRate * d.Wg[i][j];
-            Wo[i][j] -= learningRate * d.Wo[i][j];
+    /* loss */
+    std::vector<RL::Vec> E(states.size(), Vec(outputDim, 0));
+    for (int t = states.size() - 1; t >= 0; t--) {
+        for (std::size_t i = 0; i < outputDim; i++) {
+            E[t][i] = 2 * (states[t].y[i] - yt[t][i]);
         }
     }
-    for (std::size_t i = 0; i < Ui.size(); i++) {
-        for (std::size_t j = 0; j < Ui[0].size(); j++) {
-            Ui[i][j] -= learningRate * d.Ui[i][j];
-            Uf[i][j] -= learningRate * d.Uf[i][j];
-            Ug[i][j] -= learningRate * d.Ug[i][j];
-            Uo[i][j] -= learningRate * d.Uo[i][j];
-        }
+    /* backward */
+    backward(x, E);
+    return;
+}
+
+void RL::LSTM::gradient(const std::vector<RL::Vec> &x, const RL::Vec &yt)
+{
+    /* loss */
+    std::vector<RL::Vec> E(states.size(), Vec(outputDim, 0));
+    int t = states.size() - 1;
+    for (std::size_t i = 0; i < outputDim; i++) {
+        E[t][i] = 2 * (states[t].y[i] - yt[i]);
     }
-    for (std::size_t i = 0; i < Bi.size(); i++) {
-        Bi[i] -= learningRate * d.Bi[i];
-        Bf[i] -= learningRate * d.Bf[i];
-        Bg[i] -= learningRate * d.Bg[i];
-        Bo[i] -= learningRate * d.Bo[i];
-    }
+    /* backward */
+    backward(x, E);
+    return;
+}
+
+void RL::LSTM::SGD(double learningRate)
+{   
+    Optimizer::SGD(d.W, W, learningRate);
+    Optimizer::SGD(d.B, B, learningRate);
+
+    Optimizer::SGD(d.Wi, Wi, learningRate);
+    Optimizer::SGD(d.Wg, Wg, learningRate);
+    Optimizer::SGD(d.Wf, Wf, learningRate);
+    Optimizer::SGD(d.Wo, Wo, learningRate);
+
+    Optimizer::SGD(d.Ui, Ui, learningRate);
+    Optimizer::SGD(d.Ug, Ug, learningRate);
+    Optimizer::SGD(d.Uf, Uf, learningRate);
+    Optimizer::SGD(d.Uo, Uo, learningRate);
+
+    Optimizer::SGD(d.Bi, Bi, learningRate);
+    Optimizer::SGD(d.Bg, Bg, learningRate);
+    Optimizer::SGD(d.Bf, Bf, learningRate);
+    Optimizer::SGD(d.Bo, Bo, learningRate);
     d.zero();
     return;
 }
 
 void RL::LSTM::RMSProp(double learningRate, double rho)
 {
-    for (std::size_t i = 0; i < W.size(); i++) {
-        for (std::size_t j = 0; j < W[0].size(); j++) {
-            s.W[i][j] = rho * s.W[i][j] + (1 - rho) * d.W[i][j] * d.W[i][j];
-            W[i][j] -= learningRate * d.W[i][j] / (sqrt(s.W[i][j]) + 1e-9);
-        }
-        s.B[i] = rho * s.B[i] + (1 - rho) * d.B[i] * d.B[i];
-        B[i] -= learningRate * d.B[i] / (sqrt(s.B[i]) + 1e-9);
-    }
-    for (std::size_t i = 0; i < Wi.size(); i++) {
-        for (std::size_t j = 0; j < Wi[0].size(); j++) {
-            s.Wi[i][j] = rho * s.Wi[i][j] + (1 - rho) * d.Wi[i][j] * d.Wi[i][j];
-            s.Wf[i][j] = rho * s.Wf[i][j] + (1 - rho) * d.Wf[i][j] * d.Wf[i][j];
-            s.Wg[i][j] = rho * s.Wg[i][j] + (1 - rho) * d.Wg[i][j] * d.Wg[i][j];
-            s.Wo[i][j] = rho * s.Wo[i][j] + (1 - rho) * d.Wo[i][j] * d.Wo[i][j];
-            Wi[i][j] -= learningRate * d.Wi[i][j] / (sqrt(s.Wi[i][j]) + 1e-9);
-            Wf[i][j] -= learningRate * d.Wf[i][j] / (sqrt(s.Wf[i][j]) + 1e-9);
-            Wg[i][j] -= learningRate * d.Wg[i][j] / (sqrt(s.Wg[i][j]) + 1e-9);
-            Wo[i][j] -= learningRate * d.Wo[i][j] / (sqrt(s.Wo[i][j]) + 1e-9);
-        }
-    }
-    for (std::size_t i = 0; i < Ui.size(); i++) {
-        for (std::size_t j = 0; j < Ui[0].size(); j++) {
-            s.Ui[i][j] = rho * s.Ui[i][j] + (1 - rho) * d.Ui[i][j] * d.Ui[i][j];
-            s.Uf[i][j] = rho * s.Uf[i][j] + (1 - rho) * d.Uf[i][j] * d.Uf[i][j];
-            s.Ug[i][j] = rho * s.Ug[i][j] + (1 - rho) * d.Ug[i][j] * d.Ug[i][j];
-            s.Uo[i][j] = rho * s.Uo[i][j] + (1 - rho) * d.Uo[i][j] * d.Uo[i][j];
-            Ui[i][j] -= learningRate * d.Ui[i][j] / (sqrt(s.Ui[i][j]) + 1e-9);
-            Uf[i][j] -= learningRate * d.Uf[i][j] / (sqrt(s.Uf[i][j]) + 1e-9);
-            Ug[i][j] -= learningRate * d.Ug[i][j] / (sqrt(s.Ug[i][j]) + 1e-9);
-            Uo[i][j] -= learningRate * d.Uo[i][j] / (sqrt(s.Uo[i][j]) + 1e-9);
-        }
-    }
-    for (std::size_t i = 0; i < Bi.size(); i++) {
-        s.Bi[i] = rho * s.Bi[i] + (1 - rho) * d.Bi[i] * d.Bi[i];
-        s.Bf[i] = rho * s.Bf[i] + (1 - rho) * d.Bf[i] * d.Bf[i];
-        s.Bg[i] = rho * s.Bg[i] + (1 - rho) * d.Bg[i] * d.Bg[i];
-        s.Bo[i] = rho * s.Bo[i] + (1 - rho) * d.Bo[i] * d.Bo[i];
-        Bi[i] -= learningRate * d.Bi[i] / (sqrt(s.Bi[i]) + 1e-9);
-        Bf[i] -= learningRate * d.Bf[i] / (sqrt(s.Bf[i]) + 1e-9);
-        Bg[i] -= learningRate * d.Bg[i] / (sqrt(s.Bg[i]) + 1e-9);
-        Bo[i] -= learningRate * d.Bo[i] / (sqrt(s.Bo[i]) + 1e-9);
-    }
+    Optimizer::RMSProp(d.W, s.W, W, learningRate, rho);
+    Optimizer::RMSProp(d.B, s.B, B, learningRate, rho);
+
+    Optimizer::RMSProp(d.Wi, s.Wi, Wi, learningRate, rho);
+    Optimizer::RMSProp(d.Wg, s.Wg, Wg, learningRate, rho);
+    Optimizer::RMSProp(d.Wf, s.Wf, Wf, learningRate, rho);
+    Optimizer::RMSProp(d.Wo, s.Wo, Wo, learningRate, rho);
+
+    Optimizer::RMSProp(d.Ui, s.Ui, Ui, learningRate, rho);
+    Optimizer::RMSProp(d.Ug, s.Ug, Ug, learningRate, rho);
+    Optimizer::RMSProp(d.Uf, s.Uf, Uf, learningRate, rho);
+    Optimizer::RMSProp(d.Uo, s.Uo, Uo, learningRate, rho);
+
+    Optimizer::RMSProp(d.Bi, s.Bi, Bi, learningRate, rho);
+    Optimizer::RMSProp(d.Bg, s.Bg, Bg, learningRate, rho);
+    Optimizer::RMSProp(d.Bf, s.Bf, Bf, learningRate, rho);
+    Optimizer::RMSProp(d.Bo, s.Bo, Bo, learningRate, rho);
+
     d.zero();
     return;
 }
@@ -276,45 +263,82 @@ void RL::LSTM::Adam(double learningRate,  double alpha, double beta)
 {
     alpha_t *= alpha;
     beta_t *= beta;
-    auto AdamMatImpl = [&](Mat &Mw, Mat &Vw, Mat &w, Mat &dW){
-        for (std::size_t i = 0; i < w.size(); i++) {
-            for (std::size_t j = 0; j < w[0].size(); j++) {
-                Mw[i][j] = alpha * Mw[i][j] + (1 - alpha) * dW[i][j];
-                Vw[i][j] = beta * Vw[i][j] + (1 - beta) * dW[i][j] * dW[i][j];
-                double m = Mw[i][j] / (1 - alpha_t);
-                double v = Vw[i][j] / (1 - beta_t);
-                w[i][j] -= learningRate * m / (sqrt(v) + 1e-9);
-            }
-        }
-    };
-    auto AdamVecImpl = [&](Vec &Mb, Vec &Vb, Vec &b, Vec &dB){
-        for (std::size_t i = 0; i < b.size(); i++) {
-            Mb[i] = alpha * Mb[i] + (1 - alpha) * dB[i];
-            Vb[i] = beta * Vb[i] + (1 - beta) * dB[i] * dB[i];
-            double m = Mb[i] / (1 - alpha_t);
-            double v = Vb[i] / (1 - beta_t);
-            b[i] -= learningRate * m / (sqrt(v) + 1e-9);
-        }
-    };
-    AdamMatImpl(v.W, s.W, W, d.W);
-    AdamVecImpl(v.B, s.B, B, d.B);
+    Optimizer::Adam(d.W, s.W, v.W, W, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.B, s.B, v.B, B, alpha_t, beta_t, learningRate, alpha, beta);
 
-    AdamMatImpl(v.Wi, s.Wi, Wi, d.Wi);
-    AdamMatImpl(v.Wg, s.Wg, Wg, d.Wg);
-    AdamMatImpl(v.Wf, s.Wf, Wf, d.Wf);
-    AdamMatImpl(v.Wo, s.Wo, Wo, d.Wo);
+    Optimizer::Adam(d.Wi, s.Wi, v.Wi, Wi, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Wg, s.Wg, v.Wg, Wg, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Wf, s.Wf, v.Wf, Wf, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Wo, s.Wo, v.Wo, Wo, alpha_t, beta_t, learningRate, alpha, beta);
 
-    AdamMatImpl(v.Ui, s.Ui, Ui, d.Ui);
-    AdamMatImpl(v.Ug, s.Ug, Ug, d.Ug);
-    AdamMatImpl(v.Uf, s.Uf, Uf, d.Uf);
-    AdamMatImpl(v.Uo, s.Uo, Uo, d.Uo);
+    Optimizer::Adam(d.Ui, s.Ui, v.Ui, Ui, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Ug, s.Ug, v.Ug, Ug, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Uf, s.Uf, v.Uf, Uf, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Uo, s.Uo, v.Uo, Uo, alpha_t, beta_t, learningRate, alpha, beta);
 
-    AdamVecImpl(v.Bi, s.Bi, Bi, d.Bi);
-    AdamVecImpl(v.Bg, s.Bg, Bg, d.Bg);
-    AdamVecImpl(v.Bf, s.Bf, Bf, d.Bf);
-    AdamVecImpl(v.Bo, s.Bo, Bo, d.Bo);
-
+    Optimizer::Adam(d.Bi, s.Bi, v.Bi, Bi, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Bg, s.Bg, v.Bg, Bg, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Bf, s.Bf, v.Bf, Bf, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimizer::Adam(d.Bo, s.Bo, v.Bo, Bo, alpha_t, beta_t, learningRate, alpha, beta);
     d.zero();
+    return;
+}
+
+void RL::LSTM::copyTo(LSTM &dst)
+{
+    for (std::size_t i = 0; i < Wi.size(); i++) {
+        for (std::size_t j = 0; j < Wi[0].size(); j++) {
+            dst.Wi[i][j] = Wi[i][j];
+            dst.Wg[i][j] = Wg[i][j];
+            dst.Wf[i][j] = Wf[i][j];
+            dst.Wo[i][j] = Wo[i][j];
+        }
+    }
+    for (std::size_t i = 0; i < Ui.size(); i++) {
+        for (std::size_t j = 0; j < Ui[0].size(); j++) {
+            dst.Ui[i][j] = Ui[i][j];
+            dst.Ug[i][j] = Ug[i][j];
+            dst.Uf[i][j] = Uf[i][j];
+            dst.Uo[i][j] = Uo[i][j];
+        }
+        dst.Bi[i] = Bi[i];
+        dst.Bg[i] = Bg[i];
+        dst.Bf[i] = Bf[i];
+        dst.Bo[i] = Bo[i];
+    }
+    for (std::size_t i = 0; i < W.size(); i++) {
+        for (std::size_t j = 0; j < W[0].size(); j++) {
+            dst.W[i][j] = W[i][j];
+        }
+        dst.B[i] = B[i];
+    }
+    return;
+}
+
+void RL::LSTM::softUpdateTo(LSTM &dst, double rho)
+{
+    for (std::size_t i = 0; i < Wi.size(); i++) {
+        RL::EMA(dst.Wi[i], Wi[i], rho);
+        RL::EMA(dst.Wg[i], Wg[i], rho);
+        RL::EMA(dst.Wf[i], Wf[i], rho);
+        RL::EMA(dst.Wo[i], Wo[i], rho);
+    }
+    for (std::size_t i = 0; i < Ui.size(); i++) {
+        for (std::size_t j = 0; j < Ui[0].size(); j++) {
+            RL::EMA(dst.Ui[i], Ui[i], rho);
+            RL::EMA(dst.Ug[i], Ug[i], rho);
+            RL::EMA(dst.Uf[i], Uf[i], rho);
+            RL::EMA(dst.Uo[i], Uo[i], rho);
+        }
+        RL::EMA(dst.Bi, Bi, rho);
+        RL::EMA(dst.Bg, Bg, rho);
+        RL::EMA(dst.Bf, Bf, rho);
+        RL::EMA(dst.Bo, Bo, rho);
+    }
+    for (std::size_t i = 0; i < W.size(); i++) {
+        RL::EMA(dst.W[i], W[i], rho);
+        RL::EMA(dst.B, B, rho);
+    }
     return;
 }
 
@@ -323,7 +347,7 @@ void RL::LSTM::test()
     srand((unsigned int)time(nullptr));
     LSTM lstm(2, 8, 1, true);
     auto zeta = [](double x, double y) -> double {
-        return sin(x*x + y*y);
+        return sin(x*x + y*y + x*y);
     };
     std::uniform_real_distribution<double> uniform(-1, 1);
     std::vector<Vec> data;

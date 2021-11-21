@@ -135,30 +135,42 @@ public:
             return;
         }
     };
+public:
+    Vec h;
+    Vec c;
+    Vec y;
+    /* state */
+    std::vector<State> states;
 protected:
     std::size_t inputDim;
     std::size_t hiddenDim;
     std::size_t outputDim;
-    Vec h;
-    Vec c;
     LSTMParam d;
     LSTMParam v;
     LSTMParam s;
     double alpha_t;
     double beta_t;
-    /* state */
-    std::vector<State> states;
 public:
     LSTM(){}
     LSTM(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
     void clear();
+    /* forward */
     State feedForward(const Vec &x, const Vec &_h, const Vec &_c);
-    void forward(const std::vector<Vec> &seq);
-    Vec forward(const Vec &x);
+    void forward(const std::vector<Vec> &sequence);
+    Vec &forward(const Vec &x);
+    /* backward */
+    void backward(const std::vector<Vec> &x, const std::vector<Vec> &E);
+    /* seq2seq */
     void gradient(const std::vector<Vec> &x, const std::vector<Vec> &yt);
+    /* seq2vec */
+    void gradient(const std::vector<Vec> &x, const Vec &yt);
+    /* optimize */
     void SGD(double learningRate);
     void RMSProp(double learningRate, double rho = 0.9);
     void Adam(double learningRate, double alpha = 0.9, double beta = 0.99);
+    /* parameter */
+    void copyTo(LSTM &dst);
+    void softUpdateTo(LSTM &dst, double rho);
     static void test();
 };
 

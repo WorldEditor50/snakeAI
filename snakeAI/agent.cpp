@@ -7,16 +7,17 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     trainFlag(true)
 {
     int stateDim = 8;
-    this->dqn = DQN(stateDim, 16, 4);
+    this->dqn = DQN(stateDim, 32, 4);
     this->dpg = DPG(stateDim, 16, 4);
     this->ddpg = DDPG(stateDim, 16, 4);
     this->ppo = PPO(stateDim, 16, 4);
     this->bpnn = BPNN(BPNN::Layers{
-                          Layer::_(stateDim, 16, Sigmoid::_, Sigmoid::d, true),
-                          Layer::_(16, 16, Sigmoid::_, Sigmoid::d, true),
-                          Layer::_(16, 16, Sigmoid::_, Sigmoid::d, true),
-                          Layer::_(16, 4, Sigmoid::_, Sigmoid::d, true)
+                          Layer<Sigmoid>::_(stateDim, 16, true),
+                          Layer<Sigmoid>::_(16, 16, true),
+                          Layer<Sigmoid>::_(16, 16, true),
+                          Layer<Sigmoid>::_(16, 4, true)
                       });
+    qlstm = QLSTM(stateDim, 16, 4);
     this->state.resize(stateDim);
     this->nextState.resize(stateDim);
     dqn.load("./dqn");
@@ -107,6 +108,17 @@ double Agent::reward5(int xi, int yi, int xn, int yn, int xt, int yt)
     double d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
     double d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
     return sqrt(d1) - sqrt(d2);
+}
+
+double Agent::reward6(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    if (map[xn][yn] == 1) {
+        return -1;
+    }
+    if (xn == xt && yn == yt) {
+        return 1;
+    }
+    return 0;
 }
 
 void Agent::observe(vector<double>& statex, int x, int y, int xt, int yt, vector<double>& output)
@@ -224,6 +236,49 @@ int Agent::dqnAction(int x, int y, int xt, int yt)
     }
     /* making decision */
     return dqn.action(state_);
+}
+
+int Agent::qlstmAction(int x, int y, int xt, int yt)
+{
+    int xn = x;
+    int yn = y;
+    double r = 0;
+    double total = 0;
+    observe(state, x, y, xt, yt, dqn.output());
+    std::vector<double> state_ = state;
+    if (trainFlag == true) {
+        for (std::size_t j = 0; j < 128; j++) {
+            int xi = xn;
+            int yi = yn;
+            Vec& action = qlstm.sample(state);
+            int k = RL::argmax(action);
+            simulateMove(xn, yn, k);
+            r = reward6(xi, yi, xn, yn, xt, yt);
+            total += r;
+            observe(nextState, xn, yn, xt, yt, action);
+            if (map[xn][yn] == 1) {
+                qlstm.perceive(state, action, nextState, r, true);
+                break;
+            }
+            if (xn == xt && yn == yt) {
+                qlstm.perceive(state, action, nextState, r, true);
+                break;
+            } else {
+                qlstm.perceive(state, action, nextState, r, false);
+            }
+            state = nextState;
+        }
+        emit totalReward(total);
+        /* training */
+        qlstm.learn(8192, 256, 32, 0.0001);
+    }
+    /* making decision */
+    Vec &action = qlstm.action(state_);
+    for (std::size_t i = 0; i < action.size(); i++) {
+        std::cout<<action[i]<<" ";
+    }
+    std::cout<<std::endl;
+    return RL::argmax(action);
 }
 
 int Agent::dpgAction(int x, int y, int xt, int yt)

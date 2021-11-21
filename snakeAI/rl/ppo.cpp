@@ -11,27 +11,27 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
     this->stateDim = stateDim;
     this->actionDim = actionDim;
     this->actorP = BPNN(BPNN::Layers{
-                            Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
+                            Layer<Sigmoid>::_(stateDim, hiddenDim, true),
+                            DropoutLayer<Sigmoid>::_(hiddenDim, hiddenDim, true, 0.6),
+                            DropoutLayer<Sigmoid>::_(hiddenDim, hiddenDim, true, 0.6),
+                            DropoutLayer<Sigmoid>::_(hiddenDim, hiddenDim, true, 0.6),
+                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                             SoftmaxLayer::_(hiddenDim, actionDim, true)
                         });
     this->actorQ = BPNN(BPNN::Layers{
-                            Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, false),
+                            Layer<Sigmoid>::_(stateDim, hiddenDim, false),
+                            Layer<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                            Layer<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                            Layer<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                             SoftmaxLayer::_(hiddenDim, actionDim, false)
                         });
     this->critic = BPNN(BPNN::Layers{
-                            Layer::_(stateDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                            Layer::_(hiddenDim, hiddenDim, Sigmoid::_, Sigmoid::d, true),
-                            Layer::_(hiddenDim, 1, Relu::_, Relu::d, true)
+                            Layer<Sigmoid>::_(stateDim, hiddenDim, true),
+                            DropoutLayer<Sigmoid>::_(hiddenDim, hiddenDim, true, 0.6),
+                            DropoutLayer<Sigmoid>::_(hiddenDim, hiddenDim, true, 0.6),
+                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                            Layer<Relu>::_(hiddenDim, 1, true)
                         });
     return;
 }

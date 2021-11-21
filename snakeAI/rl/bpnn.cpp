@@ -1,155 +1,5 @@
 #include "bpnn.h"
 
-RL::Layer::Layer(std::size_t inputDim,
-                 std::size_t layerDim,
-                 Activate activate_,
-                 DActivate dActivate_,
-                 bool trainFlag)
-    :LayerParam(inputDim, layerDim, trainFlag)
-{
-    activate = activate_;
-    dActivate = dActivate_;
-    W = Mat(layerDim, Vec(inputDim, 0));
-    B = Vec(layerDim);
-    O = Vec(layerDim);
-    E = Vec(layerDim);
-    /* init */
-    std::uniform_real_distribution<double> distributionReal(-1, 1);
-    for (std::size_t i = 0; i < W.size(); i++) {
-        for (std::size_t j = 0; j < W[0].size(); j++) {
-            W[i][j] = distributionReal(Rand::engine);
-        }
-        B[i] = distributionReal(Rand::engine);
-    }
-    return;
-}
-
-void RL::Layer::feedForward(const Vec& x)
-{
-    if (x.size() != W[0].size()) {
-        std::cout<<"x = "<<x.size()<<std::endl;
-        std::cout<<"w = "<<W[0].size()<<std::endl;
-        return;
-    }
-    for (std::size_t i = 0; i < W.size(); i++) {
-        O[i] = 0;
-        for (std::size_t j = 0; j < W[0].size(); j++) {
-            O[i] += W[i][j] * x[j];
-        }
-        O[i] = activate(O[i] + B[i]);
-    }
-    return;
-}
-
-void RL::Layer::gradient(const Vec& x, const Vec&)
-{
-    for (std::size_t i = 0; i < dW.size(); i++) {
-        double dy = dActivate(O[i]) * E[i];
-        for (std::size_t j = 0; j < dW[0].size(); j++) {
-            dW[i][j] += dy * x[j];
-        }
-        dB[i] += dy;
-        E[i] = 0;
-    }
-    return;
-}
-
-void RL::Layer::backpropagate(const Vec& nextE, const Mat& nextW)
-{
-    if (E.size() != nextW[0].size()) {
-        std::cout<<"size is not matching"<<std::endl;;
-    }
-    for (std::size_t i = 0; i < nextW[0].size(); i++) {
-        for (std::size_t j = 0; j < nextW.size(); j++) {
-            E[i] +=  nextW[j][i] * nextE[j];
-        }
-    }
-    return;
-}
-
-void RL::Layer::SGD(double learningRate)
-{
-    /*
-     * e = (Activate(wx + b) - T)^2/2
-     * de/dw = (Activate(wx +b) - T)*DActivate(wx + b) * x
-     * de/db = (Activate(wx +b) - T)*DActivate(wx + b)
-     * */
-    for (std::size_t i = 0; i < W.size(); i++) {
-        for (std::size_t j = 0; j < W[0].size(); j++) {
-            W[i][j] -= learningRate * dW[i][j];
-            dW[i][j] = 0;
-        }
-        B[i] -= learningRate * dB[i];
-        dB[i] = 0;
-    }
-    return;
-}
-
-void RL::Layer::RMSProp(double rho, double learningRate)
-{
-    for (std::size_t i = 0; i < W.size(); i++) {
-        for (std::size_t j = 0; j < W[0].size(); j++) {
-            Sw[i][j] = rho * Sw[i][j] + (1 - rho) * dW[i][j] * dW[i][j];
-            W[i][j] -= learningRate * dW[i][j] / (sqrt(Sw[i][j]) + 1e-9);
-            dW[i][j] = 0;
-        }
-        Sb[i] = rho * Sb[i] + (1 - rho) * dB[i] * dB[i];
-        B[i] -= learningRate * dB[i] / (sqrt(Sb[i]) + 1e-9);
-        dB[i] = 0;
-    }
-    return;
-}
-
-void RL::Layer::Adam(double alpha1, double alpha2, double learningRate)
-{
-    alpha1_t *= alpha1;
-    alpha2_t *= alpha2;
-    for (std::size_t i = 0; i < W.size(); i++) {
-        for (std::size_t j = 0; j < W[0].size(); j++) {
-            /* momentum */
-            Vw[i][j] = alpha1 * Vw[i][j] + (1 - alpha1) * dW[i][j];
-            /* delcay factor */
-            Sw[i][j] = alpha2 * Sw[i][j] + (1 - alpha2) * dW[i][j] * dW[i][j];
-            double v = Vw[i][j] / (1 - alpha1_t);
-            double s = Sw[i][j] / (1 - alpha2_t);
-            W[i][j] -= learningRate * v / (sqrt(s) + 1e-9);
-            dW[i][j] = 0;
-        }
-        Vb[i] = alpha1 * Vb[i] + (1 - alpha1) * dB[i];
-        Sb[i] = alpha2 * Sb[i] + (1 - alpha2) * dB[i] * dB[i];
-        double v = Vb[i] / (1 - alpha1_t);
-        double s = Sb[i] / (1 - alpha2_t);
-        B[i] -= learningRate * v / (sqrt(s) + 1e-9);
-        dB[i] = 0;
-    }
-    return;
-}
-
-void RL::SoftmaxLayer::feedForward(const RL::Vec &x)
-{
-    double s = 0;
-    for (std::size_t i = 0; i < W.size(); i++) {
-        O[i] = RL::dotProduct(W[i], x) + B[i];
-        s += exp(O[i]);
-    }
-    for (std::size_t i = 0; i < O.size(); i++) {
-        O[i] = exp(O[i]) / s;
-    }
-    return;
-}
-
-void RL::SoftmaxLayer::gradient(const RL::Vec &x, const Vec &y)
-{
-    for (std::size_t i = 0; i < dW.size(); i++) {
-        double dy = O[i] - y[i];
-        for (std::size_t j = 0; j < dW[0].size(); j++) {
-            dW[i][j] += dy * x[j];
-        }
-        dB[i] += dy;
-    }
-    return;
-}
-
 RL::BPNN &RL::BPNN::operator =(const RL::BPNN &r)
 {
     if (this == &r) {
@@ -220,7 +70,7 @@ double RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y, RL::BPNN::LossFunc
     }
     /* error Backpropagate */
     for (int i = outputIndex - 1; i >= 0; i--) {
-        layers[i]->backpropagate(layers[i + 1]->E, layers[i + 1]->W);
+        layers[i]->backward(layers[i + 1]->E, layers[i + 1]->W);
     }
     /* gradient */
     layers[0]->gradient(x, y);
@@ -234,7 +84,9 @@ void RL::BPNN::SGD(double learningRate)
 {
     /* gradient descent */
     for (std::size_t i = 0; i < layers.size(); i++) {
-        layers[i]->SGD(learningRate);
+        Optimizer::SGD(layers[i]->d.W, layers[i]->W, learningRate);
+        Optimizer::SGD(layers[i]->d.B, layers[i]->B, learningRate);
+        layers[i]->d.zero();
     }
     return;
 }
@@ -242,15 +94,23 @@ void RL::BPNN::SGD(double learningRate)
 void RL::BPNN::RMSProp(double rho, double learningRate)
 {
     for (std::size_t i = 0; i < layers.size(); i++) {
-        layers[i]->RMSProp(rho, learningRate);
+        Optimizer::RMSProp(layers[i]->d.W, layers[i]->s.W, layers[i]->W, learningRate, rho);
+        Optimizer::RMSProp(layers[i]->d.B, layers[i]->s.B, layers[i]->B, learningRate, rho);
+        layers[i]->d.zero();
     }
     return;
 }
 
 void RL::BPNN::Adam(double alpha1, double alpha2, double learningRate)
 {
+    alpha1_t *= alpha1;
+    alpha2_t *= alpha2;
     for (std::size_t i = 0; i < layers.size(); i++) {
-        layers[i]->Adam(alpha1, alpha2, learningRate);
+        Optimizer::Adam(layers[i]->d.W, layers[i]->s.W, layers[i]->v.W, layers[i]->W,
+                        alpha1_t, alpha2_t, learningRate, alpha1, alpha2);
+        Optimizer::Adam(layers[i]->d.B, layers[i]->s.B, layers[i]->v.B, layers[i]->B,
+                        alpha1_t, alpha2_t, learningRate, alpha1, alpha2);
+        layers[i]->d.zero();
     }
     return;
 }
@@ -311,30 +171,12 @@ void RL::BPNN::train(Mat& x,
 
 int RL::BPNN::argmax()
 {
-    int index = 0;
-    Vec &v = layers.back()->O;
-    double maxValue = v[0];
-    for (std::size_t i = 0; i < v.size(); i++) {
-        if (maxValue < v[i]) {
-            maxValue = v[i];
-            index = i;
-        }
-    }
-    return index;
+    return RL::argmax(layers.back()->O);
 }
 
 int RL::BPNN::argmin()
 {
-    int index = 0;
-    Vec &v = layers.back()->O;
-    double minValue = v[0];
-    for (std::size_t i = 0; i < v.size(); i++) {
-        if (minValue > v[i]) {
-            minValue = v[i];
-            index = i;
-        }
-    }
-    return index;
+    return RL::argmin(layers.back()->O);
 }
 
 void RL::BPNN::show()
