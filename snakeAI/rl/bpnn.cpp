@@ -134,41 +134,6 @@ void RL::BPNN::optimize(OptType optType, double learningRate)
     return;
 }
 
-void RL::BPNN::train(Mat& x,
-        Mat& y,
-        OptType optType,
-        std::size_t batchSize,
-        double learningRate,
-        std::size_t iterateNum)
-{
-    if (x.empty() || y.empty()) {
-        std::cout<<"x or y is empty"<<std::endl;
-        return;
-    }
-    if (x.size() != y.size()) {
-        std::cout<<"x != y"<<std::endl;
-        return;
-    }
-    if (x[0].size() != layers[0]->W[0].size()) {
-        std::cout<<"x != w"<<std::endl;
-        return;
-    }
-    Vec &v = layers.back()->O;
-    if (y[0].size() != v.size()) {
-        std::cout<<"y != output"<<std::endl;
-        return;
-    }
-    int len = x.size();
-    for (std::size_t i = 0; i < iterateNum; i++) {
-        for (std::size_t j = 0; j < batchSize; j++) {
-            int k = rand() % len;
-            gradient(x[k], y[k], Loss::CROSS_EMTROPY);
-        }
-        optimize(optType, learningRate);
-    }
-    return;
-}
-
 int RL::BPNN::argmax()
 {
     return RL::argmax(layers.back()->O);
@@ -215,6 +180,59 @@ void RL::BPNN::save(const std::string& fileName)
             }
             file << layers[i]->B[j];
             file << std::endl;
+        }
+    }
+    return;
+}
+
+void RL::BPNN::test()
+{
+    BPNN net(BPNN::Layers{
+                 Layer<Sigmoid>::_(2, 16, true),
+                 Layer<Sigmoid>::_(16, 16, true),
+                 Layer<Sigmoid>::_(16, 16, true),
+                 Layer<Linear>::_(16, 1, true)
+             });
+    auto zeta = [](double x, double y) -> double {
+        return x*x + y*y + x*y;
+    };
+    std::uniform_real_distribution<double> uniform(-1, 1);
+    std::vector<Vec> data;
+    std::vector<Vec> target;
+    for (int i = 0; i < 200; i++) {
+        for (int j = 0; j < 200; j++) {
+            Vec p(2);
+            double x = uniform(Rand::engine);
+            double y = uniform(Rand::engine);
+            double z = zeta(x, y);
+            p[0] = x;
+            p[1] = y;
+            Vec q(1);
+            q[0] = z;
+            data.push_back(p);
+            target.push_back(q);
+        }
+    }
+    std::uniform_int_distribution<int> selectIndex(0, data.size() - 1);
+    for (int i = 0; i < 10000; i++) {
+        for (int j = 0; j < 128; j++) {
+            int k = selectIndex(Rand::engine);
+            net.feedForward(data[k]);
+            net.gradient(data[k], target[k], Loss::MSE);
+        }
+        net.Adam();
+    }
+    for (int i = 0; i < 10; i++) {
+        for (int j = 0; j < 10; j++) {
+            Vec x(2);
+            double x1 = uniform(Rand::engine);
+            double x2 = uniform(Rand::engine);
+            double z = zeta(x1, x2);
+            x[0] = x1;
+            x[1] = x2;
+            auto s = net.feedForward(x).output();
+            std::cout<<"x1 = "<<x1<<" x2 = "<<x2<<" z = "<<z<<"  predict: "
+                    <<s[0]<<" error:"<<s[0] - z<<std::endl;
         }
     }
     return;

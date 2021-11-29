@@ -105,6 +105,16 @@ double RL::variance(const std::vector<double> &x)
     return sqrt(sigma / x.size());
 }
 
+double RL::variance(const std::vector<double> &x, double u)
+{
+    double sigma = 0;
+    /* sigma */
+    for (std::size_t i = 0 ; i < x.size(); i++) {
+        sigma += (x[i] - u) * (x[i] - u);
+    }
+    return sqrt(sigma / x.size());
+}
+
 double RL::dotProduct(const std::vector<double>& x1, const std::vector<double>& x2)
 {
     double s = 0;

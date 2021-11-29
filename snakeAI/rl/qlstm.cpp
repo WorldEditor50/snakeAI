@@ -28,7 +28,7 @@ RL::Vec& RL::QLSTM::sample(Vec &state)
 {
     std::uniform_real_distribution<double> distributionReal(0, 1);
     double p = distributionReal(Rand::engine);
-    Vec &out = QMainNet.y;
+    Vec &out = QMainNet.output();
     if (p < exploringRate) {
         out.assign(actionDim, 0);
         std::uniform_int_distribution<int> distribution(0, actionDim - 1);
@@ -40,9 +40,20 @@ RL::Vec& RL::QLSTM::sample(Vec &state)
     return out;
 }
 
+RL::Vec &RL::QLSTM::output()
+{
+    return QMainNet.output();
+}
+
 RL::Vec &RL::QLSTM::action(const Vec &state)
 {
     return QMainNet.forward(state);
+}
+
+void RL::QLSTM::clear()
+{
+    QMainNet.clear();
+    return;
 }
 
 void RL::QLSTM::experienceReplay(const Transition& x, std::vector<Vec> &y)
@@ -81,18 +92,23 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
     /* experience replay */
     std::vector<Vec> x;
     std::vector<Vec> y;
-    std::uniform_int_distribution<int> distribution(0, memories.size() - 1);
+    std::uniform_int_distribution<int> uniform(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
-        int k = distribution(Rand::engine);
+        int k = uniform(Rand::engine);
         x.push_back(memories[k].state);
         experienceReplay(memories[k], y);
     }
     QMainNet.forward(x);
+#if 0
+    QMainNet.backward(x, y);
+    QMainNet.optimize(learningRate);
+#else
     QMainNet.gradient(x, y);
-    QMainNet.Adam(learningRate);
+    QMainNet.RMSProp(learningRate);
+#endif
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
-        std::size_t k = memories.size() / 3;
+        std::size_t k = memories.size() / 4;
         for (std::size_t i = 0; i < k; i++) {
             memories.pop_front();
         }

@@ -67,7 +67,7 @@ RL::BPNN &RL::PPO::action(const Vec &state)
     return actorP.feedForward(state);
 }
 
-double RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::vector<RL::Transition> &x)
+void RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::vector<RL::Transition> &x)
 {
     /* reward */
     int end = x.size() - 1;
@@ -82,7 +82,6 @@ double RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::ve
         learningSteps = 0;
     }
     double KLexpect = 0;
-    double totalLoss = 0;
     for (std::size_t i = 0; i < x.size(); i++) {
         /* advangtage */
         Vec& v = critic.feedForward(x[i].state).output();
@@ -98,7 +97,7 @@ double RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::ve
         double kl = p[k] * log(p[k]/q[k]);
         q[k] += p[k] / q[k] * advantage - beta * kl;
         KLexpect += kl;
-        totalLoss += actorP.gradient(x[i].state, q, Loss::CROSS_EMTROPY);
+        actorP.gradient(x[i].state, q, Loss::CROSS_EMTROPY);
     }
     /* KL-Penalty */
     KLexpect /= double(x.size());
@@ -113,10 +112,10 @@ double RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::ve
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     learningSteps++;
-    return totalLoss;
+    return;
 }
 
-double RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::vector<RL::Transition> &x)
+void RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::vector<RL::Transition> &x)
 {
     /* reward */
     int end = x.size() - 1;
@@ -130,7 +129,6 @@ double RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::v
         //actorP.copyTo(actorQ);
         learningSteps = 0;
     }
-    double totalLoss = 0;
     for (std::size_t i = 0; i < x.size(); i++) {
         /* advangtage */
         Vec& v = critic.feedForward(x[i].state).output();
@@ -146,7 +144,7 @@ double RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::v
         double ratio = p[k]/q[k];
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
         q[k] += ratio * advantage;
-        totalLoss += actorP.gradient(x[i].state, q, Loss::CROSS_EMTROPY);
+        actorP.gradient(x[i].state, q, Loss::CROSS_EMTROPY);
     }
     actorP.optimize(optType, learningRate);
     critic.optimize(optType, 0.0001);
@@ -154,7 +152,7 @@ double RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::v
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     learningSteps++;
-    return totalLoss;
+    return;
 }
 
 void RL::PPO::save(const std::string &actorPara, const std::string &criticPara)

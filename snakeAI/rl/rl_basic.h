@@ -176,6 +176,7 @@ double min(const std::vector<double> &x);
 double sum(const std::vector<double> &x);
 double mean(const std::vector<double> &x);
 double variance(const std::vector<double> &x);
+double variance(const std::vector<double> &x, double u);
 double covariance(const std::vector<double>& x1, const std::vector<double>& x2);
 void zscore(std::vector<double> &x);
 void normalize(std::vector<double> &x);

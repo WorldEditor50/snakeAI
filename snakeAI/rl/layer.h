@@ -7,7 +7,19 @@
 
 namespace RL {
 
-class LayerParam
+class iLayer
+{
+public:
+    virtual ~iLayer(){}
+    virtual void feedForward(const Vec& x){}
+    virtual void backward(const Vec& nextE, const Mat& nextW){}
+    virtual void gradient(const Vec& x, const Vec&){}
+    virtual void SGD(double learningRate){}
+    virtual void RMSProp(double rho, double learningRate){}
+    virtual void Adam(double alpha, double beta, double learningRate){}
+};
+
+class LayerParam : public iLayer
 {
 public:
     Mat W;
@@ -65,11 +77,6 @@ public:
         }
         LayerParam::random();
     }
-
-    virtual ~LayerObject(){};
-    virtual void feedForward(const Vec& x){}
-    virtual void backward(const Vec& nextE, const Mat& nextW){}
-    virtual void gradient(const Vec& x, const Vec&){}
 };
 
 
@@ -335,13 +342,55 @@ public:
 };
 
 template<typename ActF>
-class ResidualLayer : public LayerObject
+class ResidualLayer : public iLayer
 {
+public:
+    Mat W1;
+    Vec B1;
+    Mat W2;
+    Vec B2;
+    Mat W3;
+    Vec B3;
+
+    Vec O1;
+    Vec E1;
+    Vec O2;
+    Vec E2;
+    Vec O3;
+    Vec E3;
+
+    Mat dW1;
+    Vec dB1;
+    Mat dW2;
+    Vec dB2;
+    Mat dW3;
+    Vec dB3;
 public:
     ResidualLayer(){}
     ~ResidualLayer(){}
     explicit ResidualLayer(std::size_t inputDim, std::size_t layerDim, bool trainFlag)
-        :LayerObject(inputDim, layerDim, trainFlag){}
+    {
+        W1 = Mat(layerDim, Vec(inputDim, 0));
+        B1 = Vec(layerDim, 0);
+        W2 = Mat(layerDim, Vec(layerDim, 0));
+        B2 = Vec(layerDim, 0);
+        W3 = Mat(inputDim, Vec(layerDim, 0));
+        B3 = Vec(inputDim, 0);
+
+        O1 = Vec(layerDim, 0);
+        E1 = Vec(layerDim, 0);
+        O2 = Vec(layerDim, 0);
+        E2 = Vec(layerDim, 0);
+        O3 = Vec(inputDim, 0);
+        E3 = Vec(inputDim, 0);
+
+        dW1 = Mat(layerDim, Vec(inputDim, 0));
+        dB1 = Vec(layerDim, 0);
+        dW2 = Mat(layerDim, Vec(layerDim, 0));
+        dB2 = Vec(layerDim, 0);
+        dW3 = Mat(inputDim, Vec(layerDim, 0));
+        dB3 = Vec(inputDim, 0);
+    }
 
     static std::shared_ptr<SoftmaxLayer> _(std::size_t inputDim,
                                     std::size_t layerDim,
@@ -351,37 +400,120 @@ public:
     }
     void feedForward(const RL::Vec &x) override
     {
-        for (std::size_t i = 0; i < W.size(); i++) {
-            double s = RL::dotProduct(W[i], x);
-            O[i] = ActF::_(s + B[i]) + s;
+        for (std::size_t i = 0; i < W1.size(); i++) {
+            double s = RL::dotProduct(W1[i], x);
+            O1[i] = ActF::_(s + B1[i]);
+        }
+        for (std::size_t i = 0; i < W2.size(); i++) {
+            double s = RL::dotProduct(W2[i], O1);
+            O2[i] = ActF::_(s + B2[i]);
+        }
+        for (std::size_t i = 0; i < W3.size(); i++) {
+            double s = RL::dotProduct(W3[i], O2);
+            O3[i] = ActF::_(s + B3[i]) + x[i];
         }
         return;
     }
 
-    void gradient(const RL::Vec &x, const Vec &y) override
+    void backward(const Vec& nextE, const Mat& nextW) override
     {
-        for (std::size_t i = 0; i < d.W.size(); i++) {
-            double dy = O[i] - y[i];
-            for (std::size_t j = 0; j < d.W[0].size(); j++) {
-                d.W[i][j] += dy * x[j];
+        for (std::size_t i = 0; i < nextW[0].size(); i++) {
+            for (std::size_t j = 0; j < nextW.size(); j++) {
+                E3[i] +=  nextW[j][i] * nextE[j];
             }
-            d.B[i] += dy;
+        }
+        for (std::size_t i = 0; i < W3[0].size(); i++) {
+            for (std::size_t j = 0; j < W3.size(); j++) {
+                E2[i] +=  W3[j][i] * E3[j];
+            }
+        }
+        for (std::size_t i = 0; i < W2[0].size(); i++) {
+            for (std::size_t j = 0; j < W2.size(); j++) {
+                E1[i] +=  W2[j][i] * E2[j];
+            }
         }
         return;
     }
 
+    void gradient(const Vec& x, const Vec&) override
+    {
+        for (std::size_t i = 0; i < dW1.size(); i++) {
+            double dy = ActF::d(O1[i]) * E1[i];
+            for (std::size_t j = 0; j < dW1[0].size(); j++) {
+                dW1[i][j] += dy * x[j];
+            }
+            dB1[i] += dy;
+            E1[i] = 0;
+        }
+        for (std::size_t i = 0; i < dW2.size(); i++) {
+            double dy = ActF::d(O2[i]) * E2[i];
+            for (std::size_t j = 0; j < dW2[0].size(); j++) {
+                dW2[i][j] += dy * O1[j];
+            }
+            dB2[i] += dy;
+            E2[i] = 0;
+        }
+        for (std::size_t i = 0; i < dW3.size(); i++) {
+            double dy = ActF::d(O3[i]) * E3[i] + 1;
+            for (std::size_t j = 0; j < dW3[0].size(); j++) {
+                dW3[i][j] += dy * O2[j];
+            }
+            dB3[i] += dy;
+            E3[i] = 0;
+        }
+        return;
+    }
+
+    void SGD(double learningRate)
+    {
+        Optimizer::SGD(dW1, W1, learningRate);
+        Optimizer::SGD(dW2, W2, learningRate);
+        Optimizer::SGD(dW3, W3, learningRate);
+
+        Optimizer::SGD(dB1, B1, learningRate);
+        Optimizer::SGD(dB2, B2, learningRate);
+        Optimizer::SGD(dB3, B3, learningRate);
+        return;
+    }
+
+    void copyTo(ResidualLayer &dst)
+    {
+        for (std::size_t i = 0; i < W1.size(); i++) {
+            for (std::size_t j = 0; j < W1[0].size(); j++) {
+                dst.W1[i][j] =  W1[j][i];
+            }
+            dst.B1[i] = B1[i];
+        }
+        for (std::size_t i = 0; i < W2.size(); i++) {
+            for (std::size_t j = 0; j < W2[0].size(); j++) {
+                dst.W2[i][j] =  W2[j][i];
+            }
+            dst.B2[i] = B2[i];
+        }
+        for (std::size_t i = 0; i < W3.size(); i++) {
+            for (std::size_t j = 0; j < W3[0].size(); j++) {
+                dst.W3[i][j] =  W3[j][i];
+            }
+            dst.B3[i] = B3[i];
+        }
+    }
+
+    void softUpdateTo(ResidualLayer &dst, double rho)
+    {
+        for (std::size_t i = 0; i < W1.size(); i++) {
+            RL::EMA(dst.W1[i], W1[i], rho);
+        }
+        RL::EMA(dst.B1, B1, rho);
+        for (std::size_t i = 0; i < W2.size(); i++) {
+            RL::EMA(dst.W2[i], W2[i], rho);
+        }
+        RL::EMA(dst.B2, B2, rho);
+        for (std::size_t i = 0; i < W3.size(); i++) {
+            RL::EMA(dst.W3[i], W3[i], rho);
+        }
+        RL::EMA(dst.B3, B3, rho);
+    }
 };
 
-class AddLayer
-{
-public:
-    AddLayer(){}
-};
-
-class FeedForwardLayer
-{
-public:
-    FeedForwardLayer(){}
-};
 }
 #endif // LAYER_H

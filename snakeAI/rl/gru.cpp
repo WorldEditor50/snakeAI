@@ -50,25 +50,32 @@ RL::GRU::State RL::GRU::feedForward(const RL::Vec &x, const RL::Vec &_h)
         yt = linear(W*ht + B)
     */
     State state(hiddenDim, outputDim);
+    Gain u;
+    Gain s;
     for (std::size_t i = 0; i < Wr.size(); i++) {
-        double sr = 0;
-        double sz = 0;
-        double sg = 0;
         for (std::size_t j = 0; j < Wr[0].size(); j++) {
-            sr += Wr[i][j] * x[j];
-            sz += Wz[i][j] * x[j];
-            sg += Wg[i][j] * x[j];
+            state.r[i] += Wr[i][j] * x[j];
+            state.z[i] += Wz[i][j] * x[j];
+            state.g[i] += Wg[i][j] * x[j];
         }
         for (std::size_t j = 0; j < Ur[0].size(); j++) {
-            sr += Ur[i][j] * _h[j];
-            sz += Uz[i][j] * _h[j];
+            state.r[i] += Ur[i][j] * _h[j];
+            state.z[i] += Uz[i][j] * _h[j];
         }
-        state.r[i] = Sigmoid::_(sr + Br[i]);
-        state.z[i] = Sigmoid::_(sz + Bz[i]);
+        /* normalize */
+        u.r = RL::mean(state.r);
+        u.z = RL::mean(state.z);
+        s.r = RL::variance(state.r, u.r);
+        s.z = RL::variance(state.z, u.z);
+        g.r = 1.0 / sqrt(s.r + 1e-9);
+        g.z = 1.0 / sqrt(s.z + 1e-9);
+        /* activate */
+        state.r[i] = Sigmoid::_(g.r * (state.r[i] - u.r) + Br[i]);
+        state.z[i] = Sigmoid::_(g.z * (state.z[i] - u.z) + Bz[i]);
         for (std::size_t j = 0; j < Ur[0].size(); j++) {
-            sg += Ug[i][j] * _h[j] * state.r[j];
+            state.g[i] += Ug[i][j] * _h[j] * state.r[j];
         }
-        state.g[i] = Tanh::_(sg + Bg[i]);
+        state.g[i] = Tanh::_(state.g[i] + Bg[i]);
         state.h[i] = (1 - state.z[i]) * _h[i] + state.z[i] * state.g[i];
     }
 
@@ -113,8 +120,8 @@ void RL::GRU::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
         }
         for (std::size_t i = 0; i < Ur.size(); i++) {
             for (std::size_t j = 0; j < Ur[0].size(); j++) {
-                delta.h[j] += Ur[i][j] * delta_.r[i];
-                delta.h[j] += Uz[i][j] * delta_.z[i];
+                delta.h[j] += Ur[i][j] * delta_.r[i] * g.r;
+                delta.h[j] += Uz[i][j] * delta_.z[i] * g.z;
                 delta.h[j] += Ug[i][j] * delta_.g[i];
             }
         }
@@ -281,7 +288,6 @@ void RL::GRU::Adam(double learningRate,  double alpha, double beta)
 
 void RL::GRU::test()
 {
-    srand((unsigned int)time(nullptr));
     GRU gru(2, 8, 1, true);
     auto zeta = [](double x, double y) -> double {
         return x*x + y*y + x*y;
@@ -318,7 +324,7 @@ void RL::GRU::test()
         sample(batchData, batchTarget, 16);
         gru.forward(batchData);
         gru.gradient(batchData, batchTarget);
-        gru.RMSProp(0.001);
+        gru.Adam(0.0001);
     }
 
     gru.clear();

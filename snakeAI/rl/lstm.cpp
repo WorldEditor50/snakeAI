@@ -24,7 +24,6 @@ void RL::LSTM::clear()
 {
     h.assign(hiddenDim, 0);
     c.assign(hiddenDim, 0);
-    states.clear();
     return;
 }
 
@@ -57,6 +56,8 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
         yt = linear(W*ht + b)
     */
     State state(hiddenDim, outputDim);
+    Gain u;
+    Gain s;
     for (std::size_t i = 0; i < Wi.size(); i++) {
         for (std::size_t j = 0; j < Wi[0].size(); j++) {
             state.f[i] += Wf[i][j] * x[j];
@@ -70,10 +71,21 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
             state.g[i] += Ug[i][j] * _h[j];
             state.o[i] += Uo[i][j] * _h[j];
         }
-        state.f[i] = Sigmoid::_(state.f[i] + Bi[i]);
-        state.i[i] = Sigmoid::_(state.i[i] + Bf[i]);
+        /* normalize */
+        u.f = RL::mean(state.f);
+        u.i = RL::mean(state.i);
+        u.o = RL::mean(state.o);
+        s.f = RL::variance(state.f, u.f);
+        s.i = RL::variance(state.i, u.i);
+        s.o = RL::variance(state.o, u.o);
+        g.f = 1.2 / sqrt(s.f + 1e-9);
+        g.i = 1.2 / sqrt(s.i + 1e-9);
+        g.o = 1.2 / sqrt(s.o + 1e-9);
+        /* activate */
+        state.f[i] = Sigmoid::_(g.f * (state.f[i] - u.f) + Bi[i]);
+        state.i[i] = Sigmoid::_(g.i * (state.i[i] - u.i) + Bf[i]);
         state.g[i] = Tanh::_(state.g[i] + Bg[i]);
-        state.o[i] = Sigmoid::_(state.o[i] + Bo[i]);
+        state.o[i] = Sigmoid::_(g.o * (state.o[i] - u.o) + Bo[i]);
         state.c[i] = state.f[i] * _c[i] + state.i[i] * state.g[i];
         state.h[i] = state.o[i] * Tanh::_(state.c[i]);
     }
@@ -82,7 +94,7 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
         for (std::size_t j = 0; j < W[0].size(); j++) {
             state.y[i] += W[i][j] * state.h[j];
         }
-        state.y[i] = Sigmoid::_(state.y[i] + B[i]);
+        state.y[i] = Linear::_(state.y[i] + B[i]);
     }
     return state;
 }
@@ -122,10 +134,10 @@ void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec
         }
         for (std::size_t i = 0; i < Ui.size(); i++) {
             for (std::size_t j = 0; j < Ui[0].size(); j++) {
-                delta.h[j] += Ui[i][j] * delta_.i[i];
-                delta.h[j] += Uf[i][j] * delta_.f[i];
+                delta.h[j] += Ui[i][j] * delta_.i[i] * g.i;
+                delta.h[j] += Uf[i][j] * delta_.f[i] * g.f;
                 delta.h[j] += Ug[i][j] * delta_.g[i];
-                delta.h[j] += Uo[i][j] * delta_.o[i];
+                delta.h[j] += Uo[i][j] * delta_.o[i] * g.o;
             }
         }
         /*
@@ -149,9 +161,9 @@ void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec
         /* gradient */
         for (std::size_t i = 0; i < W.size(); i++) {
             for (std::size_t j = 0; j < W[0].size(); j++) {
-                d.W[i][j] += E[t][i] * Sigmoid::d(states[t].y[i]) * states[t].h[j];
+                d.W[i][j] += E[t][i] * Linear::d(states[t].y[i]) * states[t].h[j];
             }
-            d.B[i] += E[t][i] * Sigmoid::d(states[t].y[i]);
+            d.B[i] += E[t][i] * Linear::d(states[t].y[i]);
         }
         for (std::size_t i = 0; i < Wi.size(); i++) {
             for (std::size_t j = 0; j < Wi[0].size(); j++) {
@@ -324,30 +336,27 @@ void RL::LSTM::softUpdateTo(LSTM &dst, double rho)
         RL::EMA(dst.Wo[i], Wo[i], rho);
     }
     for (std::size_t i = 0; i < Ui.size(); i++) {
-        for (std::size_t j = 0; j < Ui[0].size(); j++) {
-            RL::EMA(dst.Ui[i], Ui[i], rho);
-            RL::EMA(dst.Ug[i], Ug[i], rho);
-            RL::EMA(dst.Uf[i], Uf[i], rho);
-            RL::EMA(dst.Uo[i], Uo[i], rho);
-        }
-        RL::EMA(dst.Bi, Bi, rho);
-        RL::EMA(dst.Bg, Bg, rho);
-        RL::EMA(dst.Bf, Bf, rho);
-        RL::EMA(dst.Bo, Bo, rho);
+        RL::EMA(dst.Ui[i], Ui[i], rho);
+        RL::EMA(dst.Ug[i], Ug[i], rho);
+        RL::EMA(dst.Uf[i], Uf[i], rho);
+        RL::EMA(dst.Uo[i], Uo[i], rho);
     }
+    RL::EMA(dst.Bi, Bi, rho);
+    RL::EMA(dst.Bg, Bg, rho);
+    RL::EMA(dst.Bf, Bf, rho);
+    RL::EMA(dst.Bo, Bo, rho);
     for (std::size_t i = 0; i < W.size(); i++) {
-        RL::EMA(dst.W[i], W[i], rho);
-        RL::EMA(dst.B, B, rho);
+        RL::EMA(dst.W[i], W[i], rho);     
     }
+    RL::EMA(dst.B, B, rho);
     return;
 }
 
 void RL::LSTM::test()
 {
-    srand((unsigned int)time(nullptr));
     LSTM lstm(2, 8, 1, true);
     auto zeta = [](double x, double y) -> double {
-        return sin(x*x + y*y + x*y);
+        return x*x + y*y + x*y;
     };
     std::uniform_real_distribution<double> uniform(-1, 1);
     std::vector<Vec> data;
@@ -378,7 +387,7 @@ void RL::LSTM::test()
     for (int i = 0; i < 10000; i++) {
         std::vector<Vec> batchData;
         std::vector<Vec> batchTarget;
-        sample(batchData, batchTarget, 8);
+        sample(batchData, batchTarget, 4);
         lstm.forward(batchData);
         lstm.gradient(batchData, batchTarget);
         lstm.Adam(0.001);

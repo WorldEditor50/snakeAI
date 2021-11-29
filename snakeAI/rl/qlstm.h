@@ -9,8 +9,9 @@ class QNet
 {
 public:
     LSTM lstm;
-    Layer<Tanh> layer1;
+    Layer<Sigmoid> layer1;
     Layer<Sigmoid> layer2;
+    std::vector<Vec> y;
     std::size_t stateDim;
     std::size_t hiddenDim;
     std::size_t actionDim;
@@ -23,7 +24,7 @@ public:
         :stateDim(stateDim_), hiddenDim(hiddenDim_), actionDim(actionDim_)
     {
         lstm = LSTM(stateDim_, hiddenDim_, hiddenDim_, trainFlag);
-        layer1 = Layer<Tanh>(hiddenDim_, hiddenDim_, trainFlag);
+        layer1 = Layer<Sigmoid>(hiddenDim_, hiddenDim_, trainFlag);
         layer2 = Layer<Sigmoid>(hiddenDim_, actionDim_, trainFlag);
     }
     Vec &forward(const Vec &state)
@@ -36,9 +37,13 @@ public:
     {
         lstm.clear();
         for (auto &x : sequence) {
-            lstm.forward(x);
+            LSTM::State s = lstm.feedForward(x, lstm.h, lstm.c);
+            lstm.h = s.h;
+            lstm.c = s.c;
+            lstm.states.push_back(s);
             layer1.feedForward(lstm.y);
             layer2.feedForward(layer1.O);
+            y.push_back(layer2.O);
         }
         return;
     }
@@ -46,21 +51,22 @@ public:
     {
         Vec tmp;
         std::vector<RL::Vec> E(x.size(), Vec(hiddenDim, 0));
-        for (std::size_t t = 0; t < x.size(); t++) {
-            for (std::size_t i = 0; i < x[0].size(); i++) {
-                /* loss */
-                for (std::size_t j = 0; j < actionDim; j++) {
-                    layer2.E[j] = 2 * (layer2.O[j] - yt[t][i]);
-                }
-                layer1.backward(layer2.E, layer2.W);
+        for (std::size_t t = 0; t < yt.size(); t++) {
+            /* loss */
+            for (std::size_t i = 0; i < actionDim; i++) {
+                layer2.E[i] = 2 * (y[t][i] - yt[t][i]);
+            }
+            layer1.backward(layer2.E, layer2.W);
+            for (std::size_t i = 0; i < layer1.W.size(); i++) {
                 for (std::size_t j = 0; j < layer1.W[0].size(); j++) {
                     E[t][j] += layer1.W[i][j] * layer1.E[i];
                 }
-                /* gradient */
-                layer2.gradient(layer1.O, tmp);
-                layer1.gradient(lstm.y, tmp);
             }
+            /* gradient */
+            layer2.gradient(layer1.O, tmp);
+            layer1.gradient(lstm.y, tmp);
         }
+        y.clear();
         lstm.backward(x, E);
         return;
     }
@@ -93,9 +99,10 @@ public:
         lstm.softUpdateTo(dst.lstm, rho);
     }
     Vec& output(){return layer2.O;}
+    void clear() {lstm.clear();}
     void optimize(double learningRate)
     {
-        lstm.SGD(learningRate);
+        lstm.RMSProp(learningRate);
         Optimizer::RMSProp(layer1.d.W, layer1.s.W, layer1.W, learningRate, 0.9);
         Optimizer::RMSProp(layer1.d.B, layer1.s.B, layer1.B, learningRate, 0.9);
         layer1.d.zero();
@@ -104,6 +111,7 @@ public:
         layer2.d.zero();
     }
 };
+
 class QLSTM
 {
 public:
@@ -118,6 +126,7 @@ public:
     Vec& sample(Vec& state);
     Vec& output();
     Vec &action(const Vec &state);
+    void clear();
     void experienceReplay(const Transition& x, std::vector<Vec> &y);
     void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,

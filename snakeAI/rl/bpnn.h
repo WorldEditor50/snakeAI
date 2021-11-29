@@ -42,17 +42,12 @@ public:
     void RMSProp(double rho = 0.9, double learningRate = 0.001);
     void Adam(double alpha1 = 0.9, double alpha2 = 0.99, double learningRate = 0.001);
     void optimize(OptType optType = OPT_RMSPROP, double learningRate = 0.001);
-    void train(Mat& x,
-            Mat& y,
-            OptType optType,
-            std::size_t batchSize,
-            double learningRate,
-            std::size_t iterateNum);
     int argmax();
     int argmin();
     void show();
     void load(const std::string& fileName);
     void save(const std::string& fileName);
+    static void test();
 protected:
     double alpha1_t;
     double alpha2_t;

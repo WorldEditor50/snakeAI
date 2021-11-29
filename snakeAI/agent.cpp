@@ -7,19 +7,19 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     trainFlag(true)
 {
     int stateDim = 8;
-    this->dqn = DQN(stateDim, 32, 4);
-    this->dpg = DPG(stateDim, 16, 4);
-    this->ddpg = DDPG(stateDim, 16, 4);
-    this->ppo = PPO(stateDim, 16, 4);
-    this->bpnn = BPNN(BPNN::Layers{
+    dqn = DQN(stateDim, 32, 4);
+    dpg = DPG(stateDim, 16, 4);
+    ddpg = DDPG(stateDim, 16, 4);
+    ppo = PPO(stateDim, 16, 4);
+    bpnn = BPNN(BPNN::Layers{
                           Layer<Sigmoid>::_(stateDim, 16, true),
                           Layer<Sigmoid>::_(16, 16, true),
                           Layer<Sigmoid>::_(16, 16, true),
                           Layer<Sigmoid>::_(16, 4, true)
                       });
-    qlstm = QLSTM(stateDim, 16, 4);
-    this->state.resize(stateDim);
-    this->nextState.resize(stateDim);
+    qlstm = QLSTM(stateDim, 32, 4);
+    state.resize(stateDim);
+    nextState.resize(stateDim);
     dqn.load("./dqn");
     dpg.load("./dpg");
     ddpg.load("./ddpg_actor", "./ddpg_critic");
@@ -244,7 +244,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
     int yn = y;
     double r = 0;
     double total = 0;
-    observe(state, x, y, xt, yt, dqn.output());
+    observe(state, x, y, xt, yt, qlstm.output());
     std::vector<double> state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 128; j++) {
@@ -253,7 +253,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
             Vec& action = qlstm.sample(state);
             int k = RL::argmax(action);
             simulateMove(xn, yn, k);
-            r = reward6(xi, yi, xn, yn, xt, yt);
+            r = reward1(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt, action);
             if (map[xn][yn] == 1) {
@@ -270,7 +270,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        qlstm.learn(8192, 256, 32, 0.0001);
+        qlstm.learn(8192, 256, 12, 0.001);
     }
     /* making decision */
     Vec &action = qlstm.action(state_);
@@ -313,7 +313,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        dpg.reinforce(OPT_RMSPROP, 0.0001, steps);
+        dpg.reinforce(OPT_RMSPROP, 0.001, steps);
     }
     /* making decision */
     direct = dpg.action(state_);

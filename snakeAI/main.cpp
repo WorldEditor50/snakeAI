@@ -2,7 +2,7 @@
 #include <QApplication>
 #include "lstm.h"
 #include "gru.h"
-
+#include "mat.h"
 int main(int argc, char *argv[])
 {
 #if 1
@@ -11,12 +11,8 @@ int main(int argc, char *argv[])
     w.show();
     return a.exec();
 #else
-    //LSTM::test();
-    std::bernoulli_distribution bernoulli;
-    for (int i = 0; i < 10; i++) {
-        std::cout<<bernoulli(Rand::engine)<<" ";
-    }
-    std::cout<<std::endl;
+    LSTM::test();
+    matrix::test();
     return 0;
 #endif
 }

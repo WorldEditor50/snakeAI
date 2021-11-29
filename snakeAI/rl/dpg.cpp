@@ -7,7 +7,7 @@ RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
     this->actionDim = actionDim;
     this->policyNet =  BPNN(BPNN::Layers{
                                 Layer<Sigmoid>::_(stateDim, hiddenDim),
-                                DropoutLayer<Sigmoid>::_(hiddenDim, hiddenDim, true, 0.4),
+                                LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                                 DropoutLayer<Sigmoid>::_(hiddenDim, hiddenDim, true, 0.4),
                                 LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                                 SoftmaxLayer::_(hiddenDim, actionDim, true)
