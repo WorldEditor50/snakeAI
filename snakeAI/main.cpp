@@ -5,7 +5,7 @@
 #include "mat.h"
 int main(int argc, char *argv[])
 {
-#if 0
+#if 1
     QApplication a(argc, argv);
     MainWindow w;
     w.show();
