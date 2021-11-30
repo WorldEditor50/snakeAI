@@ -56,8 +56,6 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
         yt = linear(W*ht + b)
     */
     State state(hiddenDim, outputDim);
-    Gain u;
-    Gain s;
     for (std::size_t i = 0; i < Wi.size(); i++) {
         for (std::size_t j = 0; j < Wi[0].size(); j++) {
             state.f[i] += Wf[i][j] * x[j];
@@ -65,27 +63,20 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
             state.g[i] += Wg[i][j] * x[j];
             state.o[i] += Wo[i][j] * x[j];
         }
+    }
+    for (std::size_t i = 0; i < Ui.size(); i++) {
         for (std::size_t j = 0; j < Ui[0].size(); j++) {
             state.f[i] += Uf[i][j] * _h[j];
             state.i[i] += Ui[i][j] * _h[j];
             state.g[i] += Ug[i][j] * _h[j];
             state.o[i] += Uo[i][j] * _h[j];
         }
-        /* normalize */
-        u.f = RL::mean(state.f);
-        u.i = RL::mean(state.i);
-        u.o = RL::mean(state.o);
-        s.f = RL::variance(state.f, u.f);
-        s.i = RL::variance(state.i, u.i);
-        s.o = RL::variance(state.o, u.o);
-        g.f = 1.2 / sqrt(s.f + 1e-9);
-        g.i = 1.2 / sqrt(s.i + 1e-9);
-        g.o = 1.2 / sqrt(s.o + 1e-9);
-        /* activate */
-        state.f[i] = Sigmoid::_(g.f * (state.f[i] - u.f) + Bi[i]);
-        state.i[i] = Sigmoid::_(g.i * (state.i[i] - u.i) + Bf[i]);
+    }
+    for (std::size_t i = 0; i < state.f.size(); i++) {
+        state.f[i] = Sigmoid::_(state.f[i] + Bi[i]);
+        state.i[i] = Sigmoid::_(state.i[i] + Bf[i]);
         state.g[i] = Tanh::_(state.g[i] + Bg[i]);
-        state.o[i] = Sigmoid::_(g.o * (state.o[i] - u.o) + Bo[i]);
+        state.o[i] = Sigmoid::_(state.o[i] + Bo[i]);
         state.c[i] = state.f[i] * _c[i] + state.i[i] * state.g[i];
         state.h[i] = state.o[i] * Tanh::_(state.c[i]);
     }
@@ -132,14 +123,27 @@ void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec
                 delta.h[j] += W[i][j] * E[t][i];
             }
         }
+#if 0
         for (std::size_t i = 0; i < Ui.size(); i++) {
             for (std::size_t j = 0; j < Ui[0].size(); j++) {
-                delta.h[j] += Ui[i][j] * delta_.i[i] * g.i;
-                delta.h[j] += Uf[i][j] * delta_.f[i] * g.f;
+                delta.h[j] += Ui[i][j] * delta_.i[i];
+                delta.h[j] += Uf[i][j] * delta_.f[i];
                 delta.h[j] += Ug[i][j] * delta_.g[i];
-                delta.h[j] += Uo[i][j] * delta_.o[i] * g.o;
+                delta.h[j] += Uo[i][j] * delta_.o[i];
             }
         }
+#else
+        /* BPTT with EMA */
+        double gamma = 0.99;
+        for (std::size_t i = 0; i < Ui.size(); i++) {
+            for (std::size_t j = 0; j < Ui[0].size(); j++) {
+                delta.h[j] = delta.h[j]*gamma + Ui[i][j] * delta_.i[i]*(1 - gamma);
+                delta.h[j] = delta.h[j]*gamma + Uf[i][j] * delta_.f[i]*(1 - gamma);
+                delta.h[j] = delta.h[j]*gamma + Ug[i][j] * delta_.g[i]*(1 - gamma);
+                delta.h[j] = delta.h[j]*gamma + Uo[i][j] * delta_.o[i]*(1 - gamma);
+            }
+        }
+#endif
         /*
             δht = E + δht+1
             δct = δht ⊙ ot ⊙ dtanh(ct) + δct+1 ⊙ ft+1
@@ -151,8 +155,7 @@ void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec
         Vec f_ = t < states.size() - 1 ? states[t + 1].f : Vec(hiddenDim, 0);
         Vec _c = t > 0 ? states[t - 1].c : Vec(hiddenDim, 0);
         for (std::size_t i = 0; i < delta.o.size(); i++) {
-            delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::d(states[t].c[i]) +
-                    delta_.c[i] * f_[i];
+            delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::d(states[t].c[i]) + delta_.c[i] * f_[i];
             delta.o[i] = delta.h[i] * Tanh::_(states[t].c[i]) * Sigmoid::d(states[t].o[i]);
             delta.g[i] = delta.c[i] * states[t].i[i] * Tanh::d(states[t].g[i]);
             delta.i[i] = delta.c[i] * states[t].g[i] * Sigmoid::d(states[t].i[i]);
@@ -203,7 +206,7 @@ void RL::LSTM::gradient(const std::vector<RL::Vec> &x,
     std::vector<RL::Vec> E(states.size(), Vec(outputDim, 0));
     for (int t = states.size() - 1; t >= 0; t--) {
         for (std::size_t i = 0; i < outputDim; i++) {
-            E[t][i] = 2 * (states[t].y[i] - yt[t][i]);
+            E[t][i] = states[t].y[i] - yt[t][i];
         }
     }
     /* backward */
@@ -356,7 +359,7 @@ void RL::LSTM::test()
 {
     LSTM lstm(2, 8, 1, true);
     auto zeta = [](double x, double y) -> double {
-        return x*x + y*y + x*y;
+        return x*x + y*y - x*y;
     };
     std::uniform_real_distribution<double> uniform(-1, 1);
     std::vector<Vec> data;
@@ -387,7 +390,7 @@ void RL::LSTM::test()
     for (int i = 0; i < 10000; i++) {
         std::vector<Vec> batchData;
         std::vector<Vec> batchTarget;
-        sample(batchData, batchTarget, 4);
+        sample(batchData, batchTarget, 32);
         lstm.forward(batchData);
         lstm.gradient(batchData, batchTarget);
         lstm.Adam(0.001);

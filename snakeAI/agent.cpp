@@ -17,7 +17,7 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
                           Layer<Sigmoid>::_(16, 16, true),
                           Layer<Sigmoid>::_(16, 4, true)
                       });
-    qlstm = QLSTM(stateDim, 32, 4);
+    qlstm = QLSTM(stateDim, 16, 4);
     state.resize(stateDim);
     nextState.resize(stateDim);
     dqn.load("./dqn");
@@ -270,7 +270,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        qlstm.learn(8192, 256, 12, 0.001);
+        qlstm.learn(8192, 256, 64, 0.001);
     }
     /* making decision */
     Vec &action = qlstm.action(state_);

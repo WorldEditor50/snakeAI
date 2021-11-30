@@ -104,7 +104,7 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
     QMainNet.optimize(learningRate);
 #else
     QMainNet.gradient(x, y);
-    QMainNet.RMSProp(learningRate);
+    QMainNet.Adam(learningRate);
 #endif
     /* reduce memory */
     if (memories.size() > maxMemorySize) {

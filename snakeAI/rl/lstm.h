@@ -135,12 +135,6 @@ public:
             return;
         }
     };
-    struct Gain
-    {
-        double i;
-        double f;
-        double o;
-    };
 
 public:
     Vec h;
@@ -152,7 +146,6 @@ protected:
     std::size_t inputDim;
     std::size_t hiddenDim;
     std::size_t outputDim;
-    Gain g;
     LSTMParam d;
     LSTMParam v;
     LSTMParam s;

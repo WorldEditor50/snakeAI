@@ -50,8 +50,6 @@ RL::GRU::State RL::GRU::feedForward(const RL::Vec &x, const RL::Vec &_h)
         yt = linear(W*ht + B)
     */
     State state(hiddenDim, outputDim);
-    Gain u;
-    Gain s;
     for (std::size_t i = 0; i < Wr.size(); i++) {
         for (std::size_t j = 0; j < Wr[0].size(); j++) {
             state.r[i] += Wr[i][j] * x[j];
@@ -62,16 +60,8 @@ RL::GRU::State RL::GRU::feedForward(const RL::Vec &x, const RL::Vec &_h)
             state.r[i] += Ur[i][j] * _h[j];
             state.z[i] += Uz[i][j] * _h[j];
         }
-        /* normalize */
-        u.r = RL::mean(state.r);
-        u.z = RL::mean(state.z);
-        s.r = RL::variance(state.r, u.r);
-        s.z = RL::variance(state.z, u.z);
-        g.r = 1.0 / sqrt(s.r + 1e-9);
-        g.z = 1.0 / sqrt(s.z + 1e-9);
-        /* activate */
-        state.r[i] = Sigmoid::_(g.r * (state.r[i] - u.r) + Br[i]);
-        state.z[i] = Sigmoid::_(g.z * (state.z[i] - u.z) + Bz[i]);
+        state.r[i] = Sigmoid::_(state.r[i] + Br[i]);
+        state.z[i] = Sigmoid::_(state.z[i] + Bz[i]);
         for (std::size_t j = 0; j < Ur[0].size(); j++) {
             state.g[i] += Ug[i][j] * _h[j] * state.r[j];
         }
@@ -118,13 +108,25 @@ void RL::GRU::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec>
                 delta.h[j] += W[i][j] * E[t][i];
             }
         }
+#if 0
         for (std::size_t i = 0; i < Ur.size(); i++) {
             for (std::size_t j = 0; j < Ur[0].size(); j++) {
-                delta.h[j] += Ur[i][j] * delta_.r[i] * g.r;
-                delta.h[j] += Uz[i][j] * delta_.z[i] * g.z;
+                delta.h[j] += Ur[i][j] * delta_.r[i];
+                delta.h[j] += Uz[i][j] * delta_.z[i];
                 delta.h[j] += Ug[i][j] * delta_.g[i];
             }
         }
+#else
+        /* BPTT with EMA */
+        double gamma = 0.99;
+        for (std::size_t i = 0; i < Ur.size(); i++) {
+            for (std::size_t j = 0; j < Ur[0].size(); j++) {
+                delta.h[j] = delta.h[j]*gamma + Ur[i][j] * delta_.r[i]*(1 - gamma);
+                delta.h[j] = delta.h[j]*gamma + Uz[i][j] * delta_.z[i]*(1 - gamma);
+                delta.h[j] = delta.h[j]*gamma + Ug[i][j] * delta_.g[i]*(1 - gamma);
+            }
+        }
+#endif
         /*
             dht/dzt = -ht-1 + gt
             dht/dWz = (dht/dzt ⊙ zt ⊙ (1 - zt))*xTt
@@ -321,10 +323,10 @@ void RL::GRU::test()
     for (int i = 0; i < 10000; i++) {
         std::vector<Vec> batchData;
         std::vector<Vec> batchTarget;
-        sample(batchData, batchTarget, 16);
+        sample(batchData, batchTarget, 32);
         gru.forward(batchData);
         gru.gradient(batchData, batchTarget);
-        gru.Adam(0.0001);
+        gru.Adam(0.001);
     }
 
     gru.clear();

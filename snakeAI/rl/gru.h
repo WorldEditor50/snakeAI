@@ -119,17 +119,11 @@ public:
             return;
         }
     };
-    struct Gain
-    {
-        double r;
-        double z;
-    };
 
 protected:
     std::size_t inputDim;
     std::size_t hiddenDim;
     std::size_t outputDim;
-    Gain g;
     Vec h;
     /* optimize */
     GRUParam d;
