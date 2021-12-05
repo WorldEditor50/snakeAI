@@ -37,6 +37,8 @@ public:
     void softUpdateTo(BPNN& dstNet, double alpha);
     Vec& output();
     BPNN &feedForward(const Vec &x);
+    void backward(const Vec &loss, Vec& E);
+    void gradient(const Vec &x, const Vec &y);
     double gradient(const Vec &x, const Vec &y, LossFunc loss);
     void SGD(double learningRate = 0.001);
     void RMSProp(double rho = 0.9, double learningRate = 0.001);

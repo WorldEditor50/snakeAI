@@ -12,11 +12,11 @@ class iLayer
 public:
     virtual ~iLayer(){}
     virtual void feedForward(const Vec& x){}
-    virtual void backward(const Vec& nextE, const Mat& nextW){}
+    virtual void backward(Vec &preE){}
     virtual void gradient(const Vec& x, const Vec&){}
     virtual void SGD(double learningRate){}
     virtual void RMSProp(double rho, double learningRate){}
-    virtual void Adam(double alpha, double beta, double learningRate){}
+    virtual void Adam(double alpha, double beta,double alpha_t, double beta_t, double learningRate){}
 };
 
 class LayerParam : public iLayer
@@ -77,6 +77,39 @@ public:
         }
         LayerParam::random();
     }
+
+    void backward(Vec &preE) override
+    {
+        for (std::size_t i = 0; i < W[0].size(); i++) {
+            for (std::size_t j = 0; j < W.size(); j++) {
+                preE[i] +=  W[j][i] * E[j];
+            }
+        }
+        return;
+    }
+    void SGD(double learningRate) override
+    {
+        Optimizer::SGD(d.W, W, learningRate);
+        Optimizer::SGD(d.B, B, learningRate);
+        d.zero();
+        return;
+    }
+    void RMSProp(double rho, double learningRate) override
+    {
+        Optimizer::RMSProp(d.W, s.W, W, learningRate, rho);
+        Optimizer::RMSProp(d.B, s.B, B, learningRate, rho);
+        d.zero();
+        return;
+    }
+    void Adam(double alpha, double beta, double alpha_t, double beta_t,double learningRate)override
+    {
+        Optimizer::Adam(d.W, s.W, v.W, W,
+                        alpha_t, beta_t, learningRate, alpha, beta);
+        Optimizer::Adam(d.B, s.B, v.B, B,
+                        alpha_t, beta_t, learningRate, alpha, beta);
+        d.zero();
+        return;
+    }
 };
 
 
@@ -122,19 +155,6 @@ public:
             }
             d.B[i] += dy;
             E[i] = 0;
-        }
-        return;
-    }
-
-    void backward(const Vec& nextE, const Mat& nextW) override
-    {
-        if (E.size() != nextW[0].size()) {
-            std::cout<<"size is not matching"<<std::endl;;
-        }
-        for (std::size_t i = 0; i < nextW[0].size(); i++) {
-            for (std::size_t j = 0; j < nextW.size(); j++) {
-                E[i] +=  nextW[j][i] * nextE[j];
-            }
         }
         return;
     }
@@ -224,14 +244,15 @@ public:
         return;
     }
 
-    void backward(const Vec& nextE, const Mat& nextW) override
+    void backward(Vec& preE) override
     {
-        Layer<ActF>::backward(nextE, nextW);
         if (trainFlag == true) {
-            for (std::size_t i = 0; i < nextW[0].size(); i++) {
+            for (std::size_t i = 0; i < Layer<ActF>::E.size(); i++) {
                 Layer<ActF>::E[i] *= mask[i];
             }
         }
+        Layer<ActF>::backward(preE);
+
         return;
     }
 };
@@ -281,13 +302,12 @@ public:
         }
         return;
     }
-    void backward(const Vec& nextE, const Mat& nextW) override
+    void backward(Vec &preE)
     {
-        Layer<ActF>::backward(nextE, nextW);
         for (std::size_t i = 0; i < Layer<ActF>::E.size(); i++) {
             Layer<ActF>::E[i] *= g;
         }
-        return;
+        return Layer<ActF>::backward(preE);
     }
 };
 
@@ -334,7 +354,7 @@ public:
         }
         return;
     }
-    void backward(const Vec& nextE, const Mat& nextW)
+    void backward(Vec& preE)
     {
 
         return;
@@ -415,7 +435,7 @@ public:
         return;
     }
 
-    void backward(const Vec& nextE, const Mat& nextW) override
+    void backward(const Vec& nextE, const Mat& nextW)
     {
         for (std::size_t i = 0; i < nextW[0].size(); i++) {
             for (std::size_t j = 0; j < nextW.size(); j++) {

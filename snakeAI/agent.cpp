@@ -6,8 +6,8 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     snake(s),
     trainFlag(true)
 {
-    int stateDim = 8;
-    dqn = DQN(stateDim, 32, 4);
+    int stateDim = 4;
+    dqn = DQN(stateDim, 16, 4);
     dpg = DPG(stateDim, 16, 4);
     ddpg = DDPG(stateDim, 16, 4);
     ppo = PPO(stateDim, 16, 4);
@@ -121,7 +121,7 @@ double Agent::reward6(int xi, int yi, int xn, int yn, int xt, int yt)
     return 0;
 }
 
-void Agent::observe(vector<double>& statex, int x, int y, int xt, int yt, vector<double>& output)
+void Agent::observe(vector<double>& statex, int x, int y, int xt, int yt)
 {
     double xc = double(map.size()) / 2;
     double yc = double(map[0].size()) / 2;
@@ -129,10 +129,6 @@ void Agent::observe(vector<double>& statex, int x, int y, int xt, int yt, vector
     statex[1] = (y - yc) / yc;
     statex[2] = (xt - xc) / xc;
     statex[3] = (yt - yc) / yc;
-    statex[4] = output[0];
-    statex[5] = output[1];
-    statex[6] = output[2];
-    statex[7] = output[3];
     return;
 }
 
@@ -206,7 +202,7 @@ int Agent::dqnAction(int x, int y, int xt, int yt)
     int yn = y;
     double r = 0;
     double total = 0;
-    observe(state, x, y, xt, yt, dqn.output());
+    observe(state, x, y, xt, yt);
     std::vector<double> state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 128; j++) {
@@ -217,7 +213,7 @@ int Agent::dqnAction(int x, int y, int xt, int yt)
             simulateMove(xn, yn, k);
             r = reward1(xi, yi, xn, yn, xt, yt);
             total += r;
-            observe(nextState, xn, yn, xt, yt, action);
+            observe(nextState, xn, yn, xt, yt);
             if (map[xn][yn] == 1) {
                 dqn.perceive(state, action, nextState, r, true);
                 break;
@@ -232,7 +228,7 @@ int Agent::dqnAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        dqn.learn(OPT_RMSPROP, 8192, 256, 64, 0.0001);
+        dqn.learn(OPT_RMSPROP, 8192, 256, 64, 0.001);
     }
     /* making decision */
     return dqn.action(state_);
@@ -244,7 +240,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
     int yn = y;
     double r = 0;
     double total = 0;
-    observe(state, x, y, xt, yt, qlstm.output());
+    observe(state, x, y, xt, yt);
     std::vector<double> state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 128; j++) {
@@ -255,7 +251,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
             simulateMove(xn, yn, k);
             r = reward1(xi, yi, xn, yn, xt, yt);
             total += r;
-            observe(nextState, xn, yn, xt, yt, action);
+            observe(nextState, xn, yn, xt, yt);
             if (map[xn][yn] == 1) {
                 qlstm.perceive(state, action, nextState, r, true);
                 break;
@@ -270,7 +266,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        qlstm.learn(8192, 256, 64, 0.001);
+        qlstm.learn(8192, 256, 32, 0.001);
     }
     /* making decision */
     Vec &action = qlstm.action(state_);
@@ -289,7 +285,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
     int xn = x;
     int yn = y;
     double total = 0;
-    observe(state, x, y, xt, yt, dpg.output());
+    observe(state, x, y, xt, yt);
     std::vector<double> state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 16; j++) {
@@ -299,7 +295,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
             Vec &output = dpg.sample(state);
             direct = RL::argmax(output);
             simulateMove(xn, yn, direct);
-            observe(nextState, xn, yn, xt, yt, output);
+            observe(nextState, xn, yn, xt, yt);
             Step s;
             s.state = state;
             s.action  = output;
@@ -327,7 +323,7 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
     int yn = y;
     double r = 0;
     double total = 0;
-    observe(state, x, y, xt, yt, ddpg.output());
+    observe(state, x, y, xt, yt);
     vector<double> state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 32; j++) {
@@ -338,7 +334,7 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
             simulateMove(xn, yn, k);
             r = reward4(xi, yi, xn, yn, xt, yt);
             total += r;
-            observe(nextState, xn, yn, xt, yt, ddpg.output());
+            observe(nextState, xn, yn, xt, yt);
             if (map[xn][yn] == 1) {
                 ddpg.perceive(state, action, nextState, r, true);
                 break;
@@ -364,7 +360,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
     int xn = x;
     int yn = y;
     double total = 0;
-    observe(state, x, y, xt, yt, ppo.output());
+    observe(state, x, y, xt, yt);
     std::vector<double> state_ = state;
     if (trainFlag == true) {
         std::vector<Transition> trans;
@@ -376,7 +372,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
             int direct = RL::argmax(output);
             /* move */
             simulateMove(xn, yn, direct);
-            observe(nextState, xn, yn, xt, yt, output);
+            observe(nextState, xn, yn, xt, yt);
             Transition transition;
             transition.state = state;
             transition.action = output;
@@ -407,7 +403,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt)
     double m = 0;
     std::vector<double>& action = bpnn.output();
     if (trainFlag == true) {
-        observe(state, xn, yn, xt, yt, action);
+        observe(state, xn, yn, xt, yt);
         for (std::size_t i = 0; i < 128; i++) {
             bpnn.feedForward(state);
             direct1 = RL::argmax(action);
@@ -424,13 +420,13 @@ int Agent::supervisedAction(int x, int y, int xt, int yt)
             if (map[xn][yn] == 1) {
                 break;
             }
-            observe(state, xn, yn, xt, yt, action);
+            observe(state, xn, yn, xt, yt);
         }
         if (m > 0) {
             bpnn.optimize(OPT_RMSPROP, 0.01);
         }
     }
-    observe(state, x, y, xt, yt, action);
+    observe(state, x, y, xt, yt);
     bpnn.feedForward(state);
     direct1 = RL::argmax(action);
     bpnn.show();

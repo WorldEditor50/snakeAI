@@ -8,15 +8,15 @@ RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
     this->actionDim = actionDim;
     this->QMainNet = BPNN(BPNN::Layers{
                               Layer<Sigmoid>::_(stateDim, hiddenDim, true),
-                              Layer<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                              Layer<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                              LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                              Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                               LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                               Layer<Sigmoid>::_(hiddenDim, actionDim, true)
                           });
     this->QTargetNet = BPNN(BPNN::Layers{
                                  Layer<Sigmoid>::_(stateDim, hiddenDim, false),
-                                 Layer<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                                 Layer<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                                 LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                                 Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                                  Layer<Sigmoid>::_(hiddenDim, actionDim, false)
                              });

@@ -17,7 +17,7 @@ class Agent : public QObject
 public:
     explicit Agent(QObject *parent, std::vector<std::vector<int> >& map, Snake& s);
     ~Agent();
-    void observe(std::vector<double>& statex, int x, int y, int xt, int yt, std::vector<double> &output);
+    void observe(std::vector<double>& statex, int x, int y, int xt, int yt);
     int acting(int x, int y, int xt, int yt);
     int astarAction(int x, int y, int xt, int yt);
     int randAction(int x, int y, int xt, int yt);

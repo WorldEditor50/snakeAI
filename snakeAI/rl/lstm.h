@@ -107,6 +107,13 @@ public:
 class LSTM : public LSTMParam
 {
 public:
+    struct Gain
+    {
+        double i;
+        double f;
+        double g;
+        double o;
+    };
     class State
     {
     public:
@@ -117,6 +124,7 @@ public:
         Vec c;
         Vec h;
         Vec y;
+        Gain gain;
     public:
         State(){}
         State(std::size_t hiddenDim, std::size_t outputDim):
@@ -154,7 +162,7 @@ protected:
 public:
     LSTM(){}
     LSTM(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
-    void clear();
+    void reset();
     Vec &output(){return y;}
     /* forward */
     State feedForward(const Vec &x, const Vec &_h, const Vec &_c);
@@ -193,9 +201,9 @@ public:
     }
     void forward(const std::vector<Vec> &sequence)
     {
-        lstm1.clear();
-        lstm2.clear();
-        lstm3.clear();
+        lstm1.reset();
+        lstm2.reset();
+        lstm3.reset();
         for (auto &x : sequence) {
             LSTM::State s1 = lstm1.feedForward(x, lstm3.h, lstm3.c);
             lstm1.states.push_back(s1);

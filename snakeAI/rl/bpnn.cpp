@@ -51,6 +51,26 @@ RL::BPNN &RL::BPNN::feedForward(const Vec& x)
     return *this;
 }
 
+void RL::BPNN::backward(const RL::Vec &loss, Vec& E)
+{
+    std::size_t outputIndex = layers.size() - 1;
+    layers[outputIndex]->E = loss;
+    for (int i = layers.size() - 1; i > 0; i--) {
+        layers[i]->backward(layers[i - 1]->E);
+    }
+    layers[0]->backward(E);
+    return;
+}
+
+void RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y)
+{
+    layers[0]->gradient(x, y);
+    for (std::size_t j = 1; j < layers.size(); j++) {
+        layers[j]->gradient(layers[j - 1]->O, y);
+    }
+    return;
+}
+
 RL::Vec& RL::BPNN::output()
 {
     return layers.back()->O;
@@ -69,8 +89,8 @@ double RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y, RL::BPNN::LossFunc
         total /= y.size();
     }
     /* error Backpropagate */
-    for (int i = outputIndex - 1; i >= 0; i--) {
-        layers[i]->backward(layers[i + 1]->E, layers[i + 1]->W);
+    for (int i = layers.size() - 1; i > 0; i--) {
+        layers[i]->backward(layers[i - 1]->E);
     }
     /* gradient */
     layers[0]->gradient(x, y);
@@ -84,9 +104,7 @@ void RL::BPNN::SGD(double learningRate)
 {
     /* gradient descent */
     for (std::size_t i = 0; i < layers.size(); i++) {
-        Optimizer::SGD(layers[i]->d.W, layers[i]->W, learningRate);
-        Optimizer::SGD(layers[i]->d.B, layers[i]->B, learningRate);
-        layers[i]->d.zero();
+        layers[i]->SGD(learningRate);
     }
     return;
 }
@@ -94,9 +112,7 @@ void RL::BPNN::SGD(double learningRate)
 void RL::BPNN::RMSProp(double rho, double learningRate)
 {
     for (std::size_t i = 0; i < layers.size(); i++) {
-        Optimizer::RMSProp(layers[i]->d.W, layers[i]->s.W, layers[i]->W, learningRate, rho);
-        Optimizer::RMSProp(layers[i]->d.B, layers[i]->s.B, layers[i]->B, learningRate, rho);
-        layers[i]->d.zero();
+        layers[i]->RMSProp(rho, learningRate);
     }
     return;
 }
@@ -106,11 +122,7 @@ void RL::BPNN::Adam(double alpha1, double alpha2, double learningRate)
     alpha1_t *= alpha1;
     alpha2_t *= alpha2;
     for (std::size_t i = 0; i < layers.size(); i++) {
-        Optimizer::Adam(layers[i]->d.W, layers[i]->s.W, layers[i]->v.W, layers[i]->W,
-                        alpha1_t, alpha2_t, learningRate, alpha1, alpha2);
-        Optimizer::Adam(layers[i]->d.B, layers[i]->s.B, layers[i]->v.B, layers[i]->B,
-                        alpha1_t, alpha2_t, learningRate, alpha1, alpha2);
-        layers[i]->d.zero();
+        layers[i]->Adam(alpha1, alpha2, alpha1_t, alpha2_t, learningRate);
     }
     return;
 }

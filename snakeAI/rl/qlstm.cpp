@@ -6,8 +6,18 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    QMainNet = LSTM(stateDim_, hiddenDim_, actionDim_, true);
-    QTargetNet = LSTM(stateDim_, hiddenDim_, actionDim_, false);
+    QMainNet = LstmNet(stateDim_, hiddenDim_, actionDim_,
+                    BPNN::Layers{
+                       Layer<Sigmoid>::_(hiddenDim_, hiddenDim_, true),
+                       LayerNorm<Sigmoid>::_(hiddenDim_, hiddenDim_, true),
+                       Layer<Sigmoid>::_(hiddenDim_, actionDim_, true)
+                    }, true);
+    QTargetNet = LstmNet(stateDim_, hiddenDim_, actionDim_,
+                      BPNN::Layers{
+                         Layer<Sigmoid>::_(hiddenDim_, hiddenDim_, false),
+                         LayerNorm<Sigmoid>::_(hiddenDim_, hiddenDim_, false),
+                         Layer<Sigmoid>::_(hiddenDim_, actionDim_, false)
+                      }, false);
     this->QMainNet.copyTo(QTargetNet);
 }
 
@@ -50,9 +60,9 @@ RL::Vec &RL::QLSTM::action(const Vec &state)
     return QMainNet.forward(state);
 }
 
-void RL::QLSTM::clear()
+void RL::QLSTM::reset()
 {
-    QMainNet.clear();
+    QMainNet.reset();
     return;
 }
 
@@ -99,13 +109,8 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
         experienceReplay(memories[k], y);
     }
     QMainNet.forward(x);
-#if 0
-    QMainNet.backward(x, y);
+    QMainNet.backward(x, y, Loss::MSE);
     QMainNet.optimize(learningRate);
-#else
-    QMainNet.gradient(x, y);
-    QMainNet.Adam(learningRate);
-#endif
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;

@@ -11,7 +11,7 @@ int main(int argc, char *argv[])
     w.show();
     return a.exec();
 #else
-    GRU::test();
+    LSTM::test();
     //matrix::test();
     return 0;
 #endif
