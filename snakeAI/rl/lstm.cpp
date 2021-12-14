@@ -56,8 +56,6 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
         yt = linear(W*ht + b)
     */
     State state(hiddenDim, outputDim);
-    Gain u;
-    Gain s;
     for (std::size_t i = 0; i < Wi.size(); i++) {
         for (std::size_t j = 0; j < Wi[0].size(); j++) {
             state.f[i] += Wf[i][j] * x[j];
@@ -74,27 +72,14 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
             state.o[i] += Uo[i][j] * _h[j];
         }
     }
-    u.f = RL::mean(state.f);
-    u.i = RL::mean(state.i);
-    u.g = RL::mean(state.g);
-    u.o = RL::mean(state.o);
-    s.f = RL::variance(state.f, u.f);
-    s.i = RL::variance(state.i, u.i);
-    s.g = RL::variance(state.g, u.g);
-    s.o = RL::variance(state.o, u.o);
-    state.gain.f = 1.0 / sqrt(s.f + 1e-9);
-    state.gain.i = 1.0 / sqrt(s.i + 1e-9);
-    state.gain.g = 1.0 / sqrt(s.g + 1e-9);
-    state.gain.o = 1.0 / sqrt(s.o + 1e-9);
     for (std::size_t i = 0; i < state.f.size(); i++) {
-        state.f[i] = Sigmoid::_(state.gain.f * (state.f[i] - u.f) + Bf[i]);
-        state.i[i] = Sigmoid::_(state.gain.i * (state.i[i] - u.i) + Bi[i]);
-        state.g[i] =    Tanh::_(state.gain.g * (state.g[i] - u.g) + Bg[i]);
-        state.o[i] = Sigmoid::_(state.gain.o * (state.o[i] - u.o) + Bo[i]);
+        state.f[i] = Sigmoid::_(state.f[i] + Bf[i]);
+        state.i[i] = Sigmoid::_(state.i[i] + Bi[i]);
+        state.g[i] =    Tanh::_(state.g[i] + Bg[i]);
+        state.o[i] = Sigmoid::_(state.o[i] + Bo[i]);
         state.c[i] = state.f[i] * _c[i] + state.i[i] * state.g[i];
         state.h[i] = state.o[i] * Tanh::_(state.c[i]);
     }
-
     for (std::size_t i = 0; i < W.size(); i++) {
         for (std::size_t j = 0; j < W[0].size(); j++) {
             state.y[i] += W[i][j] * state.h[j];
@@ -184,19 +169,19 @@ void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec
         }
         for (std::size_t i = 0; i < Wi.size(); i++) {
             for (std::size_t j = 0; j < Wi[0].size(); j++) {
-                d.Wi[i][j] += delta.i[i] * x[t][j] * states[t].gain.i;
-                d.Wf[i][j] += delta.f[i] * x[t][j] * states[t].gain.f;
-                d.Wg[i][j] += delta.g[i] * x[t][j] * states[t].gain.g;
-                d.Wo[i][j] += delta.o[i] * x[t][j] * states[t].gain.o;
+                d.Wi[i][j] += delta.i[i] * x[t][j];
+                d.Wf[i][j] += delta.f[i] * x[t][j];
+                d.Wg[i][j] += delta.g[i] * x[t][j];
+                d.Wo[i][j] += delta.o[i] * x[t][j];
             }
         }
         Vec _h = t > 0 ? states[t - 1].h : Vec(hiddenDim, 0);
         for (std::size_t i = 0; i < Ui.size(); i++) {
             for (std::size_t j = 0; j < Ui[0].size(); j++) {
-                d.Ui[i][j] += delta.i[i] * _h[j] * states[t].gain.i;
-                d.Uf[i][j] += delta.f[i] * _h[j] * states[t].gain.f;
-                d.Ug[i][j] += delta.g[i] * _h[j] * states[t].gain.g;
-                d.Uo[i][j] += delta.o[i] * _h[j] * states[t].gain.o;
+                d.Ui[i][j] += delta.i[i] * _h[j];
+                d.Uf[i][j] += delta.f[i] * _h[j];
+                d.Ug[i][j] += delta.g[i] * _h[j];
+                d.Uo[i][j] += delta.o[i] * _h[j];
             }
         }
         for (std::size_t i = 0; i < Bi.size(); i++) {

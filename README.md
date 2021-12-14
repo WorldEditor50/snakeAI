@@ -3,16 +3,17 @@
 
 - random search agent: a method bases on reward and MCMC
 
-- bp agent: testing supervised learning
+- bp agent: learn from A* agent
 
-- dqn agent: testing DQN
+- dqn agent: DQN
 
 - dpg agent: policy gradient 
 
 - ddpg agent:  todo
 
-- PPO agent: learning with adaptive KL-penalty and clipped objective
-- Instruction: all agents are definited in controller.cpp and you can switch agent by modifying function play2 in mainwindow.cpp.
+- PPO agent: learn with adaptive KL-penalty and clipped objective
+
+- lstm + q-learning agent: generate sequence by sampling data from replay buffer with uniform distribution and backpropagate error through time with EMA
 
 ## 1. Markov Decision Process
 

@@ -266,7 +266,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        qlstm.learn(8192, 256, 32, 0.001);
+        qlstm.learn(8192, 256, 16, 0.001);
     }
     /* making decision */
     Vec &action = qlstm.action(state_);

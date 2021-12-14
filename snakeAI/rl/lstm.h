@@ -124,7 +124,6 @@ public:
         Vec c;
         Vec h;
         Vec y;
-        Gain gain;
     public:
         State(){}
         State(std::size_t hiddenDim, std::size_t outputDim):

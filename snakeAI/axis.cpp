@@ -3,7 +3,7 @@
 AxisWidget::AxisWidget(QWidget *parent) :
     QWidget(parent),
     interval(40),
-    scale(1)
+    scale(8)
 {
     setMinimumSize(QSize(600, 600));
     QPalette pal;

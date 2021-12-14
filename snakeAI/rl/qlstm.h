@@ -10,23 +10,23 @@ namespace RL {
 class LstmNet
 {
 public:
-    std::size_t stateDim;
+    std::size_t inputDim;
     std::size_t hiddenDim;
-    std::size_t actionDim;
+    std::size_t outputDim;
     LSTM lstm;
     BPNN bpnet;
     std::vector<Vec> y;
 public:
     LstmNet(){}
-    LstmNet(std::size_t stateDim_,
+    LstmNet(std::size_t inputDim_,
          std::size_t hiddenDim_,
-         std::size_t actionDim_,
+         std::size_t outputDim_,
          const BPNN::Layers &layers,
          bool trainFlag)
-        :stateDim(stateDim_), hiddenDim(hiddenDim_), actionDim(actionDim_),
+        :inputDim(inputDim_), hiddenDim(hiddenDim_), outputDim(outputDim_),
           bpnet(layers)
     {
-        lstm = LSTM(stateDim_, hiddenDim_, hiddenDim_, trainFlag);
+        lstm = LSTM(inputDim_, hiddenDim_, hiddenDim_, trainFlag);
     }
     Vec &forward(const Vec &state)
     {
@@ -40,7 +40,6 @@ public:
             LSTM::State s = lstm.feedForward(x, lstm.h, lstm.c);
             lstm.h = s.h;
             lstm.c = s.c;
-            lstm.y = s.y;
             lstm.states.push_back(s);
             bpnet.feedForward(s.y);
             y.push_back(bpnet.output());
@@ -52,7 +51,7 @@ public:
         std::vector<RL::Vec> E(x.size(), Vec(hiddenDim, 0));
         for (std::size_t t = 0; t < yt.size(); t++) {
             /* loss */
-            Vec loss(actionDim, 0);
+            Vec loss(outputDim, 0);
             Loss(loss, y[t], yt[t]);
             /* backward */
             bpnet.backward(loss, E[t]);
@@ -61,6 +60,7 @@ public:
         }
         y.clear();
         lstm.backward(x, E);
+        lstm.gradient(x, yt);
         return;
     }
     void copyTo(LstmNet &dst)
