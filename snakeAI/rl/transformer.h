@@ -1,6 +1,6 @@
 #ifndef TRANSFORMER_H
 #define TRANSFORMER_H
-#include "rl_basic.h"
+#include "util.h"
 
 namespace RL {
 
@@ -68,8 +68,8 @@ public:
 class Transformer
 {
 public:
-    Encoder encoder;
-    Decoder decoder;
+    std::vector<Encoder> encoders;
+    std::vector<Decoder> decoders;
 public:
     Transformer();
     void forward(const Vec &x);

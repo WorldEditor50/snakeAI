@@ -19,7 +19,6 @@ public:
     PPO(){}
     explicit PPO(int stateDim, int hiddenDim, int actionDim);
     ~PPO(){}
-    void continousSample(const Vec &state, Vec& act);
     Vec &sample(const Vec &state);
     BPNN &action(const Vec &state);
     Vec& output(){return actorP.output();}

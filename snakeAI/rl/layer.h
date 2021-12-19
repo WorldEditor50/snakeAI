@@ -3,7 +3,10 @@
 #include <functional>
 #include <memory>
 #include <iostream>
-#include "rl_basic.h"
+#include "util.h"
+#include "optimizer.h"
+#include "activate.h"
+#include "loss.h"
 
 namespace RL {
 
@@ -89,23 +92,23 @@ public:
     }
     void SGD(double learningRate) override
     {
-        Optimizer::SGD(d.W, W, learningRate);
-        Optimizer::SGD(d.B, B, learningRate);
+        Optimizer::SGD(W, d.W, learningRate);
+        Optimizer::SGD(B, d.B, learningRate);
         d.zero();
         return;
     }
     void RMSProp(double rho, double learningRate) override
     {
-        Optimizer::RMSProp(d.W, s.W, W, learningRate, rho);
-        Optimizer::RMSProp(d.B, s.B, B, learningRate, rho);
+        Optimizer::RMSProp(W, s.W, d.W, learningRate, rho);
+        Optimizer::RMSProp(B, s.B, d.B, learningRate, rho);
         d.zero();
         return;
     }
     void Adam(double alpha, double beta, double alpha_t, double beta_t,double learningRate)override
     {
-        Optimizer::Adam(d.W, s.W, v.W, W,
+        Optimizer::Adam(W, s.W, v.W, d.W,
                         alpha_t, beta_t, learningRate, alpha, beta);
-        Optimizer::Adam(d.B, s.B, v.B, B,
+        Optimizer::Adam(B, s.B, v.B, d.B,
                         alpha_t, beta_t, learningRate, alpha, beta);
         d.zero();
         return;
@@ -137,11 +140,8 @@ public:
             return;
         }
         for (std::size_t i = 0; i < W.size(); i++) {
-            O[i] = 0;
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                O[i] += W[i][j] * x[j];
-            }
-            O[i] = ActF::_(O[i] + B[i]);
+            O[i] = RL::dot(W[i], x) + B[i];
+            O[i] = ActF::_(O[i]);
         }
         return;
     }
@@ -178,7 +178,7 @@ public:
     {
         double s = 0;
         for (std::size_t i = 0; i < W.size(); i++) {
-            O[i] = RL::dotProduct(W[i], x) + B[i];
+            O[i] = RL::dot(W[i], x) + B[i];
             s += exp(O[i]);
         }
         for (std::size_t i = 0; i < O.size(); i++) {
@@ -195,6 +195,46 @@ public:
                 d.W[i][j] += dy * x[j];
             }
             d.B[i] += dy;
+        }
+        return;
+    }
+
+};
+
+class GeluLayer : public LayerObject
+{
+public:
+    Vec O0;
+public:
+    GeluLayer(){}
+    ~GeluLayer(){}
+    explicit GeluLayer(std::size_t inputDim, std::size_t layerDim, bool trainFlag)
+        :LayerObject(inputDim, layerDim, trainFlag),O0(layerDim, 0){}
+
+    static std::shared_ptr<GeluLayer> _(std::size_t inputDim,
+                                    std::size_t layerDim,
+                                    bool tarinFlag)
+    {
+        return std::make_shared<GeluLayer>(inputDim, layerDim, tarinFlag);
+    }
+    void feedForward(const RL::Vec &x) override
+    {
+        for (std::size_t i = 0; i < W.size(); i++) {
+            O0[i] = RL::dot(W[i], x) + B[i];
+            O[i] = Gelu::_(O0[i]);
+        }
+        return;
+    }
+
+    void gradient(const Vec& x, const Vec&) override
+    {
+        for (std::size_t i = 0; i < d.W.size(); i++) {
+            double dy = Gelu::d(O0[i]) * E[i];
+            for (std::size_t j = 0; j < d.W[0].size(); j++) {
+                d.W[i][j] += dy * x[j];
+            }
+            d.B[i] += dy;
+            E[i] = 0;
         }
         return;
     }
@@ -225,17 +265,10 @@ public:
     void feedForward(const RL::Vec &x) override
     {
         Layer<ActF>::feedForward(x);
-        std::uniform_real_distribution<double> uniform(0, 1);
-        if (trainFlag == true && uniform(Rand::engine) > 0.8) {
-            if (p == 0) {
-                mask.assign(Layer<ActF>::O.size(), 1);
-            } else if (p == 1) {
-                mask.assign(Layer<ActF>::O.size(), 0);
-            } else {
-                std::bernoulli_distribution bernoulli(p);
-                for (std::size_t i = 0; i < Layer<ActF>::O.size(); i++) {
-                    mask[i] = bernoulli(Rand::engine) / (1 - p);
-                }
+        if (trainFlag == true) {
+            std::bernoulli_distribution bernoulli(p);
+            for (std::size_t i = 0; i < Layer<ActF>::O.size(); i++) {
+                mask[i] = bernoulli(Rand::engine) / (1 - p);
             }
             for (std::size_t i = 0; i < Layer<ActF>::O.size(); i++) {
                 Layer<ActF>::O[i] *= mask[i];
@@ -252,7 +285,6 @@ public:
             }
         }
         Layer<ActF>::backward(preE);
-
         return;
     }
 };
@@ -286,16 +318,8 @@ public:
                 O[i] += W[i][j] * x[j];
             }
         }
-        double u = 0;
-        for (std::size_t i = 0; i < O.size(); i++) {
-            u += O[i];
-        }
-        u /= O.size();
-        double s = 0;
-        for (std::size_t i = 0; i < O.size(); i++) {
-            s += (O[i] - u) * (O[i] - u);
-        }
-        s /= O.size();
+        double u = RL::mean(O);
+        double s = RL::variance(O, u);
         g = 1 / sqrt(s + 1e-9);
         for (std::size_t i = 0; i < O.size(); i++) {
             O[i] = ActF::_(g * (O[i] - u) + B[i]);
@@ -421,15 +445,15 @@ public:
     void feedForward(const RL::Vec &x) override
     {
         for (std::size_t i = 0; i < W1.size(); i++) {
-            double s = RL::dotProduct(W1[i], x);
+            double s = RL::dot(W1[i], x);
             O1[i] = ActF::_(s + B1[i]);
         }
         for (std::size_t i = 0; i < W2.size(); i++) {
-            double s = RL::dotProduct(W2[i], O1);
+            double s = RL::dot(W2[i], O1);
             O2[i] = ActF::_(s + B2[i]);
         }
         for (std::size_t i = 0; i < W3.size(); i++) {
-            double s = RL::dotProduct(W3[i], O2);
+            double s = RL::dot(W3[i], O2);
             O3[i] = ActF::_(s + B3[i]) + x[i];
         }
         return;
@@ -486,13 +510,13 @@ public:
 
     void SGD(double learningRate)
     {
-        Optimizer::SGD(dW1, W1, learningRate);
-        Optimizer::SGD(dW2, W2, learningRate);
-        Optimizer::SGD(dW3, W3, learningRate);
+        Optimizer::SGD(W1, dW1, learningRate);
+        Optimizer::SGD(W2, dW2, learningRate);
+        Optimizer::SGD(W3, dW3, learningRate);
 
-        Optimizer::SGD(dB1, B1, learningRate);
-        Optimizer::SGD(dB2, B2, learningRate);
-        Optimizer::SGD(dB3, B3, learningRate);
+        Optimizer::SGD(B1, dB1, learningRate);
+        Optimizer::SGD(B2, dB2, learningRate);
+        Optimizer::SGD(B3, dB3, learningRate);
         return;
     }
 

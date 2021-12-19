@@ -1,7 +1,10 @@
 #ifndef CNN_H
 #define CNN_H
-#include <QImage>
-#include "rl_basic.h"
+#include "util.h"
+#include "activate.h"
+#include "optimizer.h"
+#include "loss.h"
+#include <cstring>
 namespace RL {
 
 //using RGB = unsigned int;
@@ -28,6 +31,94 @@ public:
     inline unsigned char B(){return (data&BLUE_MASK)&0xff;}
 };
 
+class Image
+{
+public:
+    int width;
+    int height;
+    int channel;
+    unsigned char *ptr;
+    std::size_t size_;
+public:
+    Image():width(0),height(0),channel(3),ptr(nullptr),size_(0){}
+    Image(int w, int h, int c):width(w),height(h),channel(c)
+    {
+        int widthstep = (width * channel + 3)/4*4;
+        size_ = widthstep * height;
+        ptr = new unsigned char[size_];
+    }
+    Image(const Image &img)
+        :width(img.width),height(img.height),channel(img.channel),size_(img.size_)
+    {
+        ptr = new unsigned char[size_];
+        memcpy(ptr, img.ptr, size_);
+    }
+    Image &operator=(const Image &img)
+    {
+        if (this == &img) {
+            return *this;
+        }
+        width = img.width;
+        height = img.height;
+        channel = img.channel;
+        size_ = img.size_;
+        ptr = new unsigned char[size_];
+        memcpy(ptr, img.ptr, size_);
+        return *this;
+    }
+    Image(Image &&img)
+        :width(img.width),height(img.height),channel(img.channel),
+          ptr(img.ptr),size_(img.size_)
+    {
+        img.width = 0;
+        img.height = 0;
+        img.channel = 0;
+        img.ptr = nullptr;
+        img.size_ = 0;
+    }
+    Image &operator=(Image &&img)
+    {
+        if (this == &img) {
+            return *this;
+        }
+        width = img.width;
+        height = img.height;
+        channel = img.channel;
+        size_ =img.size_;
+        ptr = img.ptr;
+        img.width = 0;
+        img.height = 0;
+        img.channel = 0;
+        img.ptr = nullptr;
+        img.size_ = 0;
+        return *this;
+    }
+    ~Image()
+    {
+        clear();
+    }
+    void clear()
+    {
+        if (ptr != nullptr) {
+            delete [] ptr;
+            ptr = nullptr;
+            width = 0;
+            height = 0;
+            channel = 0;
+            size_ = 0;
+        }
+        return;
+    }
+    inline unsigned char* scanline(int i)
+    {
+        return ptr + i*(width*channel + 3)/4*4;
+    }
+    inline unsigned char* at(int i, int j)
+    {
+        return ptr + i*(width*channel + 3)/4*4 + j*channel;
+    }
+};
+
 class Conv
 {
 public:
@@ -37,15 +128,16 @@ public:
     std::size_t outputSize;
     std::size_t stride;
     std::size_t channel;
-    /* output size = (W - F + 2P) / s */
     std::vector<Mat> filters;
-    /* (filters, channels, height, width) */
-    std::vector<std::vector<Mat> > data;
+    std::vector<Mat> dFilters;
+    std::vector<Mat> sFilters;
+    /*
+        (filters, channels, height, width)
+        output size = (W - F + 2P) / s
+     */
+    std::vector<std::vector<Mat> > out;
 public:
-    static void red(const QImage &img, Mat &dst);
-    static void green(const QImage &img, Mat &dst);
-    static void blue(const QImage &img, Mat &dst);
-    static void gray(const QImage &img, Mat &dst);
+    static void toMat(Image &img, std::vector<Mat> &dst);
     Conv(){}
     Conv(std::size_t inputSize_ = 32,
          std::size_t filterSize_ = 3,
@@ -55,15 +147,15 @@ public:
          std::size_t filterNum = 12);
     void forward(const std::vector<Mat> &x);
     void backward();
-    void gradient();
+    void RMSProp(double rho, double learningRate);
 };
 
 class MaxPooling
 {
 public:
-    Mat O;
+    std::vector<Mat> out;
 public:
-    void forward(const Mat &x);
+    void forward(const std::vector<Mat> &x);
     void backward();
     void gradient();
 };
@@ -71,9 +163,9 @@ public:
 class AveragePooling
 {
 public:
-    Mat O;
+    std::vector<Mat> out;
 public:
-    void forward(const Mat &x);
+    void forward(const std::vector<Mat> &x);
     void backward();
     void gradient();
 };
@@ -81,9 +173,9 @@ public:
 class Dropout
 {
 public:
-    Mat O;
+    std::vector<Mat> out;
 public:
-    void forward(const Mat &x);
+    void forward(const std::vector<Mat> &x);
     void backward();
     void gradient();
 };

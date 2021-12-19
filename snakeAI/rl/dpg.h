@@ -21,7 +21,6 @@ public:
     Vec &sample(const Vec &state);
     Vec &output(){return policyNet.output();}
     int action(const Vec &state);
-    void zscore(Vec& x);
     void reinforce(OptType optType, double learningRate, std::vector<Step>& x);
     void save(const std::string& fileName);
     void load(const std::string& fileName);

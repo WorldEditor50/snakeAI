@@ -7,32 +7,36 @@ RL::DDPG::DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDi
     this->exploringRate = 1;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->sa.resize(stateDim + actionDim);
+    this->sa = Vec(stateDim + actionDim, 0);
     /* actor: a = P(s, theta) */
     this->actorP = BPNN(BPNN::Layers{
-                             Layer<Sigmoid>::_(stateDim, hiddenDim, true),
-                             Layer<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                             Layer<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                             Layer<Tanh>::_(stateDim, hiddenDim, true),
+                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                             Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                              SoftmaxLayer::_(hiddenDim, actionDim, true)
                          });
     this->actorQ = BPNN(BPNN::Layers{
-                             Layer<Sigmoid>::_(stateDim, hiddenDim,false),
-                             Layer<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                             Layer<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                             Layer<Tanh>::_(stateDim, hiddenDim,false),
+                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                             Layer<Tanh>::_(hiddenDim, hiddenDim,false),
+                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                              SoftmaxLayer::_(hiddenDim, actionDim, false)
                          });
     this->actorP.copyTo(actorQ);
     /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
     this->criticP = BPNN(BPNN::Layers{
-                              Layer<Sigmoid>::_(stateDim + actionDim, hiddenDim, true),
-                              Layer<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                              Layer<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                              Layer<Sigmoid>::_(hiddenDim, actionDim, true)
+                             Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
+                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                             Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                             Layer<Sigmoid>::_(hiddenDim, actionDim, true)
                           });
     this->criticQ = BPNN(BPNN::Layers{
-                             Layer<Sigmoid>::_(stateDim + actionDim, hiddenDim, false),
-                             Layer<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                             Layer<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                             Layer<Tanh>::_(stateDim + actionDim, hiddenDim, false),
+                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                             Layer<Tanh>::_(hiddenDim, hiddenDim, false),
+                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                              Layer<Sigmoid>::_(hiddenDim, actionDim, false)
                          });
     this->criticP.copyTo(criticQ);
@@ -121,13 +125,13 @@ void RL::DDPG::experienceReplay(Transition& x)
         Vec &cTargetOutput = criticQ.feedForward(sa).output();
         cTarget[i] = x.reward + gamma * cTargetOutput[j];
     }
-    /* update actorMainNet */
-    Vec a(p);
-    a[i] += cTarget[i] - cMain[i];// - p[i] * log(cMain[i]);
-    actorP.gradient(x.state, a, Loss::CROSS_EMTROPY);
     /* update criticMainNet */
     setSA(x.state, p);
     criticP.gradient(sa, cTarget, Loss::MSE);
+    /* update actorMainNet */
+    Vec adv(p);
+    adv[i] = x.reward - cMain[i];
+    actorP.gradient(x.state, adv, Loss::CROSS_EMTROPY);
     return;
 }
 

@@ -1,8 +1,10 @@
 #ifndef GRU_H
 #define GRU_H
-
 #include <iostream>
-#include "rl_basic.h"
+#include "util.h"
+#include "activate.h"
+#include "optimizer.h"
+#include "loss.h"
 
 namespace RL {
 

@@ -11,7 +11,7 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
     this->stateDim = stateDim;
     this->actionDim = actionDim;
     this->actorP = BPNN(BPNN::Layers{
-                            Layer<Sigmoid>::_(stateDim, hiddenDim, true),
+                            Layer<Tanh>::_(stateDim, hiddenDim, true),
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                             Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
@@ -29,19 +29,8 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                             Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                            Layer<Relu>::_(hiddenDim, 1, true)
+                            Layer<Sigmoid>::_(hiddenDim, actionDim, true)
                         });
-    return;
-}
-
-void RL::PPO::continousSample(const Vec &state, Vec &act)
-{
-    double mu = RL::mean(state);
-    double sigma = RL::variance(state);
-    double sup = 0;
-    double inf = 10;
-    sigma = sqrt(sigma);
-    RL::normalDistribution(mu, sigma, sup, inf, act, actionDim);
     return;
 }
 
@@ -69,7 +58,7 @@ void RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::vect
 {
     /* reward */
     int end = x.size() - 1;
-    double r = critic.feedForward(x[end].state).output()[0];
+    double r = RL::max(critic.feedForward(x[end].state).output());
     for (int i = end; i >= 0; i--) {
         r = x[i].reward + gamma * r;
         x[i].reward = r;
@@ -80,22 +69,22 @@ void RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::vect
         learningSteps = 0;
     }
     double KLexpect = 0;
-    for (std::size_t i = 0; i < x.size(); i++) {
+    for (std::size_t t = 0; t < x.size(); t++) {
+        int k = RL::argmax(x[t].action);
         /* advangtage */
-        Vec& v = critic.feedForward(x[i].state).output();
-        double advantage = x[i].reward - v[0];
+        Vec& v = critic.feedForward(x[t].state).output();
+        double advantage = x[t].reward - v[k];
         /* critic */
-        Vec discounted_r(1);
-        discounted_r[0] = x[i].reward;
-        critic.gradient(x[i].state, discounted_r, Loss::MSE);
+        Vec rt(actionDim, 0);
+        rt[k] = x[t].reward;
+        critic.gradient(x[t].state, rt, Loss::MSE);
         /* actor */
-        Vec& q = x[i].action;
-        Vec& p = actorP.feedForward(x[i].state).output();
-        int k = RL::argmax(q);
+        Vec& q = x[t].action;
+        Vec& p = actorP.feedForward(x[t].state).output();
         double kl = p[k] * log(p[k]/q[k]);
         q[k] += p[k] / q[k] * advantage - beta * kl;
         KLexpect += kl;
-        actorP.gradient(x[i].state, q, Loss::CROSS_EMTROPY);
+        actorP.gradient(x[t].state, q, Loss::CROSS_EMTROPY);
     }
     /* KL-Penalty */
     KLexpect /= double(x.size());
@@ -115,37 +104,36 @@ void RL::PPO::learnWithKLpenalty(OptType optType, double learningRate, std::vect
 
 void RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::vector<RL::Transition> &x)
 {
-    /* reward */
-    int end = x.size() - 1;
-    double r = critic.feedForward(x[end].state).output()[0];
-    for (int i = end; i >= 0; i--) {
-        r = gamma * r + x[i].reward;
-        x[i].reward = r;
-    }
     if (learningSteps % 10 == 0) {
         actorP.softUpdateTo(actorQ, 0.01);
         //actorP.copyTo(actorQ);
         learningSteps = 0;
     }
-    for (std::size_t i = 0; i < x.size(); i++) {
+    for (std::size_t t = 0; t < x.size(); t++) {
+        int k = RL::argmax(x[t].action);
         /* advangtage */
-        Vec& v = critic.feedForward(x[i].state).output();
-        double advantage = x[i].reward - v[0];
+        Vec& v = critic.feedForward(x[t].state).output();
+        double adv = x[t].reward - v[k];
         /* critic */
-        Vec discount_r(1);
-        discount_r[0] = x[i].reward;
-        critic.gradient(x[i].state, discount_r, Loss::MSE);
+        Vec rt(actionDim, 0);
+        rt = v;
+        if (t < x.size() - 1) {
+            Vec vn = critic.feedForward(x[t + 1].state).output();
+            rt[k] = x[t].reward + gamma*vn[k];
+        } else {
+            rt[k] = x[t].reward;
+        }
+        critic.gradient(x[t].state, rt, Loss::MSE);
         /* actor */
-        Vec& q = x[i].action;
-        Vec& p = actorP.feedForward(x[i].state).output();
-        int k = RL::argmax(q);
+        Vec& q = x[t].action;
+        Vec& p = actorP.feedForward(x[t].state).output();
         double ratio = p[k]/q[k];
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
-        q[k] += ratio * advantage;
-        actorP.gradient(x[i].state, q, Loss::CROSS_EMTROPY);
+        q[k] += ratio * adv;
+        actorP.gradient(x[t].state, q, Loss::CROSS_EMTROPY);
     }
     actorP.optimize(optType, learningRate);
-    critic.optimize(optType, 0.0001);
+    critic.optimize(optType, 0.001);
     /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;

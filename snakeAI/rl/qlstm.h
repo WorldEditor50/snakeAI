@@ -4,6 +4,7 @@
 #include "lstm.h"
 #include "layer.h"
 #include "bpnn.h"
+#include "rl_basic.h"
 
 namespace RL {
 

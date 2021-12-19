@@ -266,7 +266,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        qlstm.learn(8192, 256, 16, 0.001);
+        qlstm.learn(8192, 256, 32, 0.001);
     }
     /* making decision */
     Vec &action = qlstm.action(state_);
@@ -349,7 +349,7 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        ddpg.learn(OPT_RMSPROP, 8192, 256, 32, 0.001, 0.001);
+        ddpg.learn(OPT_RMSPROP, 8192, 256, 32, 0.001, 0.0001);
     }
     return ddpg.action(state_);
 }

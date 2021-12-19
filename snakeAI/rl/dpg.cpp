@@ -6,9 +6,9 @@ RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
     this->stateDim = stateDim;
     this->actionDim = actionDim;
     this->policyNet =  BPNN(BPNN::Layers{
-                                Layer<Tanh>::_(stateDim, hiddenDim),
+                                GeluLayer::_(stateDim, hiddenDim, true),
                                 LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                                Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                                GeluLayer::_(hiddenDim, hiddenDim, true),
                                 LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                                 SoftmaxLayer::_(hiddenDim, actionDim, true)
                             });
