@@ -364,7 +364,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
     std::vector<double> state_ = state;
     if (trainFlag == true) {
         std::vector<Transition> trans;
-        for (std::size_t j = 0; j < 32; j++) {
+        for (std::size_t j = 0; j < 16; j++) {
             int xi = xn;
             int yi = yn;
             /* sample */

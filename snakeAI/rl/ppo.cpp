@@ -29,7 +29,7 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                             Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                            Layer<Sigmoid>::_(hiddenDim, actionDim, true)
+                            Layer<Relu>::_(hiddenDim, actionDim, true)
                         });
     return;
 }
@@ -109,6 +109,12 @@ void RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::vec
         //actorP.copyTo(actorQ);
         learningSteps = 0;
     }
+    int end = x.size() - 1;
+    double r = RL::max(critic.feedForward(x[end].state).output());
+    for (int i = end; i >= 0; i--) {
+        r = x[i].reward + gamma * r;
+        x[i].reward = r;
+    }
     for (std::size_t t = 0; t < x.size(); t++) {
         int k = RL::argmax(x[t].action);
         /* advangtage */
@@ -116,13 +122,7 @@ void RL::PPO::learnWithClipObject(OptType optType, double learningRate, std::vec
         double adv = x[t].reward - v[k];
         /* critic */
         Vec rt(actionDim, 0);
-        rt = v;
-        if (t < x.size() - 1) {
-            Vec vn = critic.feedForward(x[t + 1].state).output();
-            rt[k] = x[t].reward + gamma*vn[k];
-        } else {
-            rt[k] = x[t].reward;
-        }
+        rt[k] = x[t].reward;
         critic.gradient(x[t].state, rt, Loss::MSE);
         /* actor */
         Vec& q = x[t].action;
