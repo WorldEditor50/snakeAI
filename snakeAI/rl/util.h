@@ -31,6 +31,8 @@ double max(const Vec &x);
 double min(const Vec &x);
 double sum(const Vec &x);
 double mean(const Vec &x);
+double hmean(const Vec &x);
+double gmean(const Vec &x);
 double variance(const Vec &x);
 double variance(const Vec &x, double u);
 double covariance(const Vec& x1, const Vec& x2);

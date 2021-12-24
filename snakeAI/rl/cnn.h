@@ -117,6 +117,18 @@ public:
     {
         return ptr + i*(width*channel + 3)/4*4 + j*channel;
     }
+    static void toMat(Image &img, std::vector<RL::Mat> &dst)
+    {
+        for (int i = 0; i < img.height; i++) {
+            for (int j = 0; j < img.width; j++) {
+                unsigned char *rgb = img.at(i, j);
+                dst[0][i][j] = double(rgb[0])/255.0;
+                dst[1][i][j] = double(rgb[1])/255.0;
+                dst[2][i][j] = double(rgb[2])/255.0;
+            }
+        }
+        return;
+    }
 };
 class Filter
 {
@@ -154,11 +166,12 @@ public:
     }
 };
 
-class Conv
+class Conv2D
 {
 public:
     std::size_t inputSize;
     std::size_t filterSize;
+    std::size_t filterNum;
     std::size_t paddingSize;
     std::size_t outputSize;
     std::size_t stride;
@@ -167,14 +180,13 @@ public:
     std::vector<Filter> dFilters;
     std::vector<Filter> sFilters;
     /*
-        (filters, channels, height, width)
+        (filters * channels, height, width)
         output size = (W - F + 2P) / s
      */
-    std::vector<std::vector<Mat> > out;
+    std::vector<Mat> out;
 public:
-    static void toMat(Image &img, std::vector<Mat> &dst);
-    Conv(){}
-    explicit Conv(std::size_t inputSize_ = 32,
+    Conv2D(){}
+    explicit Conv2D(std::size_t inputSize_ = 32,
          std::size_t filterSize_ = 3,
          std::size_t paddingSize_ = 2,
          std::size_t stride_ = 2,
@@ -188,14 +200,17 @@ public:
 class MaxPooling
 {
 public:
+    std::size_t inputSize;
+    std::size_t filterNum;
+    std::size_t channel;
     std::size_t poolingSize;
-    std::vector<std::vector<RL::Mat> > out;
+    std::vector<RL::Mat> out;
 public:
     explicit MaxPooling(std::size_t poolingSize_,
                         std::size_t filterNum_,
                         std::size_t channel_,
                         std::size_t inputSize_);
-    void forward(const std::vector<std::vector<Mat> > &x);
+    void forward(const std::vector<Mat> &x);
     void backward();
     void gradient();
 };
@@ -203,14 +218,17 @@ public:
 class AveragePooling
 {
 public:
+    std::size_t inputSize;
+    std::size_t filterNum;
+    std::size_t channel;
     std::size_t poolingSize;
-    std::vector<std::vector<RL::Mat> > out;
+    std::vector<RL::Mat> out;
 public:
     explicit AveragePooling(std::size_t poolingSize_,
                             std::size_t filterNum_,
                             std::size_t channel_,
                             std::size_t inputSize_);
-    void forward(const std::vector<std::vector<Mat> > &x);
+    void forward(const std::vector<Mat> &x);
     void backward();
     void gradient();
 };
@@ -241,9 +259,9 @@ public:
 class CNN
 {
 public:
-    Conv conv1;
+    Conv2D conv1;
     MaxPooling maxpool1;
-    Conv conv2;
+    Conv2D conv2;
     MaxPooling maxpool2;
     FC fc1;
     FC fc2;

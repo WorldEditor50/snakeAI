@@ -144,3 +144,21 @@ double RL::clip(double x, double sup, double inf)
     }
     return y;
 }
+
+double RL::hmean(const RL::Vec &x)
+{
+    double s = 0;
+    for (std::size_t i = 0; i < x.size(); i++) {
+        s += 1/x[i];
+    }
+    return double(x.size())/s;
+}
+
+double RL::gmean(const RL::Vec &x)
+{
+    double s = 1;
+    for (std::size_t i = 0; i < x.size(); i++) {
+        s *= x[i];
+    }
+    return pow(s, 1.0/x.size());
+}
