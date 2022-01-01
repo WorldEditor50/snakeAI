@@ -32,8 +32,12 @@ struct Linear {
 };
 
 struct Swich {
-    inline static double _(double x) {return exp(x)/(1 + exp(x));}
-    inline static double d(double y) {return y*(1 - y);}
+    inline static double _(double x) {return x*Sigmoid::_(x);}
+    inline static double d(double x)
+    {
+        double s = Sigmoid::_(x);
+        return s + x*s*(1 - s);
+    }
 };
 
 struct Softmax {

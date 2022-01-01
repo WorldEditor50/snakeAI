@@ -94,8 +94,8 @@ void RL::MaxPooling::forward(const std::vector<RL::Mat> &x)
                 /* width */
                 for (std::size_t j = 0; j < inputSize; j+= poolingSize) {
                     /* sliding window */
-                    std::size_t oi = i % poolingSize;
-                    std::size_t oj = j % poolingSize;
+                    std::size_t oi = i / poolingSize;
+                    std::size_t oj = j / poolingSize;
                     double maxValue = 0;
                     for (std::size_t pi = 0; pi < poolingSize; pi++) {
                         for (std::size_t pj = 0; pj < poolingSize; pj++) {
@@ -135,8 +135,8 @@ void RL::AveragePooling::forward(const std::vector<RL::Mat> &x)
                 /* width */
                 for (std::size_t j = 0; j < inputSize; j+= poolingSize) {
                     /* sliding window */
-                    std::size_t oi = i % poolingSize;
-                    std::size_t oj = j % poolingSize;
+                    std::size_t oi = i / poolingSize;
+                    std::size_t oj = j / poolingSize;
                     double s = 0;
                     for (std::size_t pi = 0; pi < poolingSize; pi++) {
                         for (std::size_t pj = 0; pj < poolingSize; pj++) {

@@ -3,6 +3,8 @@
 #include "lstm.h"
 #include "gru.h"
 #include "mat.h"
+#include "tensor.h"
+
 int main(int argc, char *argv[])
 {
 #if 1
@@ -11,8 +13,9 @@ int main(int argc, char *argv[])
     w.show();
     return a.exec();
 #else
-    LSTM::test();
+    //LSTM::test();
     //matrix::test();
+    //Tensor::test();
     return 0;
 #endif
 }
