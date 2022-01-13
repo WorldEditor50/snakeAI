@@ -5,19 +5,16 @@ RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
     this->exploringRate = 1;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->policyNet =  BPNN(BPNN::Layers{
-                                GeluLayer::_(stateDim, hiddenDim, true),
-                                DropoutLayer<Tanh>::_(hiddenDim, hiddenDim, true, 0.5),
-                                LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                                GeluLayer::_(hiddenDim, hiddenDim, true),
-                                DropoutLayer<Tanh>::_(hiddenDim, hiddenDim, true, 0.5),
-                                LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                                SoftmaxLayer::_(hiddenDim, actionDim, true)
-                            });
-    return;
+    this->policyNet = BPNN(SwishLayer::_(stateDim, hiddenDim, true),
+                           DropoutLayer<Tanh>::_(hiddenDim, hiddenDim, true, 0.5),
+                           LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                           SwishLayer::_(hiddenDim, hiddenDim, true),
+                           DropoutLayer<Tanh>::_(hiddenDim, hiddenDim, true, 0.5),
+                           LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                           SoftmaxLayer::_(hiddenDim, actionDim, true));
 }
 
-RL::Vec &RL::DPG::sample(const Vec &state)
+RL::Vec &RL::DPG::eGreedyAction(const Vec &state)
 {
     std::uniform_real_distribution<double> distributionReal(0, 1);
     double p = distributionReal(Rand::engine);

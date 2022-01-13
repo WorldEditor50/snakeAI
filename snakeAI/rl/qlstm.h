@@ -96,7 +96,7 @@ public:
                   Vec& nextState,
                   double reward,
                   bool done);
-    Vec& sample(Vec& state);
+    Vec& eGreedyAction(Vec& state);
     Vec& output();
     Vec &action(const Vec &state);
     void reset();

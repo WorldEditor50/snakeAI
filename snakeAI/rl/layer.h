@@ -241,6 +241,46 @@ public:
 
 };
 
+class SwishLayer : public LayerObject
+{
+public:
+    Vec O0;
+public:
+    SwishLayer(){}
+    ~SwishLayer(){}
+    explicit SwishLayer(std::size_t inputDim, std::size_t layerDim, bool trainFlag)
+        :LayerObject(inputDim, layerDim, trainFlag),O0(layerDim, 0){}
+
+    static std::shared_ptr<SwishLayer> _(std::size_t inputDim,
+                                    std::size_t layerDim,
+                                    bool tarinFlag)
+    {
+        return std::make_shared<SwishLayer>(inputDim, layerDim, tarinFlag);
+    }
+    void feedForward(const RL::Vec &x) override
+    {
+        for (std::size_t i = 0; i < W.size(); i++) {
+            O0[i] = RL::dot(W[i], x) + B[i];
+            O[i] = Swish::_(O0[i]);
+        }
+        return;
+    }
+
+    void gradient(const Vec& x, const Vec&) override
+    {
+        for (std::size_t i = 0; i < d.W.size(); i++) {
+            double dy = Swish::d(O0[i]) * E[i];
+            for (std::size_t j = 0; j < d.W[0].size(); j++) {
+                d.W[i][j] += dy * x[j];
+            }
+            d.B[i] += dy;
+            E[i] = 0;
+        }
+        return;
+    }
+
+};
+
 template<typename ActF>
 class DropoutLayer : public Layer<ActF>
 {

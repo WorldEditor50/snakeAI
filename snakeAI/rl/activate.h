@@ -31,12 +31,26 @@ struct Linear {
     inline static double d(double) {return 1;}
 };
 
-struct Swich {
+struct Swish {
     inline static double _(double x) {return x*Sigmoid::_(x);}
     inline static double d(double x)
     {
         double s = Sigmoid::_(x);
         return s + x*s*(1 - s);
+    }
+};
+
+struct Gelu {
+    static constexpr double c1 = 0.79788456080287;/* sqrt(2/pi) */
+    static constexpr double c2 = 0.044715;
+    inline static double _(double x)
+    {
+        return 0.5*x*(1 + tanh(c1*(x + c2*x*x*x)));
+    }
+    inline static double d(double x)
+    {
+        double t = tanh(c1*(x + c2*x*x*x));
+        return 0.5*(1 + t + x*(c1*(1 + 3*c2*x*x)*(1 - t*t)));
     }
 };
 
@@ -52,23 +66,9 @@ struct Softmax {
         }
         return;
     }
-    inline static void d(const Vec &x, Vec &y)
+    inline static double d(double y, double yt)
     {
-
-    }
-};
-
-struct Gelu {
-    static constexpr double c1 = 0.79788456080287;/* sqrt(2/pi) */
-    static constexpr double c2 = 0.044715;
-    inline static double _(double x)
-    {
-        return 0.5*x*(1 + tanh(c1*(x + c2*x*x*x)));
-    }
-    inline static double d(double x)
-    {
-        double t = tanh(c1*(x + c2*x*x*x));
-        return 0.5*(1 + t + x*(c1*(1 + 3*c2*x*x)*(1 - t*t)));
+        return y - yt;
     }
 };
 

@@ -9,38 +9,31 @@ RL::DDPG::DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDi
     this->actionDim = actionDim;
     this->sa = Vec(stateDim + actionDim, 0);
     /* actor: a = P(s, theta) */
-    this->actorP = BPNN(BPNN::Layers{
-                             Layer<Tanh>::_(stateDim, hiddenDim, true),
-                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                             Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                             SoftmaxLayer::_(hiddenDim, actionDim, true)
-                         });
-    this->actorQ = BPNN(BPNN::Layers{
-                             Layer<Tanh>::_(stateDim, hiddenDim,false),
-                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                             Layer<Tanh>::_(hiddenDim, hiddenDim,false),
-                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                             SoftmaxLayer::_(hiddenDim, actionDim, false)
-                         });
+    this->actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+                        LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                        Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                        LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                        SoftmaxLayer::_(hiddenDim, actionDim, true));
+
+    this->actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim,false),
+                        LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                        Layer<Tanh>::_(hiddenDim, hiddenDim,false),
+                        LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                        SoftmaxLayer::_(hiddenDim, actionDim, false));
     this->actorP.copyTo(actorQ);
     /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
-    this->criticP = BPNN(BPNN::Layers{
-                             Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
-                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                             Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                             Layer<Sigmoid>::_(hiddenDim, actionDim, true)
-                          });
-    this->criticQ = BPNN(BPNN::Layers{
-                             Layer<Tanh>::_(stateDim + actionDim, hiddenDim, false),
-                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                             Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                             Layer<Sigmoid>::_(hiddenDim, actionDim, false)
-                         });
+    this->criticP = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
+                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                         Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                         Layer<Sigmoid>::_(hiddenDim, actionDim, true));
+
+    this->criticQ = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, false),
+                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                         Layer<Tanh>::_(hiddenDim, hiddenDim, false),
+                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                         Layer<Sigmoid>::_(hiddenDim, actionDim, false));
     this->criticP.copyTo(criticQ);
-    return;
 }
 
 void RL::DDPG::perceive(const Vec& state,
@@ -87,7 +80,7 @@ int RL::DDPG::randomAction()
     return rand() % actionDim;
 }
 
-RL::Vec& RL::DDPG::sample(const Vec &state)
+RL::Vec& RL::DDPG::eGreedyAction(const Vec &state)
 {
     std::uniform_real_distribution<double> distributionReal(0, 1);
     double p = distributionReal(Rand::engine);

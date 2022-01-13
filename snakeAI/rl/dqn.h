@@ -24,7 +24,7 @@ public:
                   Vec& nextState,
                   double reward,
                   bool done);
-    Vec& sample(Vec& state);
+    Vec& eGreedyAction(Vec& state);
     Vec& output();
     int action(const Vec &state);
     void experienceReplay(const Transition& x);

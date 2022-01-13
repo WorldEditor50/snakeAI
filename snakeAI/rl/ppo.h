@@ -19,7 +19,7 @@ public:
     PPO(){}
     explicit PPO(int stateDim, int hiddenDim, int actionDim);
     ~PPO(){}
-    Vec &sample(const Vec &state);
+    Vec &eGreedyAction(const Vec &state);
     BPNN &action(const Vec &state);
     Vec& output(){return actorP.output();}
     void learnWithKLpenalty(OptType optType, double learningRate, std::vector<Transition>& x);

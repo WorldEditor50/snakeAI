@@ -6,23 +6,18 @@ RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
     this->exploringRate = 1;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->QMainNet = BPNN(BPNN::Layers{
-                              Layer<Tanh>::_(stateDim, hiddenDim, true),
-                              LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                              Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                              LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                              Layer<Sigmoid>::_(hiddenDim, actionDim, true)
-                          });
-    this->QTargetNet = BPNN(BPNN::Layers{
-                                 Layer<Tanh>::_(stateDim, hiddenDim, false),
-                                 LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                                 Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                                 LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                                 Layer<Sigmoid>::_(hiddenDim, actionDim, false)
-                             });
-    this->QMainNet.copyTo(QTargetNet);
+    this->QMainNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+                          LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                          Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                          LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                          Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    return;
+    this->QTargetNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
+                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                            Layer<Tanh>::_(hiddenDim, hiddenDim, false),
+                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                            Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+    this->QMainNet.copyTo(QTargetNet);
 }
 
 void RL::DQN::perceive(Vec& state,
@@ -38,7 +33,7 @@ void RL::DQN::perceive(Vec& state,
     return;
 }
 
-RL::Vec& RL::DQN::sample(Vec &state)
+RL::Vec& RL::DQN::eGreedyAction(Vec &state)
 {
     std::uniform_real_distribution<double> distributionReal(0, 1);
     double p = distributionReal(Rand::engine);

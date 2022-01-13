@@ -208,7 +208,7 @@ int Agent::dqnAction(int x, int y, int xt, int yt)
         for (std::size_t j = 0; j < 128; j++) {
             int xi = xn;
             int yi = yn;
-            Vec& action = dqn.sample(state);
+            Vec& action = dqn.eGreedyAction(state);
             int k = RL::argmax(action);
             simulateMove(xn, yn, k);
             r = reward1(xi, yi, xn, yn, xt, yt);
@@ -246,7 +246,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
         for (std::size_t j = 0; j < 128; j++) {
             int xi = xn;
             int yi = yn;
-            Vec& action = qlstm.sample(state);
+            Vec& action = qlstm.eGreedyAction(state);
             int k = RL::argmax(action);
             simulateMove(xn, yn, k);
             r = reward1(xi, yi, xn, yn, xt, yt);
@@ -292,7 +292,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
             int xi = xn;
             int yi = yn;
             /* sample */
-            Vec &output = dpg.sample(state);
+            Vec &output = dpg.eGreedyAction(state);
             direct = RL::argmax(output);
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
@@ -329,7 +329,7 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
         for (std::size_t j = 0; j < 32; j++) {
             int xi = xn;
             int yi = yn;
-            Vec & action = ddpg.sample(state);
+            Vec & action = ddpg.eGreedyAction(state);
             int k = RL::argmax(action);
             simulateMove(xn, yn, k);
             r = reward4(xi, yi, xn, yn, xt, yt);
@@ -368,7 +368,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
             int xi = xn;
             int yi = yn;
             /* sample */
-            Vec &output = ppo.sample(state);
+            Vec &output = ppo.eGreedyAction(state);
             int direct = RL::argmax(output);
             /* move */
             simulateMove(xn, yn, direct);

@@ -34,7 +34,7 @@ void RL::QLSTM::perceive(Vec& state,
     return;
 }
 
-RL::Vec& RL::QLSTM::sample(Vec &state)
+RL::Vec& RL::QLSTM::eGreedyAction(Vec &state)
 {
     std::uniform_real_distribution<double> distributionReal(0, 1);
     double p = distributionReal(Rand::engine);

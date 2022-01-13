@@ -30,6 +30,8 @@ public:
 public:
     BPNN(){}
     virtual ~BPNN(){}
+    template<typename ...TLayer>
+    explicit BPNN(TLayer&&...layer):evalTotalError(false),layers({layer...}){}
     explicit BPNN(const Layers &layers_):evalTotalError(false),layers(layers_){}
     BPNN(const BPNN &r):evalTotalError(r.evalTotalError),layers(r.layers){}
     BPNN &operator = (const BPNN &r);
