@@ -384,6 +384,64 @@ void matrix::Mat::show() const
     return;
 }
 
+void matrix::Mat::mul(const matrix::Mat &x1, const matrix::Mat &x2, matrix::Mat &y)
+{
+    if (x1.cols != x2.rows) {
+        return;
+    }
+    if ((y.rows != x1.rows) && (y.cols != x2.cols)) {
+        return;
+    }
+    for (std::size_t i = 0; i < y.rows; i++) {
+        for (std::size_t j = 0; j < y.cols; j++) {
+            for (std::size_t k = 0; k < x1.cols; k++) {
+                y.data[i][j] += x1.data[i][k] * x2.data[k][j];
+            }
+        }
+    }
+    return;
+}
+
+void matrix::Mat::dot(const matrix::Mat &x1, const matrix::Mat &x2, matrix::Mat &y)
+{
+    for (std::size_t i = 0; i < y.rows; i++) {
+        for (std::size_t j = 0; j < y.cols; j++) {
+            y.data[i][j] = x1.data[i][j] * x2.data[i][j];
+        }
+    }
+    return;
+}
+
+void matrix::Mat::div(const matrix::Mat &x1, const matrix::Mat &x2, matrix::Mat &y)
+{
+    for (std::size_t i = 0; i < y.rows; i++) {
+        for (std::size_t j = 0; j < y.cols; j++) {
+            y.data[i][j] = x1.data[i][j] / x2.data[i][j];
+        }
+    }
+    return;
+}
+
+void matrix::Mat::add(const matrix::Mat &x1, const matrix::Mat &x2, matrix::Mat &y)
+{
+    for (std::size_t i = 0; i < y.rows; i++) {
+        for (std::size_t j = 0; j < y.cols; j++) {
+            y.data[i][j] = x1.data[i][j] - x2.data[i][j];
+        }
+    }
+    return;
+}
+
+void matrix::Mat::minus(const matrix::Mat &x1, const matrix::Mat &x2, matrix::Mat &y)
+{
+    for (std::size_t i = 0; i < y.rows; i++) {
+        for (std::size_t j = 0; j < y.cols; j++) {
+            y.data[i][j] = x1.data[i][j] - x2.data[i][j];
+        }
+    }
+    return;
+}
+
 matrix::Mat matrix::kronecker(const matrix::Mat &x1, const matrix::Mat &x2)
 {
     Mat y(x1.rows * x2.rows, x1.cols * x2.cols);

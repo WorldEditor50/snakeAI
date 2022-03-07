@@ -185,45 +185,5 @@ public:
     static void test();
 };
 
-class LSTM3
-{
-protected:
-    LSTM lstm1;
-    LSTM lstm2;
-    LSTM lstm3;
-    Vec y;
-public:
-    LSTM3(){}
-    LSTM3(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag)
-    {
-        lstm1 = LSTM(inputDim_, hiddenDim_, hiddenDim_, trainFlag);
-        lstm2 = LSTM(hiddenDim_, hiddenDim_, hiddenDim_, trainFlag);
-        lstm3 = LSTM(hiddenDim_, hiddenDim_, outputDim_, trainFlag);
-    }
-    void forward(const std::vector<Vec> &sequence)
-    {
-        lstm1.reset();
-        lstm2.reset();
-        lstm3.reset();
-        for (auto &x : sequence) {
-            LSTM::State s1 = lstm1.feedForward(x, lstm3.h, lstm3.c);
-            lstm1.states.push_back(s1);
-            LSTM::State s2 = lstm2.feedForward(lstm1.y, lstm1.h, lstm1.c);
-            lstm2.states.push_back(s2);
-            LSTM::State s3 = lstm3.feedForward(lstm2.y, lstm2.h, lstm2.c);
-            lstm3.states.push_back(s3);
-        }
-        return;
-    }
-    Vec &forward(const Vec &x)
-    {
-        lstm1.feedForward(x, lstm2.h, lstm2.c);
-        lstm2.feedForward(lstm1.y, lstm1.h, lstm1.c);
-        LSTM::State s = lstm3.feedForward(lstm2.y, lstm2.h, lstm2.c);
-        y = s.y;
-        return y;
-    }
-};
-
 }
 #endif // LSTM_H

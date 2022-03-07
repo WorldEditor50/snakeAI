@@ -23,7 +23,7 @@ inline void EMA(Vec &s, const Vec s_, double r)
     }
     return;
 }
-
+double gaussian(double x, double u, double sigma);
 double clip(double x, double sup, double inf);
 int argmax(const Vec &x);
 int argmin(const Vec &x);

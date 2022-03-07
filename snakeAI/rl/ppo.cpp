@@ -10,6 +10,7 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
     this->learningSteps = 0;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
+
     this->actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                         Layer<Tanh>::_(hiddenDim, hiddenDim, true),

@@ -162,3 +162,8 @@ double RL::gmean(const RL::Vec &x)
     }
     return pow(s, 1.0/x.size());
 }
+
+double RL::gaussian(double x, double u, double sigma)
+{
+    return 1/sqrt(2*pi*sigma)*exp(-0.5*(x - u)*(x - u)/sigma);
+}

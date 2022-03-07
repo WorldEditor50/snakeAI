@@ -74,11 +74,11 @@ public:
     void uniformRand(std::default_random_engine &engine);
     void show() const;
     /* static operation */
-    static void mul(Mat &y, const Mat &x1, const Mat &x2);
-    static void dot(Mat &y, const Mat &x1, const Mat &x2);
-    static void div(Mat &y, const Mat &x1, const Mat &x2);
-    static void add(Mat &y, const Mat &x1, const Mat &x2);
-    static void minus(Mat &y, const Mat &x1, const Mat &x2);
+    static void mul(const Mat &x1, const Mat &x2, Mat &y);
+    static void dot(const Mat &x1, const Mat &x2, Mat &y);
+    static void div(const Mat &x1, const Mat &x2, Mat &y);
+    static void add(const Mat &x1, const Mat &x2, Mat &y);
+    static void minus(const Mat &x1, const Mat &x2, Mat &y);
 };
 std::size_t argmax(const Mat &x);
 std::size_t argmin(const Mat &x);

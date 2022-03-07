@@ -32,10 +32,11 @@ struct Linear {
 };
 
 struct Swish {
-    inline static double _(double x) {return x*Sigmoid::_(x);}
+    static constexpr double beta = 1.0;//1.702;
+    inline static double _(double x) {return x*Sigmoid::_(beta*x);}
     inline static double d(double x)
     {
-        double s = Sigmoid::_(x);
+        double s = Sigmoid::_(beta*x);
         return s + x*s*(1 - s);
     }
 };

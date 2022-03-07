@@ -43,7 +43,6 @@ void RL::DPG::reinforce(OptType optType, double learningRate, std::vector<Step>&
         discoutedReward[i] = r;
     }
     double u = RL::mean(discoutedReward);
-    //double s = RL::variance(discoutedReward, u);
     for (std::size_t i = 0; i < x.size(); i++) {
         int k = RL::argmax(x[i].action);
         x[i].action[k] *= (discoutedReward[i] - u);
