@@ -11,13 +11,12 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     dpg = DPG(stateDim, 16, 4);
     ddpg = DDPG(stateDim, 16, 4);
     ppo = PPO(stateDim, 16, 4);
-    bpnn = BPNN(BPNN::Layers{
-                          Layer<Sigmoid>::_(stateDim, 16, true),
-                          Layer<Sigmoid>::_(16, 16, true),
-                          Layer<Sigmoid>::_(16, 16, true),
-                          Layer<Sigmoid>::_(16, 4, true)
-                      });
+    bpnn = BPNN(Layer<Sigmoid>::_(stateDim, 16, true),
+                Layer<Sigmoid>::_(16, 16, true),
+                Layer<Sigmoid>::_(16, 16, true),
+                Layer<Sigmoid>::_(16, 4, true));
     qlstm = QLSTM(stateDim, 16, 4);
+    drpg = DRPG(stateDim, 16, 4);
     state.resize(stateDim);
     nextState.resize(stateDim);
     dqn.load("./dqn");
@@ -314,6 +313,52 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
     /* making decision */
     direct = dpg.action(state_);
     return direct;
+}
+
+int Agent::drpgAction(int x, int y, int xt, int yt)
+{
+    int direct = 0;
+    std::vector<Vec> states;
+    std::vector<Vec> actions;
+    std::vector<double> rewards;
+    int xn = x;
+    int yn = y;
+    double total = 0;
+    observe(state, x, y, xt, yt);
+    std::vector<double> state_ = state;
+    if (trainFlag == true) {
+        for (std::size_t j = 0; j < 16; j++) {
+            int xi = xn;
+            int yi = yn;
+            /* move */
+            Vec &output = drpg.eGreedyAction(state);
+            direct = RL::argmax(output);
+            simulateMove(xn, yn, direct);
+            observe(nextState, xn, yn, xt, yt);
+            double r = reward1(xi, yi, xn, yn, xt, yt);
+            /* sparse sample */
+            //if (j%8 == 0) {
+                states.push_back(state);
+                actions.push_back(output);
+                rewards.push_back(r);
+            //}
+            total += r;
+            if (map[xn][yn] == 1 || (xn == xt && yn == yt)) {
+                break;
+            }
+            state = nextState;
+        }
+        emit totalReward(total);
+        /* training */
+        drpg.reinforce(states, actions, rewards, 0.001);
+    }
+    /* making decision */
+    Vec &a = drpg.action(state_);
+    for (std::size_t i = 0; i < a.size(); i++) {
+        std::cout<<a[i]<<" ";
+    }
+    std::cout<<std::endl;
+    return RL::argmax(a);
 }
 
 int Agent::ddpgAction(int x, int y, int xt, int yt)

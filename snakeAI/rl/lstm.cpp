@@ -5,6 +5,7 @@ RL::LSTM::LSTM(std::size_t inputDim_,
                std::size_t outputDim_,
                bool trainFlag):
     LSTMParam(inputDim_, hiddenDim_, outputDim_),
+    ema(false),gamma(0.9),
     inputDim(inputDim_), hiddenDim(hiddenDim_), outputDim(outputDim_)
 {
     if (trainFlag == true) {
@@ -133,7 +134,6 @@ void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec
         }
 #else
         /* BPTT with EMA */
-        double gamma = 0.9;
         for (std::size_t i = 0; i < Ui.size(); i++) {
             for (std::size_t j = 0; j < Ui[0].size(); j++) {
                 delta.h[j] = delta.h[j]*gamma + Ui[i][j] * delta_.i[i]*(1 - gamma);

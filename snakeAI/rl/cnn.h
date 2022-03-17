@@ -180,7 +180,7 @@ public:
     std::vector<Filter> dFilters;
     std::vector<Filter> sFilters;
     /*
-        (filters * channels, height, width)
+        (filters, height, width)
         output size = (W - F + 2P) / s
      */
     std::vector<Mat> out;
@@ -193,6 +193,7 @@ public:
          std::size_t channel_ = 3,
          std::size_t filterNum = 12);
     void forward(const std::vector<Mat> &x);
+    void conv(const Mat &x, const Mat &kernel, Mat &y);
     void backward();
     void RMSProp(double rho, double learningRate);
 };

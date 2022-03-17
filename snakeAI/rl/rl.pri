@@ -5,6 +5,7 @@ SOURCES += $$PWD/bpnn.cpp \
             $$PWD/ddpg.cpp \
             $$PWD/dpg.cpp \
             $$PWD/dqn.cpp \
+            $$PWD/drpg.cpp \
             $$PWD/gan.cpp \
             $$PWD/gru.cpp \
             $$PWD/lstm.cpp \
@@ -21,11 +22,13 @@ HEADERS += $$PWD/bpnn.h \
             $$PWD/ddpg.h \
             $$PWD/dpg.h \
             $$PWD/dqn.h \
+            $$PWD/drpg.h \
             $$PWD/gan.h \
             $$PWD/gru.h \
             $$PWD/layer.h \
             $$PWD/loss.h \
             $$PWD/lstm.h \
+            $$PWD/lstmnet.h \
             $$PWD/mat.h \
             $$PWD/optimizer.h \
             $$PWD/ppo.h \

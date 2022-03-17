@@ -5,11 +5,11 @@ RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
     this->exploringRate = 1;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->policyNet = BPNN(SwishLayer::_(stateDim, hiddenDim, true),
-                           DropoutLayer<Tanh>::_(hiddenDim, hiddenDim, true, 0.5),
+    this->policyNet = BPNN(DropoutLayer<Tanh>::_(stateDim, hiddenDim, true, 0.5),
+                           Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                           SwishLayer::_(hiddenDim, hiddenDim, true),
                            DropoutLayer<Tanh>::_(hiddenDim, hiddenDim, true, 0.5),
+                           Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                            SoftmaxLayer::_(hiddenDim, actionDim, true));
 }

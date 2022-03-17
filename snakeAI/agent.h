@@ -7,6 +7,7 @@
 #include "ddpg.h"
 #include "ppo.h"
 #include "qlstm.h"
+#include "drpg.h"
 #include "common.h"
 #include "snake.h"
 
@@ -24,6 +25,7 @@ public:
     int dqnAction(int x, int y, int xt, int yt);
     int qlstmAction(int x, int y, int xt, int yt);
     int dpgAction(int x, int y, int xt, int yt);
+    int drpgAction(int x, int y, int xt, int yt);
     int ddpgAction(int x, int y, int xt, int yt);
     int ppoAction(int x, int y, int xt, int yt);
     int supervisedAction(int x, int y, int xt, int yt);
@@ -51,6 +53,7 @@ private:
     DDPG ddpg;
     PPO ppo;
     QLSTM qlstm;
+    DRPG drpg;
     bool trainFlag;
 };
 

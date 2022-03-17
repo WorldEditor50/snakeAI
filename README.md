@@ -1,19 +1,13 @@
 # snakeAI
 - A* agent: a method bases on greedy policy
-
 - random search agent: a method bases on reward and MCMC
-
 - bp agent: learn from A* agent
-
 - dqn agent: DQN
-
 - dpg agent: policy gradient 
-
 - ddpg agent:  todo
-
 - PPO agent: learn with adaptive KL-penalty and clipped objective
-
 - lstm + q-learning agent: generate sequence by sampling data from replay buffer with uniform distribution and backpropagate error through time with EMA
+- DRPG agent: lstm + policy gradient
 
 ## 1. Markov Decision Process
 

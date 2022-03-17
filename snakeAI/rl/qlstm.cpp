@@ -6,18 +6,14 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    QMainNet = LstmNet(stateDim_, hiddenDim_, actionDim_,
-                    BPNN::Layers{
+    QMainNet = LstmNet(LSTM(stateDim_, hiddenDim_, hiddenDim_, true),
                        Layer<Tanh>::_(hiddenDim_, hiddenDim_, true),
                        LayerNorm<Sigmoid>::_(hiddenDim_, hiddenDim_, true),
-                       Layer<Sigmoid>::_(hiddenDim_, actionDim_, true)
-                    }, true);
-    QTargetNet = LstmNet(stateDim_, hiddenDim_, actionDim_,
-                      BPNN::Layers{
+                       Layer<Sigmoid>::_(hiddenDim_, actionDim_, true));
+    QTargetNet = LstmNet(LSTM(stateDim_, hiddenDim_, hiddenDim_, false),
                          Layer<Tanh>::_(hiddenDim_, hiddenDim_, false),
                          LayerNorm<Sigmoid>::_(hiddenDim_, hiddenDim_, false),
-                         Layer<Sigmoid>::_(hiddenDim_, actionDim_, false)
-                      }, false);
+                         Layer<Sigmoid>::_(hiddenDim_, actionDim_, false));
     this->QMainNet.copyTo(QTargetNet);
 }
 

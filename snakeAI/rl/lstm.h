@@ -1,6 +1,7 @@
 #ifndef LSTM_H
 #define LSTM_H
 #include <iostream>
+#include <memory>
 #include "util.h"
 #include "activate.h"
 #include "optimizer.h"
@@ -146,23 +147,29 @@ public:
     };
 
 public:
+    bool ema;
+    double gamma;
+    std::size_t inputDim;
+    std::size_t hiddenDim;
+    std::size_t outputDim;
     Vec h;
     Vec c;
     Vec y;
     /* state */
     std::vector<State> states;
 protected:
-    std::size_t inputDim;
-    std::size_t hiddenDim;
-    std::size_t outputDim;
+    double alpha_t;
+    double beta_t;
     LSTMParam d;
     LSTMParam v;
     LSTMParam s;
-    double alpha_t;
-    double beta_t;
 public:
     LSTM(){}
     LSTM(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
+    static std::shared_ptr<LSTM> _(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag)
+    {
+        return std::make_shared<LSTM>(inputDim_, hiddenDim_, outputDim_, trainFlag);
+    }
     void reset();
     Vec &output(){return y;}
     /* forward */

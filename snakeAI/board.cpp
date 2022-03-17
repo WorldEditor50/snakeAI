@@ -6,7 +6,7 @@ void Board::init(size_t w, size_t h)
     /* init board parameter */
     this->width = w;
     this->height = h;
-    this->unitLen = 10;
+    this->unitLen = 5;
     this->blockNum = 0;
     this->rows = width / unitLen - 2;
     this->cols = height / unitLen - 2;
