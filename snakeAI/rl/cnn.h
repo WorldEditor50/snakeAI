@@ -5,6 +5,8 @@
 #include "optimizer.h"
 #include "loss.h"
 #include <cstring>
+#include <iostream>
+
 namespace RL {
 
 //using RGB = unsigned int;
@@ -38,7 +40,7 @@ public:
     int height;
     int channel;
     unsigned char *ptr;
-    std::size_t size_;
+    int size_;
 public:
     Image():width(0),height(0),channel(3),ptr(nullptr),size_(0){}
     Image(int w, int h, int c):width(w),height(h),channel(c)
@@ -137,7 +139,7 @@ public:
     Vec b;
 public:
     Filter(){}
-    Filter(std::size_t size_)
+    Filter(int size_)
     {
         w = Mat(size_, Vec(size_, 0));
         b = Vec(1, 0);
@@ -145,8 +147,8 @@ public:
     void random()
     {
         std::uniform_real_distribution<double> uniform(-1, 1);
-        for (std::size_t i = 0; i < w.size(); i++) {
-            for (std::size_t j = 0; j < w[0].size(); j++) {
+        for (int i = 0; i < w.size(); i++) {
+            for (int j = 0; j < w[0].size(); j++) {
                 w[i][j] = uniform(Rand::engine);
             }
         }
@@ -156,8 +158,8 @@ public:
     void zero()
     {
         std::uniform_real_distribution<double> uniform(-1, 1);
-        for (std::size_t i = 0; i < w.size(); i++) {
-            for (std::size_t j = 0; j < w[0].size(); j++) {
+        for (int i = 0; i < w.size(); i++) {
+            for (int j = 0; j < w[0].size(); j++) {
                 w[i][j] = 0;
             }
         }
@@ -169,13 +171,13 @@ public:
 class Conv2D
 {
 public:
-    std::size_t inputSize;
-    std::size_t filterSize;
-    std::size_t filterNum;
-    std::size_t paddingSize;
-    std::size_t outputSize;
-    std::size_t stride;
-    std::size_t channel;
+    int inputSize;
+    int filterSize;
+    int filterNum;
+    int paddingSize;
+    int outputSize;
+    int stride;
+    int channel;
     std::vector<Filter> filters;
     std::vector<Filter> dFilters;
     std::vector<Filter> sFilters;
@@ -186,31 +188,34 @@ public:
     std::vector<Mat> out;
 public:
     Conv2D(){}
-    explicit Conv2D(std::size_t inputSize_ = 32,
-         std::size_t filterSize_ = 3,
-         std::size_t paddingSize_ = 2,
-         std::size_t stride_ = 2,
-         std::size_t channel_ = 3,
-         std::size_t filterNum = 12);
+    explicit Conv2D(int inputSize_ = 32,
+         int filterSize_ = 3,
+         int paddingSize_ = 2,
+         int stride_ = 2,
+         int channel_ = 3,
+         int filterNum = 12);
     void forward(const std::vector<Mat> &x);
-    void conv(const Mat &x, const Mat &kernel, Mat &y);
+    void convNoPad(Mat &y, const Mat &kernel, const Mat &x);
+    void conv(Mat &y, const Mat &kernel, const Mat &x);
+    void conv_(int ik, int jk, Mat &y, const Mat &kernel, const Mat &x);
     void backward();
     void RMSProp(double rho, double learningRate);
+    static void test();
 };
 
 class MaxPooling
 {
 public:
-    std::size_t inputSize;
-    std::size_t filterNum;
-    std::size_t channel;
-    std::size_t poolingSize;
+    int inputSize;
+    int filterNum;
+    int channel;
+    int poolingSize;
     std::vector<RL::Mat> out;
 public:
-    explicit MaxPooling(std::size_t poolingSize_,
-                        std::size_t filterNum_,
-                        std::size_t channel_,
-                        std::size_t inputSize_);
+    explicit MaxPooling(int poolingSize_,
+                        int filterNum_,
+                        int channel_,
+                        int inputSize_);
     void forward(const std::vector<Mat> &x);
     void backward();
     void gradient();
@@ -219,16 +224,16 @@ public:
 class AveragePooling
 {
 public:
-    std::size_t inputSize;
-    std::size_t filterNum;
-    std::size_t channel;
-    std::size_t poolingSize;
+    int inputSize;
+    int filterNum;
+    int channel;
+    int poolingSize;
     std::vector<RL::Mat> out;
 public:
-    explicit AveragePooling(std::size_t poolingSize_,
-                            std::size_t filterNum_,
-                            std::size_t channel_,
-                            std::size_t inputSize_);
+    explicit AveragePooling(int poolingSize_,
+                            int filterNum_,
+                            int channel_,
+                            int inputSize_);
     void forward(const std::vector<Mat> &x);
     void backward();
     void gradient();

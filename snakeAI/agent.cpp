@@ -16,7 +16,7 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
                 Layer<Sigmoid>::_(16, 16, true),
                 Layer<Sigmoid>::_(16, 4, true));
     qlstm = QLSTM(stateDim, 16, 4);
-    drpg = DRPG(stateDim, 16, 4);
+    drpg = DRPG(stateDim, 32, 4);
     state.resize(stateDim);
     nextState.resize(stateDim);
     dqn.load("./dqn");
@@ -327,7 +327,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt)
     observe(state, x, y, xt, yt);
     std::vector<double> state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 16; j++) {
+        for (std::size_t j = 0; j < 32; j++) {
             int xi = xn;
             int yi = yn;
             /* move */
@@ -337,7 +337,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt)
             observe(nextState, xn, yn, xt, yt);
             double r = reward1(xi, yi, xn, yn, xt, yt);
             /* sparse sample */
-            //if (j%8 == 0) {
+            //if (j%8 == 0 || (xn == xt && yn == yt) || map[xn][yn] == 1) {
                 states.push_back(state);
                 actions.push_back(output);
                 rewards.push_back(r);
@@ -374,7 +374,7 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
         for (std::size_t j = 0; j < 32; j++) {
             int xi = xn;
             int yi = yn;
-            Vec & action = ddpg.eGreedyAction(state);
+            Vec & action = ddpg.noiseAction(state);
             int k = RL::argmax(action);
             simulateMove(xn, yn, k);
             r = reward4(xi, yi, xn, yn, xt, yt);
@@ -409,7 +409,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
     std::vector<double> state_ = state;
     if (trainFlag == true) {
         std::vector<Transition> trans;
-        for (std::size_t j = 0; j < 16; j++) {
+        for (std::size_t j = 0; j < 32; j++) {
             int xi = xn;
             int yi = yn;
             /* sample */
@@ -418,12 +418,15 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
             /* move */
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
-            Transition transition;
-            transition.state = state;
-            transition.action = output;
-            transition.reward = reward4(xi, yi, xn, yn, xt, yt);
-            total += transition.reward;
-            trans.push_back(transition);
+            double r = reward4(xi, yi, xn, yn, xt, yt);
+            //if (j%8 == 0 || (xn == xt && yn == yt) || map[xn][yn] == 1) {
+                Transition transition;
+                transition.state = state;
+                transition.action = output;
+                transition.reward = r;
+                trans.push_back(transition);
+            //}
+            total += r;
             if (map[xn][yn] == 1 || (xn == xt && yn == yt)) {
                 break;
             }
@@ -431,12 +434,15 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        ppo.learnWithClipObject(OPT_RMSPROP, 0.01, trans);
+        ppo.learnWithClipObjective(0.01, trans);
     }
     /* making decision */
-    auto &p = ppo.action(state_);
-    p.show();
-    return p.argmax();
+    Vec &a = ppo.action(state_);
+    for (std::size_t i = 0; i < a.size(); i++) {
+        std::cout<<a[i]<<" ";
+    }
+    std::cout<<std::endl;
+    return RL::argmax(a);
 }
 
 int Agent::supervisedAction(int x, int y, int xt, int yt)

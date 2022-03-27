@@ -60,19 +60,19 @@ void RL::DDPG::setSA(const Vec &state, const Vec &actions)
     return;
 }
 
-int RL::DDPG::noiseAction(const Vec &state)
+RL::Vec& RL::DDPG::noiseAction(const Vec &state)
 {
-    int index = 0;
     actorP.feedForward(state);
     Vec& out = actorP.output();
-    double p = double(rand() % 10000) / 10000;
+    std::uniform_real_distribution<double> distributionReal(0, 1);
+    double p = distributionReal(Rand::engine);
     if (p < exploringRate) {
         for (std::size_t i = 0; i < actionDim; i++) {
-            out[i] += double(rand() % 100 - rand() % 100) / 1000;
+            std::uniform_real_distribution<double> distribution(-1, 1);
+            out[i] += distribution(Rand::engine);
         }
     }
-    index = RL::argmax(out);
-    return index;
+    return out;
 }
 
 int RL::DDPG::randomAction()
@@ -123,7 +123,7 @@ void RL::DDPG::experienceReplay(Transition& x)
     criticP.gradient(sa, cTarget, Loss::MSE);
     /* update actorMainNet */
     Vec adv(p);
-    adv[i] = x.reward - cMain[i];
+    adv[i] *= -1*cMain[i];
     actorP.gradient(x.state, adv, Loss::CROSS_EMTROPY);
     return;
 }

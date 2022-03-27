@@ -7,10 +7,11 @@ RL::DRPG::DRPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDi
     this->stateDim = stateDim;
     this->actionDim = actionDim;
     this->policyNet = LstmNet(LSTM(stateDim, hiddenDim, hiddenDim, true),
-                              DropoutLayer<Tanh>::_(hiddenDim, hiddenDim, true, 0.5),
                               Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                               LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                               SoftmaxLayer::_(hiddenDim, actionDim, true));
+    policyNet.lstm.ema = true;
+    policyNet.lstm.gamma = 0.5;
 }
 
 RL::Vec &RL::DRPG::eGreedyAction(const Vec &state)

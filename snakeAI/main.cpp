@@ -4,6 +4,7 @@
 #include "gru.h"
 #include "mat.h"
 #include "tensor.h"
+#include "cnn.h"
 
 int main(int argc, char *argv[])
 {
@@ -13,6 +14,7 @@ int main(int argc, char *argv[])
     w.show();
     return a.exec();
 #else
+    Conv2D::test();
     //LSTM::test();
     //matrix::test();
     //Tensor::test();

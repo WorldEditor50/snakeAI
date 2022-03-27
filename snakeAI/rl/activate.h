@@ -55,23 +55,5 @@ struct Gelu {
     }
 };
 
-struct Softmax {
-    inline static void _(const Vec &x, Vec &y)
-    {
-        double s = 0;
-        for (std::size_t i = 0; i < x.size(); i++) {
-            s += exp(x[i]);
-        }
-        for (std::size_t i = 0; i < x.size(); i++) {
-             y[i] = exp(x[i]) / s;
-        }
-        return;
-    }
-    inline static double d(double y, double yt)
-    {
-        return y - yt;
-    }
-};
-
 }
 #endif // ACTIVATE_H

@@ -78,7 +78,7 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Vec &x, const RL::Vec &_h, const
         state.i[i] = Sigmoid::_(state.i[i] + Bi[i]);
         state.g[i] =    Tanh::_(state.g[i] + Bg[i]);
         state.o[i] = Sigmoid::_(state.o[i] + Bo[i]);
-        state.c[i] = state.f[i] * _c[i] + state.i[i] * state.g[i];
+        state.c[i] = state.f[i] * _c[i] + state.i[i]*state.g[i];
         state.h[i] = state.o[i] * Tanh::_(state.c[i]);
     }
     for (std::size_t i = 0; i < W.size(); i++) {
@@ -112,18 +112,18 @@ RL::Vec &RL::LSTM::forward(const RL::Vec &x)
     return y;
 }
 
-void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec> &E)
+void RL::LSTM::backwardAtTime(int t,
+                         const RL::Vec &x,
+                         const RL::Vec &E,
+                         State &delta_)
 {
     State delta(hiddenDim, outputDim);
-    State delta_(hiddenDim, outputDim);
-    /* backward through time */
-    for (int t = states.size() - 1; t >= 0; t--) {
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                delta.h[j] += W[i][j] * E[t][i];
-            }
+    for (std::size_t i = 0; i < W.size(); i++) {
+        for (std::size_t j = 0; j < W[0].size(); j++) {
+            delta.h[j] += W[i][j] * E[i];
         }
-#if 0
+    }
+    if (ema == false) {
         for (std::size_t i = 0; i < Ui.size(); i++) {
             for (std::size_t j = 0; j < Ui[0].size(); j++) {
                 delta.h[j] += Ui[i][j] * delta_.i[i];
@@ -132,7 +132,7 @@ void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec
                 delta.h[j] += Uo[i][j] * delta_.o[i];
             }
         }
-#else
+    } else {
         /* BPTT with EMA */
         for (std::size_t i = 0; i < Ui.size(); i++) {
             for (std::size_t j = 0; j < Ui[0].size(); j++) {
@@ -142,57 +142,65 @@ void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec
                 delta.h[j] = delta.h[j]*gamma + Uo[i][j] * delta_.o[i]*(1 - gamma);
             }
         }
-#endif
-        /*
-            δht = E + δht+1
-            δct = δht ⊙ ot ⊙ dtanh(ct) + δct+1 ⊙ ft+1
-            δot = δht ⊙ tanh(ct) ⊙ dsigmoid(ot)
-            δgt = δct ⊙ it ⊙ dtanh(gt)
-            δit = δct ⊙ gt ⊙ dsigmoid(it)
-            δft = δct ⊙ ct-1 ⊙ dsigmoid(ft)
-        */
-        Vec f_ = t < states.size() - 1 ? states[t + 1].f : Vec(hiddenDim, 0);
-        Vec _c = t > 0 ? states[t - 1].c : Vec(hiddenDim, 0);
-        for (std::size_t i = 0; i < delta.o.size(); i++) {
-            delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::d(states[t].c[i]) + delta_.c[i] * f_[i];
-            delta.o[i] = delta.h[i] * Tanh::_(states[t].c[i]) * Sigmoid::d(states[t].o[i]);
-            delta.g[i] = delta.c[i] * states[t].i[i] * Tanh::d(states[t].g[i]);
-            delta.i[i] = delta.c[i] * states[t].g[i] * Sigmoid::d(states[t].i[i]);
-            delta.f[i] = delta.c[i] * _c[i] * Sigmoid::d(states[t].f[i]);
+    }
+    /*
+        δht = E + δht+1
+        δct = δht ⊙ ot ⊙ dtanh(ct) + δct+1 ⊙ ft+1
+        δot = δht ⊙ tanh(ct) ⊙ dsigmoid(ot)
+        δgt = δct ⊙ it ⊙ dtanh(gt)
+        δit = δct ⊙ gt ⊙ dsigmoid(it)
+        δft = δct ⊙ ct-1 ⊙ dsigmoid(ft)
+    */
+    Vec f_ = t < states.size() - 1 ? states[t + 1].f : Vec(hiddenDim, 0);
+    Vec _c = t > 0 ? states[t - 1].c : Vec(hiddenDim, 0);
+    for (std::size_t i = 0; i < delta.o.size(); i++) {
+        delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::d(states[t].c[i]) + delta_.c[i] * f_[i];
+        delta.o[i] = delta.h[i] * Tanh::_(states[t].c[i]) * Sigmoid::d(states[t].o[i]);
+        delta.g[i] = delta.c[i] * states[t].i[i] * Tanh::d(states[t].g[i]);
+        delta.i[i] = delta.c[i] * states[t].g[i] * Sigmoid::d(states[t].i[i]);
+        delta.f[i] = delta.c[i] * _c[i] * Sigmoid::d(states[t].f[i]);
+    }
+    /* gradient */
+    for (std::size_t i = 0; i < W.size(); i++) {
+        for (std::size_t j = 0; j < W[0].size(); j++) {
+            d.W[i][j] += E[i] * Linear::d(states[t].y[i]) * states[t].h[j];
         }
-        /* gradient */
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                d.W[i][j] += E[t][i] * Linear::d(states[t].y[i]) * states[t].h[j];
-            }
-            d.B[i] += E[t][i] * Linear::d(states[t].y[i]);
+        d.B[i] += E[i] * Linear::d(states[t].y[i]);
+    }
+    for (std::size_t i = 0; i < Wi.size(); i++) {
+        for (std::size_t j = 0; j < Wi[0].size(); j++) {
+            d.Wi[i][j] += delta.i[i] * x[j];
+            d.Wf[i][j] += delta.f[i] * x[j];
+            d.Wg[i][j] += delta.g[i] * x[j];
+            d.Wo[i][j] += delta.o[i] * x[j];
         }
-        for (std::size_t i = 0; i < Wi.size(); i++) {
-            for (std::size_t j = 0; j < Wi[0].size(); j++) {
-                d.Wi[i][j] += delta.i[i] * x[t][j];
-                d.Wf[i][j] += delta.f[i] * x[t][j];
-                d.Wg[i][j] += delta.g[i] * x[t][j];
-                d.Wo[i][j] += delta.o[i] * x[t][j];
-            }
+    }
+    Vec _h = t > 0 ? states[t - 1].h : Vec(hiddenDim, 0);
+    for (std::size_t i = 0; i < Ui.size(); i++) {
+        for (std::size_t j = 0; j < Ui[0].size(); j++) {
+            d.Ui[i][j] += delta.i[i] * _h[j];
+            d.Uf[i][j] += delta.f[i] * _h[j];
+            d.Ug[i][j] += delta.g[i] * _h[j];
+            d.Uo[i][j] += delta.o[i] * _h[j];
         }
-        Vec _h = t > 0 ? states[t - 1].h : Vec(hiddenDim, 0);
-        for (std::size_t i = 0; i < Ui.size(); i++) {
-            for (std::size_t j = 0; j < Ui[0].size(); j++) {
-                d.Ui[i][j] += delta.i[i] * _h[j];
-                d.Uf[i][j] += delta.f[i] * _h[j];
-                d.Ug[i][j] += delta.g[i] * _h[j];
-                d.Uo[i][j] += delta.o[i] * _h[j];
-            }
-        }
-        for (std::size_t i = 0; i < Bi.size(); i++) {
-            d.Bi[i] += delta.i[i];
-            d.Bf[i] += delta.f[i];
-            d.Bg[i] += delta.g[i];
-            d.Bo[i] += delta.o[i];
-        }
-        /* next */
-        delta_ = delta;
-        delta.zero();
+    }
+    for (std::size_t i = 0; i < Bi.size(); i++) {
+        d.Bi[i] += delta.i[i];
+        d.Bf[i] += delta.f[i];
+        d.Bg[i] += delta.g[i];
+        d.Bo[i] += delta.o[i];
+    }
+    /* next */
+    delta_ = delta;
+    return;
+}
+
+void RL::LSTM::backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec> &E)
+{
+    State delta_(hiddenDim, outputDim);
+    /* backward through time */
+    for (int t = states.size() - 1; t >= 0; t--) {
+        backwardAtTime(t, x[t], E[t], delta_);
     }
     states.clear();
     return;

@@ -110,7 +110,7 @@ public:
 class LSTM : public LSTMParam
 {
 public:
-    struct Gain
+    struct Gamma
     {
         double i;
         double f;
@@ -177,6 +177,7 @@ public:
     void forward(const std::vector<Vec> &sequence);
     Vec &forward(const Vec &x);
     /* backward */
+    void backwardAtTime(int t, const Vec &x, const Vec &E, State &delta_);
     void backward(const std::vector<Vec> &x, const std::vector<Vec> &E);
     /* seq2seq */
     void gradient(const std::vector<Vec> &x, const std::vector<Vec> &yt);
@@ -191,6 +192,5 @@ public:
     void softUpdateTo(LSTM &dst, double rho);
     static void test();
 };
-
 }
 #endif // LSTM_H

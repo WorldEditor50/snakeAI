@@ -10,6 +10,7 @@
 #include <ctime>
 #include <cstdlib>
 #include "bpnn.h"
+#include "lstmnet.h"
 #include "rl_basic.h"
 namespace RL {
 
@@ -20,10 +21,10 @@ public:
     explicit PPO(int stateDim, int hiddenDim, int actionDim);
     ~PPO(){}
     Vec &eGreedyAction(const Vec &state);
-    BPNN &action(const Vec &state);
+    Vec &action(const Vec &state);
     Vec& output(){return actorP.output();}
-    void learnWithKLpenalty(OptType optType, double learningRate, std::vector<Transition>& x);
-    void learnWithClipObject(OptType optType, double learningRate, std::vector<Transition>& x);
+    void learnWithKLpenalty(double learningRate, std::vector<Transition>& trajectory);
+    void learnWithClipObjective(double learningRate, std::vector<Transition>& x);
     void save(const std::string &actorPara, const std::string &criticPara);
     void load(const std::string &actorPara, const std::string &criticPara);
 protected:
@@ -35,9 +36,9 @@ protected:
     double epsilon;
     double exploringRate;
     int learningSteps;
-    BPNN actorP;
-    BPNN actorQ;
-    BPNN critic;
+    LstmNet actorP;
+    LstmNet actorQ;
+    LstmNet critic;
 };
 }
 #endif // PPO_H

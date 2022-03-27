@@ -26,7 +26,7 @@ public:
                   double reward,
                   bool done);
     void setSA(const Vec& state, const Vec& action);
-    int noiseAction(const Vec &state);
+    Vec &noiseAction(const Vec &state);
     int randomAction();
     Vec& eGreedyAction(const Vec &state);
     Vec& output() {return actorP.output();}

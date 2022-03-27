@@ -15,6 +15,8 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
                          LayerNorm<Sigmoid>::_(hiddenDim_, hiddenDim_, false),
                          Layer<Sigmoid>::_(hiddenDim_, actionDim_, false));
     this->QMainNet.copyTo(QTargetNet);
+    QMainNet.lstm.ema = true;
+    QMainNet.lstm.gamma = 0.9;
 }
 
 void RL::QLSTM::perceive(Vec& state,
