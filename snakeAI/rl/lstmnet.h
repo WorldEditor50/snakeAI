@@ -17,7 +17,8 @@ public:
         :lstm(lstm_),bpnet(layer...){}
     Vec &forward(const Vec &x)
     {
-        bpnet.feedForward(lstm.forward(x));
+        Vec &out = lstm.forward(x);
+        bpnet.feedForward(out);
         return bpnet.output();
     }
     void forward(const std::vector<RL::Vec> &sequence)
@@ -67,10 +68,10 @@ public:
     }
     Vec& output(){return bpnet.output();}
     void reset() {lstm.reset();}
-    void optimize(double learningRate)
+    void optimize(double learningRate, double decay)
     {
-        lstm.RMSProp(learningRate);
-        bpnet.RMSProp(0.9, learningRate);
+        lstm.RMSProp(learningRate, 0.9, decay);
+        bpnet.RMSProp(0.9, learningRate, decay);
         return;
     }
 };

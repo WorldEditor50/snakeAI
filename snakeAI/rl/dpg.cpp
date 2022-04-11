@@ -5,10 +5,8 @@ RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
     this->exploringRate = 1;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->policyNet = BPNN(DropoutLayer<Tanh>::_(stateDim, hiddenDim, true, 0.5),
-                           Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+    this->policyNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                           DropoutLayer<Tanh>::_(hiddenDim, hiddenDim, true, 0.5),
                            Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                            SoftmaxLayer::_(hiddenDim, actionDim, true));
@@ -45,10 +43,10 @@ void RL::DPG::reinforce(OptType optType, double learningRate, std::vector<Step>&
     double u = RL::mean(discoutedReward);
     for (std::size_t i = 0; i < x.size(); i++) {
         int k = RL::argmax(x[i].action);
-        x[i].action[k] *= (discoutedReward[i] - u);
+        x[i].action[k] *= discoutedReward[i] - u;
         policyNet.gradient(x[i].state, x[i].action, Loss::CROSS_EMTROPY);
     }
-    policyNet.optimize(optType, learningRate);
+    policyNet.optimize(optType, learningRate, 0.1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;

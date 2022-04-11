@@ -43,9 +43,9 @@ public:
     void gradient(const Vec &x, const Vec &y);
     double gradient(const Vec &x, const Vec &y, LossFunc loss);
     void SGD(double learningRate = 0.001);
-    void RMSProp(double rho = 0.9, double learningRate = 0.001);
-    void Adam(double alpha1 = 0.9, double alpha2 = 0.99, double learningRate = 0.001);
-    void optimize(OptType optType = OPT_RMSPROP, double learningRate = 0.001);
+    void RMSProp(double rho = 0.9, double learningRate = 0.001, double decay = 0.01);
+    void Adam(double alpha1 = 0.9, double alpha2 = 0.99, double learningRate = 0.001, double decay = 0.01);
+    void optimize(OptType optType = OPT_RMSPROP, double learningRate = 0.001, double decay = 0.01);
     int argmax();
     int argmin();
     void show();

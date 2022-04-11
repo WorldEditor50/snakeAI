@@ -62,8 +62,8 @@ void RL::DDPG::setSA(const Vec &state, const Vec &actions)
 
 RL::Vec& RL::DDPG::noiseAction(const Vec &state)
 {
-    actorP.feedForward(state);
-    Vec& out = actorP.output();
+    actorQ.feedForward(state);
+    Vec& out = actorQ.output();
     std::uniform_real_distribution<double> distributionReal(0, 1);
     double p = distributionReal(Rand::engine);
     if (p < exploringRate) {
@@ -122,8 +122,13 @@ void RL::DDPG::experienceReplay(Transition& x)
     setSA(x.state, p);
     criticP.gradient(sa, cTarget, Loss::MSE);
     /* update actorMainNet */
-    Vec adv(p);
-    adv[i] *= -1*cMain[i];
+    Vec &actor = actorP.feedForward(x.state).output();
+    setSA(x.state, actor);
+    Vec &critic = criticP.feedForward(sa).output();
+    Vec adv(actor);
+    for (std::size_t k = 0; k < actionDim; k++) {
+        adv[k] =  critic[k] - actor[k]*log(actor[k]/critic[k]);
+    }
     actorP.gradient(x.state, adv, Loss::CROSS_EMTROPY);
     return;
 }
@@ -155,8 +160,8 @@ void RL::DDPG::learn(OptType optType,
         int k = distribution(Rand::engine);
         experienceReplay(memories[k]);
     }
-    actorP.optimize(optType, actorLearningRate);
-    criticP.optimize(optType, criticLearningRate);
+    actorP.optimize(optType, actorLearningRate, 0.1);
+    criticP.optimize(optType, criticLearningRate, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 3;

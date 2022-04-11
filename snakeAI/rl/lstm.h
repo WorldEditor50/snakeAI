@@ -1,4 +1,4 @@
-#ifndef LSTM_H
+﻿#ifndef LSTM_H
 #define LSTM_H
 #include <iostream>
 #include <memory>
@@ -185,12 +185,120 @@ public:
     void gradient(const std::vector<Vec> &x, const Vec &yt);
     /* optimize */
     void SGD(double learningRate);
-    void RMSProp(double learningRate, double rho = 0.9);
-    void Adam(double learningRate, double alpha = 0.9, double beta = 0.99);
+    void RMSProp(double learningRate, double rho = 0.9, double decay = 0.01);
+    void Adam(double learningRate, double alpha = 0.9, double beta = 0.99, double decay = 0.01);
     /* parameter */
     void copyTo(LSTM &dst);
     void softUpdateTo(LSTM &dst, double rho);
     static void test();
+};
+
+class LstmAttention
+{
+public:
+    std::size_t hiddenDim;
+    std::size_t attentionDim;
+    Mat w;
+    Vec u;
+    Vec y;
+public:
+    explicit LstmAttention(std::size_t hiddenDim_, std::size_t attentionDim_)
+        :hiddenDim(hiddenDim_), attentionDim(attentionDim_)
+    {
+        w = Mat(hiddenDim, Vec(attentionDim, 0));
+        u = Vec(attentionDim, 0);
+        y = Vec(hiddenDim, 0);
+        std::uniform_real_distribution<double> uniform(-1, 1);
+        for (std::size_t i = 0; i < attentionDim; i++) {
+            for (std::size_t j = 0; j < hiddenDim; j++) {
+                w[j][i] = uniform(Rand::engine);
+            }
+            u[i] = uniform(Rand::engine);
+        }
+    }
+    void forward(const std::vector<Vec> &o)
+    {
+        /* yi = softmax(tanh(o*w)*u) ⊙ o*/
+
+        std::size_t sequenceLen = o.size();
+        /*
+            o1 = tanh(o*w)
+            o:[sequence length, hiddenDim]
+            w:[hiddenDim, attentionDim]
+            o1:[sequence length, attentionDim]
+        */
+        Mat o1(sequenceLen, Vec(attentionDim, 0));
+        for (std::size_t i = 0; i < sequenceLen; i++) {
+            for (std::size_t j = 0; j < attentionDim; j++) {
+                for (std::size_t k = 0; k < hiddenDim; k++) {
+                    o1[i][j] += o[i][k]*w[k][j];
+                }
+            }
+        }
+        for (std::size_t i = 0; i < sequenceLen; i++) {
+            for (std::size_t j = 0; j < attentionDim; j++) {
+                o1[i][j] = tanh(o1[i][j]);
+            }
+        }
+        /*
+            o2 = o1*u
+            o1:[sequence length, attentionDim]
+            u:[attentionDim, 1]
+            o2:[sequence length, 1]
+        */
+        Vec o2(sequenceLen, 0);
+        for (std::size_t i = 0; i < sequenceLen; i++) {
+            for (std::size_t j = 0; j < attentionDim; j++) {
+                o2[i] += o1[i][j]*u[j];
+            }
+        }
+        /*
+            alpha = softmax(o2)
+            alpha:[sequence length, 1]
+        */
+        double s = 0;
+        for (std::size_t i = 0; i < sequenceLen; i++) {
+             s += exp(o2[i]);
+        }
+        Vec alpha(sequenceLen, 0);
+        for (std::size_t i = 0; i < sequenceLen; i++) {
+             alpha[i] = exp(o2[i])/s;
+        }
+        /*
+             o3 = o ⊙ alpha
+             o:[sequence length, hiddenDim]
+             alpha:[sequence length, 1]
+             o3:[sequence length, hiddenDim]
+        */
+        Mat o3(sequenceLen, Vec(hiddenDim, 0));
+        for (std::size_t i = 0; i < sequenceLen; i++) {
+            for (std::size_t j = 0; j < hiddenDim; j++) {
+                o3[i][j] = o[i][j]*alpha[i];
+            }
+        }
+        /*
+            y = sum(o3)
+            o3:[sequence length, hiddenDim]
+            y:[hiddenDim, 1]
+        */
+        for (std::size_t i = 0; i < hiddenDim; i++) {
+            for (std::size_t j = 0; j < sequenceLen; j++) {
+                y[i] += o3[j][i];
+            }
+        }
+        return;
+    }
+    void backward(const std::vector<Vec> &o, const std::vector<Vec> &E)
+    {
+        /*
+             yi = softmax(tanh(o*w)*u) ⊙ o
+             dyi/dw = dyi/dalpha ⊙ o
+             dyi/dalpha = exp(o2)/s * do2/do1
+             do2/do1 = u * do1/dw
+             do1/dw = (1 - o1^2)*o
+             do2/du = tanh(o*w)
+        */
+    }
 };
 }
 #endif // LSTM_H

@@ -109,38 +109,38 @@ void RL::BPNN::SGD(double learningRate)
     return;
 }
 
-void RL::BPNN::RMSProp(double rho, double learningRate)
+void RL::BPNN::RMSProp(double rho, double learningRate, double decay)
 {
     for (std::size_t i = 0; i < layers.size(); i++) {
-        layers[i]->RMSProp(rho, learningRate);
+        layers[i]->RMSProp(rho, learningRate, decay);
     }
     return;
 }
 
-void RL::BPNN::Adam(double alpha1, double alpha2, double learningRate)
+void RL::BPNN::Adam(double alpha1, double alpha2, double learningRate, double decay)
 {
     alpha1_t *= alpha1;
     alpha2_t *= alpha2;
     for (std::size_t i = 0; i < layers.size(); i++) {
-        layers[i]->Adam(alpha1, alpha2, alpha1_t, alpha2_t, learningRate);
+        layers[i]->Adam(alpha1, alpha2, alpha1_t, alpha2_t, learningRate, decay);
     }
     return;
 }
 
-void RL::BPNN::optimize(OptType optType, double learningRate)
+void RL::BPNN::optimize(OptType optType, double learningRate, double decay)
 {
     switch (optType) {
         case OPT_SGD:
             SGD(learningRate);
             break;
         case OPT_RMSPROP:
-            RMSProp(0.9, learningRate);
+            RMSProp(0.9, learningRate, decay);
             break;
         case OPT_ADAM:
-            Adam(0.9, 0.99, learningRate);
+            Adam(0.9, 0.99, learningRate, decay);
             break;
         default:
-            RMSProp(0.9, learningRate);
+            RMSProp(0.9, learningRate, decay);
             break;
     }
     return;

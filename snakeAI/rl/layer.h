@@ -18,18 +18,21 @@ public:
     virtual void backward(Vec &preE){}
     virtual void gradient(const Vec& x, const Vec&){}
     virtual void SGD(double learningRate){}
-    virtual void RMSProp(double rho, double learningRate){}
-    virtual void Adam(double alpha, double beta,double alpha_t, double beta_t, double learningRate){}
+    virtual void RMSProp(double rho, double learningRate, double decay){}
+    virtual void Adam(double alpha, double beta,double alpha_t, double beta_t, double learningRate, double decay){}
 };
 
 class LayerParam : public iLayer
 {
 public:
+    std::size_t inputDim;
+    std::size_t layerDim;
     Mat W;
     Vec B;
 public:
     LayerParam(){}
-    LayerParam(std::size_t inputDim, std::size_t layerDim)
+    LayerParam(std::size_t inputDim_, std::size_t layerDim_)
+        :inputDim(inputDim_), layerDim(layerDim_)
     {
         W = Mat(layerDim, Vec(inputDim, 0));
         B = Vec(layerDim, 0);
@@ -97,19 +100,19 @@ public:
         d.zero();
         return;
     }
-    void RMSProp(double rho, double learningRate) override
+    void RMSProp(double rho, double learningRate, double decay) override
     {
-        Optimizer::RMSProp(W, s.W, d.W, learningRate, rho);
-        Optimizer::RMSProp(B, s.B, d.B, learningRate, rho);
+        Optimizer::RMSProp(W, s.W, d.W, learningRate, rho, decay);
+        Optimizer::RMSProp(B, s.B, d.B, learningRate, rho, decay);
         d.zero();
         return;
     }
-    void Adam(double alpha, double beta, double alpha_t, double beta_t,double learningRate)override
+    void Adam(double alpha, double beta, double alpha_t, double beta_t,double learningRate, double decay)override
     {
         Optimizer::Adam(W, s.W, v.W, d.W,
-                        alpha_t, beta_t, learningRate, alpha, beta);
+                        alpha_t, beta_t, learningRate, alpha, beta, decay);
         Optimizer::Adam(B, s.B, v.B, d.B,
-                        alpha_t, beta_t, learningRate, alpha, beta);
+                        alpha_t, beta_t, learningRate, alpha, beta, decay);
         d.zero();
         return;
     }
@@ -334,13 +337,13 @@ template<typename ActF>
 class LayerNorm : public Layer<ActF>
 {
 public:
-    double g;
+    double gamma;
+    double gamma_;
 public:
     LayerNorm(){}
     ~LayerNorm(){}
-    explicit LayerNorm(std::size_t inputDim, std::size_t layerDim,
-                          bool trainFlag_)
-        :Layer<ActF>(inputDim, layerDim, trainFlag_), g(1){}
+    explicit LayerNorm(std::size_t inputDim, std::size_t layerDim, bool trainFlag_)
+        :Layer<ActF>(inputDim, layerDim, trainFlag_), gamma(1){}
 
     static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
                                     std::size_t layerDim,
@@ -359,19 +362,81 @@ public:
             }
         }
         double u = RL::mean(O);
-        double s = RL::variance(O, u);
-        g = 1 / sqrt(s + 1e-9);
+        double sigma = RL::variance(O, u);
+        gamma_ = gamma/sqrt(sigma + 1e-9);
         for (std::size_t i = 0; i < O.size(); i++) {
-            O[i] = ActF::_(g * (O[i] - u) + B[i]);
+            O[i] = ActF::_(gamma_*(O[i] - u) + B[i]);
         }
+
         return;
     }
     void backward(Vec &preE)
     {
         for (std::size_t i = 0; i < Layer<ActF>::E.size(); i++) {
-            Layer<ActF>::E[i] *= g;
+            Layer<ActF>::E[i] *= gamma_;
         }
         return Layer<ActF>::backward(preE);
+    }
+};
+
+template<typename ActF>
+class BatchNorm : public Layer<ActF>
+{
+public:
+    bool trainFlag;
+    Vec gamma;
+    Vec beta;
+    std::vector<RL::Vec> x_;
+    std::vector<RL::Vec> y;
+public:
+    explicit BatchNorm(std::size_t inputDim, std::size_t layerDim,
+                          bool trainFlag_)
+        :Layer<ActF>(inputDim, layerDim, trainFlag_), trainFlag(trainFlag_)
+    {
+
+    }
+
+    void feedForward(const RL::Vec &x) override
+    {
+        return;
+    }
+    void feedForward(const std::vector<RL::Vec> &x)
+    {
+        /* x(batchDim, inputDim)  */
+        /* u */
+        Vec u(x[0].size(), 0);
+        double batchSize = double(x.size());
+        for (std::size_t i = 0; i < x[0].size(); i++) {
+            for (std::size_t j = 0; j < x.size(); j++) {
+                u[i] += x[j][i];
+            }
+            u[i] /= batchSize;
+        }
+        /* sigma */
+        Vec sigma(x[0].size(), 0);
+        for (std::size_t i = 0; i < x[0].size(); i++) {
+            for (std::size_t j = 0; j < x.size(); j++) {
+                sigma[i] += (x[j][i] - u[i])*(x[j][i] - u[i]);
+            }
+        }
+        /* x_ = (x - u)/sqrt(sigma + 1e-9) */
+        for (std::size_t i = 0; i < x[0].size(); i++) {
+            for (std::size_t j = 0; j < x.size(); j++) {
+                x_[j][i] = (x[j][i] - u[j])/sqrt(sigma[i] + 1e-9);
+            }
+        }
+        /* y = gamma*x_ + beta */
+        for (std::size_t i = 0; i < x.size(); i++) {
+            for (std::size_t j = 0; j < x[0].size(); j++) {
+                y[i][j] = gamma[i]*x_[i][j] + beta[i];
+            }
+        }
+        return;
+    }
+    void backward(Vec &preE)
+    {
+
+        return;
     }
 };
 

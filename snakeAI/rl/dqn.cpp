@@ -104,7 +104,7 @@ void RL::DQN::learn(OptType optType,
         int k = distribution(Rand::engine);
         experienceReplay(memories[k]);
     }
-    QMainNet.optimize(optType, learningRate);
+    QMainNet.optimize(optType, learningRate, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 3;

@@ -10,7 +10,7 @@ RL::DRPG::DRPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDi
                               Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                               LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                               SoftmaxLayer::_(hiddenDim, actionDim, true));
-    policyNet.lstm.ema = true;
+    policyNet.lstm.ema = false;
     policyNet.lstm.gamma = 0.5;
 }
 
@@ -49,7 +49,7 @@ void RL::DRPG::reinforce(const std::vector<Vec> &x, std::vector<Vec> &y, std::ve
     }
     policyNet.forward(x);
     policyNet.backward(x, y, Loss::CROSS_EMTROPY);
-    policyNet.optimize(learningRate);
+    policyNet.optimize(learningRate, 0.01);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;

@@ -20,7 +20,7 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
     state.resize(stateDim);
     nextState.resize(stateDim);
     dqn.load("./dqn");
-    dpg.load("./dpg");
+    //dpg.load("./dpg");
     ddpg.load("./ddpg_actor", "./ddpg_critic");
     bpnn.load("./bpnn");
     ppo.load("./ppo_actor", "./ppo_critic");
@@ -242,7 +242,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
     observe(state, x, y, xt, yt);
     std::vector<double> state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 128; j++) {
+        for (std::size_t j = 0; j < 256; j++) {
             int xi = xn;
             int yi = yn;
             Vec& action = qlstm.eGreedyAction(state);
@@ -265,7 +265,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        qlstm.learn(8192, 256, 32, 0.001);
+        qlstm.learn(8192, 256, 16, 0.001);
     }
     /* making decision */
     Vec &action = qlstm.action(state_);
@@ -308,7 +308,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        dpg.reinforce(OPT_RMSPROP, 0.001, steps);
+        dpg.reinforce(OPT_RMSPROP, 0.00001, steps);
     }
     /* making decision */
     direct = dpg.action(state_);
@@ -327,7 +327,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt)
     observe(state, x, y, xt, yt);
     std::vector<double> state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 32; j++) {
+        for (std::size_t j = 0; j < 16; j++) {
             int xi = xn;
             int yi = yn;
             /* move */
@@ -371,13 +371,13 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
     observe(state, x, y, xt, yt);
     vector<double> state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 32; j++) {
+        for (std::size_t j = 0; j < 16; j++) {
             int xi = xn;
             int yi = yn;
             Vec & action = ddpg.noiseAction(state);
             int k = RL::argmax(action);
             simulateMove(xn, yn, k);
-            r = reward4(xi, yi, xn, yn, xt, yt);
+            r = reward1(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (map[xn][yn] == 1) {
@@ -394,7 +394,7 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        ddpg.learn(OPT_RMSPROP, 8192, 256, 32, 0.001, 0.0001);
+        ddpg.learn(OPT_RMSPROP, 8192, 256, 32, 0.001, 0.001);
     }
     return ddpg.action(state_);
 }

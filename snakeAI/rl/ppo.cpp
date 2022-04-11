@@ -94,10 +94,10 @@ void RL::PPO::learnWithKLpenalty(double learningRate, std::vector<RL::Transition
     }
     actorP.forward(x);
     actorP.backward(x, y, Loss::CROSS_EMTROPY);
-    actorP.optimize(learningRate);
+    actorP.optimize(learningRate, 0.01);
     critic.forward(x);
     critic.backward(x, reward, Loss::MSE);
-    critic.optimize(0.001);
+    critic.optimize(0.001, 0.01);
     /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
@@ -139,10 +139,10 @@ void RL::PPO::learnWithClipObjective(double learningRate, std::vector<RL::Transi
     }
     actorP.forward(x);
     actorP.backward(x, y, Loss::CROSS_EMTROPY);
-    actorP.optimize(learningRate);
+    actorP.optimize(learningRate, 0.01);
     critic.forward(x);
     critic.backward(x, reward, Loss::MSE);
-    critic.optimize(0.001);
+    critic.optimize(0.001, 0.01);
     /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;

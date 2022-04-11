@@ -6,14 +6,12 @@ SOURCES += $$PWD/bpnn.cpp \
             $$PWD/dpg.cpp \
             $$PWD/dqn.cpp \
             $$PWD/drpg.cpp \
-            $$PWD/gan.cpp \
             $$PWD/gru.cpp \
             $$PWD/lstm.cpp \
             $$PWD/mat.cpp \
             $$PWD/ppo.cpp \
             $$PWD/qlstm.cpp \
             $$PWD/tensor.cpp \
-            $$PWD/transformer.cpp \
             $$PWD/util.cpp
 
 HEADERS += $$PWD/bpnn.h \
@@ -23,7 +21,6 @@ HEADERS += $$PWD/bpnn.h \
             $$PWD/dpg.h \
             $$PWD/dqn.h \
             $$PWD/drpg.h \
-            $$PWD/gan.h \
             $$PWD/gru.h \
             $$PWD/layer.h \
             $$PWD/loss.h \
@@ -35,5 +32,4 @@ HEADERS += $$PWD/bpnn.h \
             $$PWD/qlstm.h \
             $$PWD/rl_basic.h \
             $$PWD/tensor.h \
-            $$PWD/transformer.h \
             $$PWD/util.h

@@ -16,7 +16,7 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
                          Layer<Sigmoid>::_(hiddenDim_, actionDim_, false));
     this->QMainNet.copyTo(QTargetNet);
     QMainNet.lstm.ema = true;
-    QMainNet.lstm.gamma = 0.9;
+    QMainNet.lstm.gamma = 0.7;
 }
 
 void RL::QLSTM::perceive(Vec& state,
@@ -108,7 +108,7 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
     }
     QMainNet.forward(x);
     QMainNet.backward(x, y, Loss::MSE);
-    QMainNet.optimize(learningRate);
+    QMainNet.optimize(learningRate, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;
