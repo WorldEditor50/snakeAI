@@ -40,7 +40,45 @@
        </size>
       </property>
       <layout class="QGridLayout" name="gridLayout">
-       <item row="5" column="1">
+       <item row="3" column="0">
+        <widget class="QLabel" name="lostLabel">
+         <property name="text">
+          <string>negative:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QCheckBox" name="trainCheckBox">
+         <property name="text">
+          <string>train agent</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="agentComboBox"/>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="winLabel">
+         <property name="text">
+          <string>positive:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QLabel" name="lostValueLabel">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLabel" name="winValueLabel">
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -57,54 +95,6 @@
         <widget class="QLabel" name="agentLabel">
          <property name="text">
           <string>agent:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="0">
-        <widget class="QLabel" name="blockLabel">
-         <property name="text">
-          <string>add blocks:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QLabel" name="winValueLabel">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="winLabel">
-         <property name="text">
-          <string>win:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="1">
-        <widget class="QSpinBox" name="blockSpinBox"/>
-       </item>
-       <item row="3" column="1">
-        <widget class="QLabel" name="lostValueLabel">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="lostLabel">
-         <property name="text">
-          <string>lost:</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QComboBox" name="agentComboBox"/>
-       </item>
-       <item row="1" column="0">
-        <widget class="QCheckBox" name="trainCheckBox">
-         <property name="text">
-          <string>train agent</string>
          </property>
         </widget>
        </item>

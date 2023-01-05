@@ -308,7 +308,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
         }
         emit totalReward(total);
         /* training */
-        dpg.reinforce(OPT_RMSPROP, 0.00001, steps);
+        dpg.reinforce(OPT_RMSPROP, 1e-5, steps);
     }
     /* making decision */
     direct = dpg.action(state_);

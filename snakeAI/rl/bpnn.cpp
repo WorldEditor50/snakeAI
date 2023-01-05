@@ -146,6 +146,19 @@ void RL::BPNN::optimize(OptType optType, double learningRate, double decay)
     return;
 }
 
+void RL::BPNN::clamp(double c0, double cn)
+{
+    for (std::size_t i = 0; i < layers.size(); i++) {
+        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
+            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
+                Optimizer::clamp(layers[i]->W, c0, cn);
+            }
+            Optimizer::clamp(layers[i]->B, c0, cn);
+        }
+    }
+    return;
+}
+
 int RL::BPNN::argmax()
 {
     return RL::argmax(layers.back()->O);

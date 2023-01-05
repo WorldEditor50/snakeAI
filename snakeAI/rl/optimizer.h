@@ -104,6 +104,28 @@ struct Optimizer
         }
         return;
     }
+    static void clamp(Mat &W, double c0, double cn)
+    {
+        std::uniform_real_distribution<double> distribution(c0, cn);
+        for (std::size_t i = 0; i < W.size(); i++) {
+            for (std::size_t j = 0; j < W[0].size(); j++) {
+                if (W[i][j] > cn || W[i][j] < c0) {
+                    W[i][j] = distribution(RL::Rand::engine);
+                }
+            }
+        }
+        return;
+    }
+    static void clamp(Vec &B, double c0, double cn)
+    {
+        std::uniform_real_distribution<double> distribution(c0, cn);
+        for (std::size_t i = 0; i < B.size(); i++) {
+            if (B[i] > cn || B[i] < c0) {
+                B[i] = distribution(RL::Rand::engine);
+            }
+        }
+        return;
+    }
 };
 
 }

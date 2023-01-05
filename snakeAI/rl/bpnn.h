@@ -46,6 +46,7 @@ public:
     void RMSProp(double rho = 0.9, double learningRate = 0.001, double decay = 0.01);
     void Adam(double alpha1 = 0.9, double alpha2 = 0.99, double learningRate = 0.001, double decay = 0.01);
     void optimize(OptType optType = OPT_RMSPROP, double learningRate = 0.001, double decay = 0.01);
+    void clamp(double c0, double cn);
     int argmax();
     int argmin();
     void show();

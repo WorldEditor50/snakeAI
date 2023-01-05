@@ -7,7 +7,7 @@ namespace RL {
 
 /* activate method */
 struct Sigmoid {
-    inline static double _(double x) {return exp(x)/(1 + exp(x));}
+    inline static double _(double x) {return 1.0/(1 + exp(-x));}
     inline static double d(double y) {return y*(1 - y);}
 };
 

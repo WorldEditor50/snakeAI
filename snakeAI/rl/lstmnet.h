@@ -54,6 +54,12 @@ public:
         lstm.states.clear();
         return;
     }
+    void clamp(double c)
+    {
+        bpnet.clamp(-c, c);
+        lstm.clamp(c);
+        return;
+    }
     void copyTo(LstmNet &dst)
     {
         bpnet.copyTo(dst.bpnet);

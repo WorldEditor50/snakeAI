@@ -11,7 +11,6 @@ SOURCES += $$PWD/bpnn.cpp \
             $$PWD/mat.cpp \
             $$PWD/ppo.cpp \
             $$PWD/qlstm.cpp \
-            $$PWD/tensor.cpp \
             $$PWD/util.cpp
 
 HEADERS += $$PWD/bpnn.h \
@@ -31,5 +30,4 @@ HEADERS += $$PWD/bpnn.h \
             $$PWD/ppo.h \
             $$PWD/qlstm.h \
             $$PWD/rl_basic.h \
-            $$PWD/tensor.h \
             $$PWD/util.h

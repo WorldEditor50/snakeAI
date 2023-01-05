@@ -13,7 +13,7 @@ RL::Conv2D::Conv2D(int inputSize_, int filterSize_, int paddingSize_,
     outputSize = (inputSize - filterSize + 2*paddingSize)/stride + 1;
     out = std::vector<Mat>(filterNum_, Mat(outputSize, Vec(outputSize, 0)));
     std::uniform_real_distribution<double> uniform(-1, 1);
-    for (int k = 0; k < filters.size(); k++) {
+    for (std::size_t k = 0; k < filters.size(); k++) {
         filters[k].random();
     }
 }
@@ -120,7 +120,7 @@ void RL::Conv2D::backward()
 
 void RL::Conv2D::RMSProp(double rho, double learningRate)
 {
-    for (int h = 0; h < filters.size(); h++) {
+    for (std::size_t h = 0; h < filters.size(); h++) {
         Optimizer::RMSProp(filters[h].w, sFilters[h].w, dFilters[h].w, rho, learningRate);
         Optimizer::RMSProp(filters[h].b, sFilters[h].b, dFilters[h].b, rho, learningRate);
         dFilters[h].zero();
@@ -132,8 +132,8 @@ void RL::Conv2D::test()
 {
     /* input */
     Mat x(6, Vec(6, 1));
-    for (int i = 0; i < x.size(); i++) {
-        for (int j = 0; j < x[0].size(); j++) {
+    for (std::size_t i = 0; i < x.size(); i++) {
+        for (std::size_t j = 0; j < x[0].size(); j++) {
             if (i == 0 || j == 0 || i == 5 || j == 5) {
                 x[i][j] = 2;
             }
@@ -145,15 +145,15 @@ void RL::Conv2D::test()
     /* convolution */
     layer.conv(layer.out[0], layer.filters[0].w, x);
     /* show */
-    for (int i = 0; i < x.size(); i++) {
-        for (int j = 0; j < x[0].size(); j++) {
+    for (std::size_t i = 0; i < x.size(); i++) {
+        for (std::size_t j = 0; j < x[0].size(); j++) {
             std::cout<<x[i][j]<<" ";
         }
         std::cout<<std::endl;
     }
     std::cout<<std::endl;
-    for (int i = 0; i < layer.out[0].size(); i++) {
-        for (int j = 0; j < layer.out[0][0].size(); j++) {
+    for (std::size_t i = 0; i < layer.out[0].size(); i++) {
+        for (std::size_t j = 0; j < layer.out[0][0].size(); j++) {
             std::cout<<layer.out[0][i][j]<<" ";
         }
         std::cout<<std::endl;

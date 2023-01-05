@@ -47,6 +47,7 @@ void RL::DPG::reinforce(OptType optType, double learningRate, std::vector<Step>&
         policyNet.gradient(x[i].state, x[i].action, Loss::CROSS_EMTROPY);
     }
     policyNet.optimize(optType, learningRate, 0.1);
+    //policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;

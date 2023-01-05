@@ -21,9 +21,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->lostValueLabel->setText("0");
     connect(gameWidget, &GameWidget::win, ui->winValueLabel, &QLabel::setText);
     connect(gameWidget, &GameWidget::lost, ui->lostValueLabel, &QLabel::setText);
-    ui->blockSpinBox->setMaximum(100);
-    connect(ui->blockSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
-            gameWidget, &GameWidget::setBlocks);
     ui->trainCheckBox->setChecked(true);
     connect(ui->trainCheckBox, &QCheckBox::clicked, gameWidget, &GameWidget::setTrain);
     /* show reward */

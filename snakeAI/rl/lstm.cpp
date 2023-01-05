@@ -306,6 +306,28 @@ void RL::LSTM::Adam(double learningRate,  double alpha, double beta, double deca
     return;
 }
 
+void RL::LSTM::clamp(double c)
+{
+    Optimizer::clamp(W, -c, c);
+    Optimizer::clamp(B, -c, c);
+
+    Optimizer::clamp(Wi, -c, c);
+    Optimizer::clamp(Wg, -c, c);
+    Optimizer::clamp(Wf, -c, c);
+    Optimizer::clamp(Wo, -c, c);
+
+    Optimizer::clamp(Ui, -c, c);
+    Optimizer::clamp(Ug, -c, c);
+    Optimizer::clamp(Uf, -c, c);
+    Optimizer::clamp(Uo, -c, c);
+
+    Optimizer::clamp(Bi, -c, c);
+    Optimizer::clamp(Bg, -c, c);
+    Optimizer::clamp(Bf, -c, c);
+    Optimizer::clamp(Bo, -c, c);
+    return;
+}
+
 void RL::LSTM::copyTo(LSTM &dst)
 {
     for (std::size_t i = 0; i < Wi.size(); i++) {

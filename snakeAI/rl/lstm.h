@@ -187,6 +187,7 @@ public:
     void SGD(double learningRate);
     void RMSProp(double learningRate, double rho = 0.9, double decay = 0.01);
     void Adam(double learningRate, double alpha = 0.9, double beta = 0.99, double decay = 0.01);
+    void clamp(double c);
     /* parameter */
     void copyTo(LSTM &dst);
     void softUpdateTo(LSTM &dst, double rho);
