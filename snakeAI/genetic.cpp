@@ -1,6 +1,6 @@
 #include "genetic.h"
 
-double Genetic::run(char OptimizeType, std::size_t iterate)
+float Genetic::run(char OptimizeType, std::size_t iterate)
 {
     for (std::size_t i = 0; i < iterate; i++) {
         calculateFitness();
@@ -49,7 +49,7 @@ void Genetic::eliminate(char OptimizeType)
 int Genetic::select()
 {
     int index = 0;
-    double p = double(rand() % 10000) / 10000;
+    float p = float(rand() % 10000) / 10000;
 	if (p <= group[0].accumulateFitness) {
         index = 0;
 	} else {
@@ -65,7 +65,7 @@ int Genetic::select()
 
 void Genetic::crossover(int index1, int index2)
 {
-    double p = double(rand() % 10000) / 10000;
+    float p = float(rand() % 10000) / 10000;
     if (p > crossRate) {
         return;
     }
@@ -75,7 +75,7 @@ void Genetic::crossover(int index1, int index2)
 
 void Genetic::mutate(int index)
 {
-    double p = double(rand() % 10000) / 10000;
+    float p = float(rand() % 10000) / 10000;
     if (p > mutateRate) {
 		return;
 	}
@@ -86,8 +86,8 @@ void Genetic::mutate(int index)
 
 void Genetic::calculateFitness()
 {
-    double sum = 0.0;
-    double value = 0.0;
+    float sum = 0.0;
+    float value = 0.0;
 	/* calulate fitness */
     for (std::size_t i = 0; i < group.size(); i++) {
         value = group[i].decode();
@@ -108,19 +108,19 @@ void Genetic::calculateFitness()
 
 void Genetic::show(int index)
 {
-    double value = 0.0;
-    double fitness = 0.0;
+    float value = 0.0;
+    float fitness = 0.0;
     value = group[index].decode();
     fitness = objectFunction(value);
 	return;
 }
 
-Genetic::Genetic(double crossRate, double mutateRate, int maxGroupSize, int maxCodeLen)
+Genetic::Genetic(float crossRate, float mutateRate, int maxGroupSize, int maxCodeLen)
 {
     create(crossRate, mutateRate, maxGroupSize, maxCodeLen);
 }
 
-void Genetic::create(double crossRate, double mutateRate, std::size_t maxGroupSize, int maxCodeLen)
+void Genetic::create(float crossRate, float mutateRate, std::size_t maxGroupSize, int maxCodeLen)
 {
     this->crossRate = crossRate;
     this->mutateRate = mutateRate;
@@ -131,7 +131,7 @@ void Genetic::create(double crossRate, double mutateRate, std::size_t maxGroupSi
     return;
 }
 
-double Genetic::objectFunction(double x)
+float Genetic::objectFunction(float x)
 {
     return 100 - x * x;
 }
@@ -162,13 +162,13 @@ Factor::Factor(const Factor& factor)
     this->accumulateFitness = factor.accumulateFitness;
 }
 
-double Factor::decode()
+float Factor::decode()
 {
-    double value = 0.0;
+    float value = 0.0;
     std::size_t len = code.size();
     std::size_t mid =  code.size() / 2;
     for (std::size_t i = 0; i < len; i++) {
-        value += double(code[i] * pow(2, mid - i - 1));
+        value += float(code[i] * pow(2, mid - i - 1));
     }
     if (code[len - 1] == 1) {
         value *= -1;

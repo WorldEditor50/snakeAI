@@ -21,13 +21,13 @@ protected:
 signals:
 
 public slots:
-    void addPoint(double y);
+    void addPoint(float y);
     void setInterval(int value);
     void setScale(int value);
 public:
     QList<QPointF> points;
     int timerID;
-    double x = 0;
+    float x = 0;
     int interval;
     int scale;
 };

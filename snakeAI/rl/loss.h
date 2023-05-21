@@ -7,21 +7,21 @@ namespace RL {
 /* loss type */
 struct Loss
 {
-    static void MSE(Vec& E, const Vec& O, const Vec& y)
+    static void MSE(Mat& E, const Mat& O, const Mat& y)
     {
         for (std::size_t i = 0; i < O.size(); i++) {
              E[i] = 2*(O[i] - y[i]);
         }
         return;
     }
-    static void CROSS_EMTROPY(Vec& E, const Vec& O, const Vec& y)
+    static void CROSS_EMTROPY(Mat& E, const Mat& O, const Mat& y)
     {
         for (std::size_t i = 0; i < O.size(); i++) {
             E[i] = -y[i] * log(O[i]);
         }
         return;
     }
-    static void BCE(Vec& E, const Vec& O, const Vec& y)
+    static void BCE(Mat& E, const Mat& O, const Mat& y)
     {
         for (std::size_t i = 0; i < O.size(); i++) {
             E[i] = -(y[i] * log(O[i]) + (1 - y[i]) * log(1 - O[i]));

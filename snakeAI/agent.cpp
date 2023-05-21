@@ -1,6 +1,6 @@
 #include "agent.h"
 #include <QDebug>
-Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
+Agent::Agent(QObject *parent, Mat& map, Snake &s):
     QObject(parent),
     map(map),
     snake(s),
@@ -17,8 +17,8 @@ Agent::Agent(QObject *parent, vector<vector<int> >& map, Snake &s):
                 Layer<Sigmoid>::_(16, 4, true));
     qlstm = QLSTM(stateDim, 16, 4);
     drpg = DRPG(stateDim, 32, 4);
-    state.resize(stateDim);
-    nextState.resize(stateDim);
+    state = Mat(stateDim, 1);
+    nextState = Mat(stateDim, 1);
     dqn.load("./dqn");
     //dpg.load("./dpg");
     ddpg.load("./ddpg_actor", "./ddpg_critic");
@@ -35,45 +35,45 @@ Agent::~Agent()
     ppo.save("./ppo_actor", "./ppo_critic");
 }
 
-double Agent::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map[xn][yn] == 1) {
+    if (map(xn, yn) == 1) {
         return -1;
     }
     if (xn == xt && yn == yt) {
         return 1;
     }
-    double d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    double d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    double r = sqrt(d1) - sqrt(d2);
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    float r = sqrt(d1) - sqrt(d2);
     return r / sqrt(r * r + 1);
 }
 
-double Agent::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map[xn][yn] == 1) {
+    if (map(xn, yn) == 1) {
         return -1;
     }
     if (xn == xt && yn == yt) {
         return 1;
     }
-    double d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    double d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    double r = d1 - d2;
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    float r = d1 - d2;
     return r / sqrt(1 + r*r);
 }
 
-double Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map[xn][yn] == 1) {
+    if (map(xn, yn) == 1) {
         return -1;
     }
     if (xn == xt && yn == yt) {
         return 1;
     }
-    double d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    double d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    double r = 0;
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    float r = 0;
     if (d1 > d2) {
         r = 0.8;
     } else {
@@ -82,36 +82,36 @@ double Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
     return r;
 }
 
-double Agent::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map[xn][yn] == 1) {
+    if (map(xn, yn) == 1) {
         return -1;
     }
     if (xn == xt && yn == yt) {
         return 1;
     }
-    double d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    double d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    double r = sqrt(d1) - sqrt(d2);
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    float r = sqrt(d1) - sqrt(d2);
     return 1.5 * r / (1 + r * r);
 }
 
-double Agent::reward5(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward5(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map[xn][yn] == 1) {
+    if (map(xn, yn) == 1) {
         return -1;
     }
     if (xn == xt && yn == yt) {
         return 1;
     }
-    double d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    double d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
     return sqrt(d1) - sqrt(d2);
 }
 
-double Agent::reward6(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward6(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map[xn][yn] == 1) {
+    if (map(xn, yn) == 1) {
         return -1;
     }
     if (xn == xt && yn == yt) {
@@ -120,10 +120,10 @@ double Agent::reward6(int xi, int yi, int xn, int yn, int xt, int yt)
     return 0;
 }
 
-void Agent::observe(vector<double>& statex, int x, int y, int xt, int yt)
+void Agent::observe(Mat& statex, int x, int y, int xt, int yt)
 {
-    double xc = double(map.size()) / 2;
-    double yc = double(map[0].size()) / 2;
+    float xc = float(map.rows) / 2;
+    float yc = float(map.cols) / 2;
     statex[0] = (x - xc) / xc;
     statex[1] = (y - yc) / yc;
     statex[2] = (xt - xc) / xc;
@@ -164,9 +164,9 @@ int Agent::randAction(int x, int y, int xt, int yt)
     int xn = x;
     int yn = y;
     int direct = 0;
-    double gamma = 0.9;
-    double T = 10000;
-    std::vector<double> act(4, 0);
+    float gamma = 0.9;
+    float T = 10000;
+    Mat act(4, 1);
     while (T > 0.001) {
         /* do experiment */
         while (T > 0.01) {
@@ -175,16 +175,16 @@ int Agent::randAction(int x, int y, int xt, int yt)
             int yi = yn;
             simulateMove(xn, yn, direct);
             act[direct] = gamma * act[direct] + reward4(xi, yi, xn, yn, xt, yt);
-            if ((map[xn][yn] == 1) || (xn == xt && yn == yt)) {
+            if ((map(xn, yn) == 1) || (xn == xt && yn == yt)) {
                 break;
             }
         }
         xn = x;
         yn = y;
         /* select optimal Action */
-        direct = RL::argmax(act);
+        direct = act.argmax();
         simulateMove(xn, yn, direct);
-        if (map[xn][yn] != 1) {
+        if (map(xn, yn) != 1) {
             break;
         }
         /* punishment */
@@ -199,21 +199,21 @@ int Agent::dqnAction(int x, int y, int xt, int yt)
     /* exploring environment */
     int xn = x;
     int yn = y;
-    double r = 0;
-    double total = 0;
+    float r = 0;
+    float total = 0;
     observe(state, x, y, xt, yt);
-    std::vector<double> state_ = state;
+    Mat state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 128; j++) {
             int xi = xn;
             int yi = yn;
-            Vec& action = dqn.eGreedyAction(state);
-            int k = RL::argmax(action);
+            Mat& action = dqn.eGreedyAction(state);
+            int k = action.argmax();
             simulateMove(xn, yn, k);
             r = reward1(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
-            if (map[xn][yn] == 1) {
+            if (map(xn, yn) == 1) {
                 dqn.perceive(state, action, nextState, r, true);
                 break;
             }
@@ -237,21 +237,21 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
 {
     int xn = x;
     int yn = y;
-    double r = 0;
-    double total = 0;
+    float r = 0;
+    float total = 0;
     observe(state, x, y, xt, yt);
-    std::vector<double> state_ = state;
+    Mat state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 256; j++) {
             int xi = xn;
             int yi = yn;
-            Vec& action = qlstm.eGreedyAction(state);
-            int k = RL::argmax(action);
+            Mat& action = qlstm.eGreedyAction(state);
+            int k = action.argmax();
             simulateMove(xn, yn, k);
             r = reward1(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
-            if (map[xn][yn] == 1) {
+            if (map(xn, yn) == 1) {
                 qlstm.perceive(state, action, nextState, r, true);
                 break;
             }
@@ -268,12 +268,12 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
         qlstm.learn(8192, 256, 16, 0.001);
     }
     /* making decision */
-    Vec &action = qlstm.action(state_);
+    Mat &action = qlstm.action(state_);
     for (std::size_t i = 0; i < action.size(); i++) {
         std::cout<<action[i]<<" ";
     }
     std::cout<<std::endl;
-    return RL::argmax(action);
+    return action.argmax();
 }
 
 int Agent::dpgAction(int x, int y, int xt, int yt)
@@ -283,16 +283,16 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
     std::vector<Step> steps;
     int xn = x;
     int yn = y;
-    double total = 0;
+    float total = 0;
     observe(state, x, y, xt, yt);
-    std::vector<double> state_ = state;
+    Mat state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 16; j++) {
             int xi = xn;
             int yi = yn;
             /* sample */
-            Vec &output = dpg.eGreedyAction(state);
-            direct = RL::argmax(output);
+            Mat &output = dpg.eGreedyAction(state);
+            direct = output.argmax();
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
             Step s;
@@ -301,7 +301,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
             s.reward  = reward1(xi, yi, xn, yn, xt, yt);
             total += s.reward;
             steps.push_back(s);
-            if (map[xn][yn] == 1 || (xn == xt && yn == yt)) {
+            if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
                 break;
             }
             state = nextState;
@@ -318,24 +318,24 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
 int Agent::drpgAction(int x, int y, int xt, int yt)
 {
     int direct = 0;
-    std::vector<Vec> states;
-    std::vector<Vec> actions;
-    std::vector<double> rewards;
+    std::vector<Mat> states;
+    std::vector<Mat> actions;
+    std::vector<float> rewards;
     int xn = x;
     int yn = y;
-    double total = 0;
+    float total = 0;
     observe(state, x, y, xt, yt);
-    std::vector<double> state_ = state;
+    Mat state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 16; j++) {
             int xi = xn;
             int yi = yn;
             /* move */
-            Vec &output = drpg.eGreedyAction(state);
-            direct = RL::argmax(output);
+            Mat &output = drpg.eGreedyAction(state);
+            direct = output.argmax();
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
-            double r = reward1(xi, yi, xn, yn, xt, yt);
+            float r = reward1(xi, yi, xn, yn, xt, yt);
             /* sparse sample */
             //if (j%8 == 0 || (xn == xt && yn == yt) || map[xn][yn] == 1) {
                 states.push_back(state);
@@ -343,7 +343,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt)
                 rewards.push_back(r);
             //}
             total += r;
-            if (map[xn][yn] == 1 || (xn == xt && yn == yt)) {
+            if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
                 break;
             }
             state = nextState;
@@ -353,12 +353,12 @@ int Agent::drpgAction(int x, int y, int xt, int yt)
         drpg.reinforce(states, actions, rewards, 0.001);
     }
     /* making decision */
-    Vec &a = drpg.action(state_);
+    Mat &a = drpg.action(state_);
     for (std::size_t i = 0; i < a.size(); i++) {
         std::cout<<a[i]<<" ";
     }
     std::cout<<std::endl;
-    return RL::argmax(a);
+    return a.argmax();
 }
 
 int Agent::ddpgAction(int x, int y, int xt, int yt)
@@ -366,21 +366,21 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
     /* exploring environment */
     int xn = x;
     int yn = y;
-    double r = 0;
-    double total = 0;
+    float r = 0;
+    float total = 0;
     observe(state, x, y, xt, yt);
-    vector<double> state_ = state;
+    Mat state_ = state;
     if (trainFlag == true) {
         for (std::size_t j = 0; j < 16; j++) {
             int xi = xn;
             int yi = yn;
-            Vec & action = ddpg.noiseAction(state);
-            int k = RL::argmax(action);
+            Mat & action = ddpg.noiseAction(state);
+            int k = action.argmax();
             simulateMove(xn, yn, k);
             r = reward1(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
-            if (map[xn][yn] == 1) {
+            if (map(xn, yn) == 1) {
                 ddpg.perceive(state, action, nextState, r, true);
                 break;
             }
@@ -404,21 +404,21 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
     /* exploring environment */
     int xn = x;
     int yn = y;
-    double total = 0;
+    float total = 0;
     observe(state, x, y, xt, yt);
-    std::vector<double> state_ = state;
+    Mat state_ = state;
     if (trainFlag == true) {
         std::vector<Transition> trans;
         for (std::size_t j = 0; j < 32; j++) {
             int xi = xn;
             int yi = yn;
             /* sample */
-            Vec &output = ppo.eGreedyAction(state);
-            int direct = RL::argmax(output);
+            Mat &output = ppo.eGreedyAction(state);
+            int direct = output.argmax();
             /* move */
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
-            double r = reward4(xi, yi, xn, yn, xt, yt);
+            float r = reward4(xi, yi, xn, yn, xt, yt);
             //if (j%8 == 0 || (xn == xt && yn == yt) || map[xn][yn] == 1) {
                 Transition transition;
                 transition.state = state;
@@ -427,7 +427,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
                 trans.push_back(transition);
             //}
             total += r;
-            if (map[xn][yn] == 1 || (xn == xt && yn == yt)) {
+            if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
                 break;
             }
             state = nextState;
@@ -437,12 +437,12 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
         ppo.learnWithClipObjective(0.01, trans);
     }
     /* making decision */
-    Vec &a = ppo.action(state_);
+    Mat &a = ppo.action(state_);
     for (std::size_t i = 0; i < a.size(); i++) {
         std::cout<<a[i]<<" ";
     }
     std::cout<<std::endl;
-    return RL::argmax(a);
+    return a.argmax();
 }
 
 int Agent::supervisedAction(int x, int y, int xt, int yt)
@@ -451,16 +451,16 @@ int Agent::supervisedAction(int x, int y, int xt, int yt)
     int direct2 = 0;
     int xn = x;
     int yn = y;
-    double m = 0;
-    std::vector<double>& action = bpnn.output();
+    float m = 0;
+    Mat& action = bpnn.output();
     if (trainFlag == true) {
         observe(state, xn, yn, xt, yt);
         for (std::size_t i = 0; i < 128; i++) {
             bpnn.feedForward(state);
-            direct1 = RL::argmax(action);
+            direct1 = action.argmax();
             direct2 = astarAction(xn, yn, xt, yt);
             if (direct1 != direct2) {
-                std::vector<double> target(4, 0);
+                Mat target(4, 1);
                 target[direct2] = 1;
                 bpnn.gradient(state, target, Loss::MSE);
                 m++;
@@ -468,7 +468,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt)
             if ((xn == xt) && (yn == yt)) {
                 break;
             }
-            if (map[xn][yn] == 1) {
+            if (map(xn, yn) == 1) {
                 break;
             }
             observe(state, xn, yn, xt, yt);
@@ -479,7 +479,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt)
     }
     observe(state, x, y, xt, yt);
     bpnn.feedForward(state);
-    direct1 = RL::argmax(action);
+    direct1 = action.argmax();
     bpnn.show();
     return direct1;
 }
@@ -488,7 +488,7 @@ bool Agent::simulateMove(int& x, int& y, int direct)
 {
     moving(x, y, direct);
     bool flag = true;
-    if (map[x][y] == 1) {
+    if (map(x, y) == 1) {
         flag = false;
     }
     return flag;

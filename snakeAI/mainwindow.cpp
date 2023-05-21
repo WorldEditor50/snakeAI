@@ -13,20 +13,18 @@ MainWindow::MainWindow(QWidget *parent)
     /* info */
     ui->agentComboBox->addItems(QStringList{"dpg", "ppo", "dqn", "qlstm", "drpg", "ddpg", "astar", "rand"});
     /* game */
-    gameWidget = new GameWidget(ui->gamewidget);
-    gameWidget->move(0, 0);
     connect(ui->agentComboBox, &QComboBox::currentTextChanged,
-            gameWidget, &GameWidget::setAgent);
+            ui->gamewidget, &GameWidget::setAgent);
     ui->winValueLabel->setText("0");
     ui->lostValueLabel->setText("0");
-    connect(gameWidget, &GameWidget::win, ui->winValueLabel, &QLabel::setText);
-    connect(gameWidget, &GameWidget::lost, ui->lostValueLabel, &QLabel::setText);
+    connect(ui->gamewidget, &GameWidget::win, ui->winValueLabel, &QLabel::setText);
+    connect(ui->gamewidget, &GameWidget::lost, ui->lostValueLabel, &QLabel::setText);
     ui->trainCheckBox->setChecked(true);
-    connect(ui->trainCheckBox, &QCheckBox::clicked, gameWidget, &GameWidget::setTrain);
+    connect(ui->trainCheckBox, &QCheckBox::clicked, ui->gamewidget, &GameWidget::setTrain);
     /* show reward */
     totalRewardWidget = new AxisWidget;
     totalRewardWidget->setWindowTitle("Total reward per epoch");
-    connect(&gameWidget->agent, &Agent::totalReward,
+    connect(&ui->gamewidget->agent, &Agent::totalReward,
             totalRewardWidget, &AxisWidget::addPoint);
     totalRewardWidget->move(1000, 0);
     totalRewardWidget->show();

@@ -8,7 +8,6 @@ SOURCES += $$PWD/bpnn.cpp \
             $$PWD/drpg.cpp \
             $$PWD/gru.cpp \
             $$PWD/lstm.cpp \
-            $$PWD/mat.cpp \
             $$PWD/ppo.cpp \
             $$PWD/qlstm.cpp \
             $$PWD/util.cpp
@@ -25,7 +24,7 @@ HEADERS += $$PWD/bpnn.h \
             $$PWD/loss.h \
             $$PWD/lstm.h \
             $$PWD/lstmnet.h \
-            $$PWD/mat.h \
+            $$PWD/mat.hpp \
             $$PWD/optimizer.h \
             $$PWD/ppo.h \
             $$PWD/qlstm.h \

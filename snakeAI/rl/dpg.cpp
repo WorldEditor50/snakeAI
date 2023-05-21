@@ -12,12 +12,12 @@ RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
                            SoftmaxLayer::_(hiddenDim, actionDim, true));
 }
 
-RL::Vec &RL::DPG::eGreedyAction(const Vec &state)
+RL::Mat &RL::DPG::eGreedyAction(const Mat &state)
 {
-    std::uniform_real_distribution<double> distributionReal(0, 1);
-    double p = distributionReal(Rand::engine);
+    std::uniform_real_distribution<float> distributionReal(0, 1);
+    float p = distributionReal(Rand::engine);
     if (p < exploringRate) {
-        policyNet.output().assign(actionDim, 0);
+        policyNet.output().zero();
         std::uniform_int_distribution<int> distribution(0, actionDim - 1);
         int index = distribution(Rand::engine);
         policyNet.output()[index] = 1;
@@ -27,22 +27,22 @@ RL::Vec &RL::DPG::eGreedyAction(const Vec &state)
     return policyNet.output();
 }
 
-int RL::DPG::action(const Vec &state)
+int RL::DPG::action(const Mat &state)
 {
     return policyNet.show(), policyNet.feedForward(state).argmax();
 }
 
-void RL::DPG::reinforce(OptType optType, double learningRate, std::vector<Step>& x)
+void RL::DPG::reinforce(OptType optType, float learningRate, std::vector<Step>& x)
 {
-    double r = 0;
-    Vec discoutedReward(x.size(), 0);
+    float r = 0;
+    Mat discoutedReward(x.size(), 1);
     for (int i = x.size() - 1; i >= 0; i--) {
         r = gamma * r + x[i].reward;
         discoutedReward[i] = r;
     }
-    double u = RL::mean(discoutedReward);
+    float u = discoutedReward.mean();
     for (std::size_t i = 0; i < x.size(); i++) {
-        int k = RL::argmax(x[i].action);
+        int k = x[i].action.argmax();
         x[i].action[k] *= discoutedReward[i] - u;
         policyNet.gradient(x[i].state, x[i].action, Loss::CROSS_EMTROPY);
     }

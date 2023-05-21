@@ -12,18 +12,15 @@ void Board::init(size_t w, size_t h)
     this->cols = height / unitLen - 2;
     std::cout<<"rows:"<<rows<<"cols:"<<cols<<std::endl;
     /* init map */
-    map.resize(rows);
-    for (std::size_t i = 0; i < rows; i++) {
-        map[i].resize(cols);
-    }
+    map = RL::Mat(rows, cols);
     for (std::size_t i = 0; i < rows; i++) {
         for (std::size_t j = 0; j < cols; j++) {
             if (i == 0 || i == rows - 1) {
-                map[i][j] = 1;
+                map(i, j) = 1;
             } else if (j == 0 || j == cols - 1) {
-                map[i][j] = 1;
+                map(i, j) = 1;
             } else {
-                map[i][j] = 0;
+                map(i, j) = 0;
             }
         }
     }
@@ -38,7 +35,7 @@ void Board::setTarget()
 {
     int x = rand() % (rows - 1);
     int y = rand() % (cols - 1);
-    while (map[x][y] == 1) {
+    while (map(x, y) == 1) {
         x = rand() % (rows - 1);
         y = rand() % (cols - 1);
     }
@@ -71,7 +68,7 @@ void Board::setBlocks(int N)
             x = rand() % rows;
             y = rand() % cols;
         }
-        map[x][y] = 1;
+        map(x, y) = 1;
     }
     blockNum = N;
     return;

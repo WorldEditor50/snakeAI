@@ -31,12 +31,12 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
     critic.lstm.gamma = 0.5;
 }
 
-RL::Vec &RL::PPO::eGreedyAction(const Vec &state)
+RL::Mat &RL::PPO::eGreedyAction(const Mat &state)
 {
-    std::uniform_real_distribution<double> distributionReal(0, 1);
-    double p = distributionReal(Rand::engine);
+    std::uniform_real_distribution<float> distributionReal(0, 1);
+    float p = distributionReal(Rand::engine);
     if (p < exploringRate) {
-        actorQ.output().assign(actionDim, 0);
+        actorQ.output().zero();
         std::uniform_int_distribution<int> distribution(0, actionDim - 1);
         int index = distribution(Rand::engine);
         actorQ.output()[index] = 1;
@@ -46,16 +46,16 @@ RL::Vec &RL::PPO::eGreedyAction(const Vec &state)
     return actorQ.output();
 }
 
-RL::Vec &RL::PPO::action(const Vec &state)
+RL::Mat &RL::PPO::action(const Mat &state)
 {
     return actorP.forward(state);
 }
 
-void RL::PPO::learnWithKLpenalty(double learningRate, std::vector<RL::Transition> &trajectory)
+void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Transition> &trajectory)
 {
     /* reward */
     int end = trajectory.size() - 1;
-    double r = RL::max(critic.forward(trajectory[end].state));
+    float r = critic.forward(trajectory[end].state).max();
     for (int i = end; i >= 0; i--) {
         r = trajectory[i].reward + gamma * r;
         trajectory[i].reward = r;
@@ -65,28 +65,28 @@ void RL::PPO::learnWithKLpenalty(double learningRate, std::vector<RL::Transition
         //actorP.copyTo(actorQ);
         learningSteps = 0;
     }
-    double KLexpect = 0;
-    std::vector<Vec> x;
-    std::vector<Vec> y;
-    std::vector<Vec> reward(trajectory.size(), Vec(actionDim, 0));
+    float KLexpect = 0;
+    std::vector<Mat> x;
+    std::vector<Mat> y;
+    std::vector<Mat> reward(trajectory.size(), Mat(actionDim, 1));
     for (std::size_t t = 0; t < trajectory.size(); t++) {
-        int k = RL::argmax(trajectory[t].action);
+        int k = trajectory[t].action.argmax();
         /* advangtage */
-        Vec& v = critic.forward(trajectory[t].state);
-        double advantage = trajectory[t].reward - v[k];
+        Mat& v = critic.forward(trajectory[t].state);
+        float advantage = trajectory[t].reward - v[k];
         /* critic */
         reward[t][k] = trajectory[t].reward;
         /* actor */
-        Vec& q = trajectory[t].action;
-        Vec& p = actorP.forward(trajectory[t].state);
-        double kl = p[k] * log(p[k]/q[k]);
+        Mat& q = trajectory[t].action;
+        Mat& p = actorP.forward(trajectory[t].state);
+        float kl = p[k] * log(p[k]/q[k]);
         q[k] += p[k] / q[k] * advantage - beta * kl;
         KLexpect += kl;
         x.push_back(trajectory[t].state);
         y.push_back(q);
     }
     /* KL-Penalty */
-    KLexpect /= double(trajectory.size());
+    KLexpect /= float(trajectory.size());
     if (KLexpect >= 1.5 * delta) {
         beta *= 2;
     } else if (KLexpect <= delta / 1.5) {
@@ -105,7 +105,7 @@ void RL::PPO::learnWithKLpenalty(double learningRate, std::vector<RL::Transition
     return;
 }
 
-void RL::PPO::learnWithClipObjective(double learningRate, std::vector<RL::Transition> &trajectory)
+void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Transition> &trajectory)
 {
     if (learningSteps % 10 == 0) {
         actorP.softUpdateTo(actorQ, 0.01);
@@ -113,25 +113,25 @@ void RL::PPO::learnWithClipObjective(double learningRate, std::vector<RL::Transi
         learningSteps = 0;
     }
     int end = trajectory.size() - 1;
-    double r = RL::max(critic.forward(trajectory[end].state));
+    float r = critic.forward(trajectory[end].state).max();
     for (int i = end; i >= 0; i--) {
         r = trajectory[i].reward + gamma * r;
         trajectory[i].reward = r;
     }
-    std::vector<Vec> x;
-    std::vector<Vec> y;
-    std::vector<Vec> reward(trajectory.size(), Vec(actionDim, 0));
+    std::vector<Mat> x;
+    std::vector<Mat> y;
+    std::vector<Mat> reward(trajectory.size(), Mat(actionDim, 1));
     for (std::size_t t = 0; t < trajectory.size(); t++) {
-        int k = RL::argmax(trajectory[t].action);
+        int k = trajectory[t].action.argmax();
         /* advangtage */
-        Vec& v = critic.forward(trajectory[t].state);
-        double adv = trajectory[t].reward - v[k];
+        Mat& v = critic.forward(trajectory[t].state);
+        float adv = trajectory[t].reward - v[k];
         /* critic */
         reward[t][k] = trajectory[t].reward;
         /* actor */
-        Vec& q = trajectory[t].action;
-        Vec& p = actorP.forward(trajectory[t].state);
-        double ratio = p[k]/q[k];
+        Mat& q = trajectory[t].action;
+        Mat& p = actorP.forward(trajectory[t].state);
+        float ratio = p[k]/q[k];
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
         q[k] += ratio * adv;
         x.push_back(trajectory[t].state);

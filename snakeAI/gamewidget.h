@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QPaintEvent>
 #include <QCloseEvent>
+#include <QResizeEvent>
 #include <QThread>
 #include <QTimer>
 #include <QMap>

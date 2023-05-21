@@ -11,19 +11,19 @@ public:
     DRPG(){}
     explicit DRPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     ~DRPG(){}
-    Vec &eGreedyAction(const Vec &state);
-    Vec &output(){return policyNet.output();}
-    Vec &action(const Vec &state);
-    void reinforce(const std::vector<Vec> &x,
-                   std::vector<Vec> &y,
-                   std::vector<double>& reward,
-                   double learningRate);
+    Mat &eGreedyAction(const Mat &state);
+    Mat &output(){return policyNet.output();}
+    Mat &action(const Mat &state);
+    void reinforce(const std::vector<Mat> &x,
+                   std::vector<Mat> &y,
+                   std::vector<float>& reward,
+                   float learningRate);
 protected:
     std::size_t stateDim;
     std::size_t actionDim;
-    double gamma;
-    double exploringRate;
-    double learningRate;
+    float gamma;
+    float exploringRate;
+    float learningRate;
     LstmNet policyNet;
 };
 }

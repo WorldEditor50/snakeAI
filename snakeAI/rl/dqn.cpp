@@ -20,10 +20,10 @@ RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
     this->QMainNet.copyTo(QTargetNet);
 }
 
-void RL::DQN::perceive(Vec& state,
-        Vec& action,
-        Vec& nextState,
-        double reward,
+void RL::DQN::perceive(Mat& state,
+        Mat& action,
+        Mat& nextState,
+        float reward,
         bool done)
 {
     if (state.size() != stateDim || nextState.size() != stateDim) {
@@ -33,13 +33,13 @@ void RL::DQN::perceive(Vec& state,
     return;
 }
 
-RL::Vec& RL::DQN::eGreedyAction(Vec &state)
+RL::Mat& RL::DQN::eGreedyAction(Mat &state)
 {
-    std::uniform_real_distribution<double> distributionReal(0, 1);
-    double p = distributionReal(Rand::engine);
-    Vec &out = QMainNet.output();
+    std::uniform_real_distribution<float> distributionReal(0, 1);
+    float p = distributionReal(Rand::engine);
+    Mat &out = QMainNet.output();
     if (p < exploringRate) {
-        out.assign(actionDim, 0);
+        out.zero();
         std::uniform_int_distribution<int> distribution(0, actionDim - 1);
         int index = distribution(Rand::engine);
         out[index] = 1;
@@ -49,12 +49,12 @@ RL::Vec& RL::DQN::eGreedyAction(Vec &state)
     return out;
 }
 
-RL::Vec &RL::DQN::output()
+RL::Mat &RL::DQN::output()
 {
     return QMainNet.output();
 }
 
-int RL::DQN::action(const Vec &state)
+int RL::DQN::action(const Mat &state)
 {
     int a = QMainNet.feedForward(state).argmax();
     QMainNet.show();
@@ -63,10 +63,10 @@ int RL::DQN::action(const Vec &state)
 
 void RL::DQN::experienceReplay(const Transition& x)
 {
-    Vec qTarget(actionDim);
+    Mat qTarget(actionDim, 1);
     /* estimate q-target: Q-Regression */
     /* select Action to estimate q-value */
-    int i = RL::argmax(x.action);
+    int i = x.action.argmax();
     qTarget = QMainNet.feedForward(x.state).output();
     if (x.done == true) {
         qTarget[i] = x.reward;
@@ -74,7 +74,7 @@ void RL::DQN::experienceReplay(const Transition& x)
         /* select optimal Action in the QMainNet */
         int k = QMainNet.feedForward(x.nextState).argmax();
         /* select value in the QTargetNet */
-        Vec &v = QTargetNet.feedForward(x.nextState).output();
+        Mat &v = QTargetNet.feedForward(x.nextState).output();
         qTarget[i] = x.reward + gamma * v[k];
     }
     /* train QMainNet */
@@ -86,7 +86,7 @@ void RL::DQN::learn(OptType optType,
                     std::size_t maxMemorySize,
                     std::size_t replaceTargetIter,
                     std::size_t batchSize,
-                    double learningRate)
+                    float learningRate)
 {
     if (memories.size() < batchSize) {
         return;

@@ -14,12 +14,12 @@ class iLayer
 {
 public:
     virtual ~iLayer(){}
-    virtual void feedForward(const Vec& x){}
-    virtual void backward(Vec &preE){}
-    virtual void gradient(const Vec& x, const Vec&){}
-    virtual void SGD(double learningRate){}
-    virtual void RMSProp(double rho, double learningRate, double decay){}
-    virtual void Adam(double alpha, double beta,double alpha_t, double beta_t, double learningRate, double decay){}
+    virtual void feedForward(const Mat& x){}
+    virtual void backward(Mat &){}
+    virtual void gradient(const Mat&, const Mat&){}
+    virtual void SGD(float ){}
+    virtual void RMSProp(float , float , float ){}
+    virtual void Adam(float , float ,float , float , float , float ){}
 };
 
 class LayerParam : public iLayer
@@ -28,34 +28,25 @@ public:
     std::size_t inputDim;
     std::size_t layerDim;
     Mat W;
-    Vec B;
+    Mat B;
 public:
     LayerParam(){}
     LayerParam(std::size_t inputDim_, std::size_t layerDim_)
         :inputDim(inputDim_), layerDim(layerDim_)
     {
-        W = Mat(layerDim, Vec(inputDim, 0));
-        B = Vec(layerDim, 0);
+        W = Mat(layerDim, inputDim);
+        B = Mat(layerDim, 1);
     }
     void zero()
     {
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                W[i][j] = 0;
-            }
-            B[i] = 0;
-        }
+        W.zero();
+        B.zero();
         return;
     }
     void random()
     {
-        std::uniform_real_distribution<double> distributionReal(-1, 1);
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                W[i][j] = distributionReal(Rand::engine);
-            }
-            B[i] = distributionReal(Rand::engine);
-        }
+        uniformRand(W, -1, 1);
+        uniformRand(B, -1, 1);
         return;
     }
 
@@ -64,8 +55,8 @@ public:
 class LayerObject : public LayerParam
 {
 public:
-    Vec O;
-    Vec E;
+    Mat O;
+    Mat E;
     LayerParam s;
     LayerParam v;
     LayerParam d;
@@ -74,8 +65,8 @@ public:
     LayerObject(std::size_t inputDim, std::size_t layerDim, bool trainFlag)
         :LayerParam(inputDim, layerDim)
     {
-        O = Vec(layerDim);
-        E = Vec(layerDim);
+        O = Mat(layerDim, 1);
+        E = Mat(layerDim, 1);
         if (trainFlag == true) {
             s = LayerParam(inputDim, layerDim);
             v = LayerParam(inputDim, layerDim);
@@ -84,30 +75,30 @@ public:
         LayerParam::random();
     }
 
-    void backward(Vec &preE) override
+    void backward(Mat &preE) override
     {
-        for (std::size_t i = 0; i < W[0].size(); i++) {
-            for (std::size_t j = 0; j < W.size(); j++) {
-                preE[i] +=  W[j][i] * E[j];
+        for (std::size_t i = 0; i < W.cols; i++) {
+            for (std::size_t j = 0; j < W.rows; j++) {
+                preE[i] +=  W(j, i) * E[j];
             }
         }
         return;
     }
-    void SGD(double learningRate) override
+    void SGD(float learningRate) override
     {
         Optimizer::SGD(W, d.W, learningRate);
         Optimizer::SGD(B, d.B, learningRate);
         d.zero();
         return;
     }
-    void RMSProp(double rho, double learningRate, double decay) override
+    void RMSProp(float rho, float learningRate, float decay) override
     {
         Optimizer::RMSProp(W, s.W, d.W, learningRate, rho, decay);
         Optimizer::RMSProp(B, s.B, d.B, learningRate, rho, decay);
         d.zero();
         return;
     }
-    void Adam(double alpha, double beta, double alpha_t, double beta_t,double learningRate, double decay)override
+    void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay)override
     {
         Optimizer::Adam(W, s.W, v.W, d.W,
                         alpha_t, beta_t, learningRate, alpha, beta, decay);
@@ -119,7 +110,7 @@ public:
 };
 
 
-template<typename ActF>
+template<typename FnActive>
 class Layer : public LayerObject
 {
 public:
@@ -135,26 +126,23 @@ public:
     Layer(std::size_t inputDim, std::size_t layerDim, bool trainFlag)
         :LayerObject(inputDim, layerDim, trainFlag){}
 
-    void feedForward(const Vec& x) override
+    void feedForward(const Mat& x) override
     {
-        if (x.size() != W[0].size()) {
-            std::cout<<"x = "<<x.size()<<std::endl;
-            std::cout<<"w = "<<W[0].size()<<std::endl;
-            return;
-        }
-        for (std::size_t i = 0; i < W.size(); i++) {
-            O[i] = RL::dot(W[i], x) + B[i];
-            O[i] = ActF::_(O[i]);
+        for (std::size_t i = 0; i < W.rows; i++) {
+            for (std::size_t j = 0; j < W.cols; j++) {
+                O[i] += W(i, j) * x[j];
+            }
+            O[i] = FnActive::_(O[i] +  B[i]);
         }
         return;
     }
 
-    void gradient(const Vec& x, const Vec&) override
+    void gradient(const Mat& x, const Mat&) override
     {
-        for (std::size_t i = 0; i < d.W.size(); i++) {
-            double dy = ActF::d(O[i]) * E[i];
-            for (std::size_t j = 0; j < d.W[0].size(); j++) {
-                d.W[i][j] += dy * x[j];
+        for (std::size_t i = 0; i < d.W.rows; i++) {
+            float dy = FnActive::d(O[i]) * E[i];
+            for (std::size_t j = 0; j < d.W.cols; j++) {
+                d.W(i, j) += dy * x[j];
             }
             d.B[i] += dy;
             E[i] = 0;
@@ -177,11 +165,14 @@ public:
     {
         return std::make_shared<SoftmaxLayer>(inputDim, layerDim, tarinFlag);
     }
-    void feedForward(const RL::Vec &x) override
+    void feedForward(const RL::Mat &x) override
     {
-        double s = 0;
-        for (std::size_t i = 0; i < W.size(); i++) {
-            O[i] = RL::dot(W[i], x) + B[i];
+        float s = 0;
+        for (std::size_t i = 0; i < W.rows; i++) {
+            for (std::size_t j = 0; j < W.cols; j++) {
+                O[i] += W(i, j) * x[j];
+            }
+            O[i] += B[i];
             s += exp(O[i]);
         }
         for (std::size_t i = 0; i < O.size(); i++) {
@@ -190,12 +181,12 @@ public:
         return;
     }
 
-    void gradient(const RL::Vec &x, const Vec &y) override
+    void gradient(const RL::Mat &x, const Mat &y) override
     {
-        for (std::size_t i = 0; i < d.W.size(); i++) {
-            double dy = O[i] - y[i];
-            for (std::size_t j = 0; j < d.W[0].size(); j++) {
-                d.W[i][j] += dy * x[j];
+        for (std::size_t i = 0; i < d.W.rows; i++) {
+            float dy = O[i] - y[i];
+            for (std::size_t j = 0; j < d.W.cols; j++) {
+                d.W(i, j) += dy * x[j];
             }
             d.B[i] += dy;
         }
@@ -207,12 +198,12 @@ public:
 class GeluLayer : public LayerObject
 {
 public:
-    Vec O0;
+    Mat O0;
 public:
     GeluLayer(){}
     ~GeluLayer(){}
     explicit GeluLayer(std::size_t inputDim, std::size_t layerDim, bool trainFlag)
-        :LayerObject(inputDim, layerDim, trainFlag),O0(layerDim, 0){}
+        :LayerObject(inputDim, layerDim, trainFlag),O0(layerDim, 1){}
 
     static std::shared_ptr<GeluLayer> _(std::size_t inputDim,
                                     std::size_t layerDim,
@@ -220,21 +211,24 @@ public:
     {
         return std::make_shared<GeluLayer>(inputDim, layerDim, tarinFlag);
     }
-    void feedForward(const RL::Vec &x) override
+    void feedForward(const RL::Mat &x) override
     {
-        for (std::size_t i = 0; i < W.size(); i++) {
-            O0[i] = RL::dot(W[i], x) + B[i];
+        for (std::size_t i = 0; i < W.rows; i++) {
+            for (std::size_t j = 0; j < W.cols; j++) {
+                O0[i] += W(i, j) * x[j];
+            }
+            O0[i] += B[i];
             O[i] = Gelu::_(O0[i]);
         }
         return;
     }
 
-    void gradient(const Vec& x, const Vec&) override
+    void gradient(const Mat& x, const Mat&) override
     {
-        for (std::size_t i = 0; i < d.W.size(); i++) {
-            double dy = Gelu::d(O0[i]) * E[i];
-            for (std::size_t j = 0; j < d.W[0].size(); j++) {
-                d.W[i][j] += dy * x[j];
+        for (std::size_t i = 0; i < d.W.rows; i++) {
+            float dy = Gelu::d(O0[i]) * E[i];
+            for (std::size_t j = 0; j < d.W.cols; j++) {
+                d.W(i, j) += dy * x[j];
             }
             d.B[i] += dy;
             E[i] = 0;
@@ -247,12 +241,12 @@ public:
 class SwishLayer : public LayerObject
 {
 public:
-    Vec O0;
+    Mat O0;
 public:
     SwishLayer(){}
     ~SwishLayer(){}
     explicit SwishLayer(std::size_t inputDim, std::size_t layerDim, bool trainFlag)
-        :LayerObject(inputDim, layerDim, trainFlag),O0(layerDim, 0){}
+        :LayerObject(inputDim, layerDim, trainFlag),O0(layerDim, 1){}
 
     static std::shared_ptr<SwishLayer> _(std::size_t inputDim,
                                     std::size_t layerDim,
@@ -260,21 +254,24 @@ public:
     {
         return std::make_shared<SwishLayer>(inputDim, layerDim, tarinFlag);
     }
-    void feedForward(const RL::Vec &x) override
+    void feedForward(const RL::Mat &x) override
     {
-        for (std::size_t i = 0; i < W.size(); i++) {
-            O0[i] = RL::dot(W[i], x) + B[i];
+        for (std::size_t i = 0; i < W.rows; i++) {
+            for (std::size_t j = 0; j < W.cols; j++) {
+                O0[i] += W(i, j) * x[j];
+            }
+            O0[i] += B[i];
             O[i] = Swish::_(O0[i]);
         }
         return;
     }
 
-    void gradient(const Vec& x, const Vec&) override
+    void gradient(const Mat& x, const Mat&) override
     {
-        for (std::size_t i = 0; i < d.W.size(); i++) {
-            double dy = Swish::d(O0[i]) * E[i];
-            for (std::size_t j = 0; j < d.W[0].size(); j++) {
-                d.W[i][j] += dy * x[j];
+        for (std::size_t i = 0; i < d.W.rows; i++) {
+            float dy = Swish::d(O0[i]) * E[i];
+            for (std::size_t j = 0; j < d.W.cols; j++) {
+                d.W(i, j) += dy * x[j];
             }
             d.B[i] += dy;
             E[i] = 0;
@@ -284,66 +281,66 @@ public:
 
 };
 
-template<typename ActF>
-class DropoutLayer : public Layer<ActF>
+template<typename FnActive>
+class DropoutLayer : public Layer<FnActive>
 {
 public:
     bool trainFlag;
-    double p;
-    Vec mask;
+    float p;
+    Mat mask;
 public:
     DropoutLayer(){}
     ~DropoutLayer(){}
     explicit DropoutLayer(std::size_t inputDim, std::size_t layerDim,
-                          bool trainFlag_, double p_)
-        :Layer<ActF>(inputDim, layerDim, trainFlag_),
+                          bool trainFlag_, float p_)
+        :Layer<FnActive>(inputDim, layerDim, trainFlag_),
           trainFlag(trainFlag_), p(p_), mask(layerDim, 1){}
 
     static std::shared_ptr<DropoutLayer> _(std::size_t inputDim,
                                     std::size_t layerDim,
-                                    bool tarinFlag, double p_)
+                                    bool tarinFlag, float p_)
     {
         return std::make_shared<DropoutLayer>(inputDim, layerDim, tarinFlag, p_);
     }
-    void feedForward(const RL::Vec &x) override
+    void feedForward(const RL::Mat &x) override
     {
-        Layer<ActF>::feedForward(x);
+        Layer<FnActive>::feedForward(x);
         if (trainFlag == true) {
             std::bernoulli_distribution bernoulli(p);
-            for (std::size_t i = 0; i < Layer<ActF>::O.size(); i++) {
+            for (std::size_t i = 0; i < Layer<FnActive>::O.size(); i++) {
                 mask[i] = bernoulli(Rand::engine) / (1 - p);
             }
-            for (std::size_t i = 0; i < Layer<ActF>::O.size(); i++) {
-                Layer<ActF>::O[i] *= mask[i];
+            for (std::size_t i = 0; i < Layer<FnActive>::O.size(); i++) {
+                Layer<FnActive>::O[i] *= mask[i];
             }
         }
         return;
     }
 
-    void backward(Vec& preE) override
+    void backward(Mat& preE) override
     {
         if (trainFlag == true) {
-            for (std::size_t i = 0; i < Layer<ActF>::E.size(); i++) {
-                Layer<ActF>::E[i] *= mask[i];
+            for (std::size_t i = 0; i < Layer<FnActive>::E.size(); i++) {
+                Layer<FnActive>::E[i] *= mask[i];
             }
         }
-        Layer<ActF>::backward(preE);
+        Layer<FnActive>::backward(preE);
         return;
     }
 };
 
 
-template<typename ActF>
-class LayerNorm : public Layer<ActF>
+template<typename FnActive>
+class LayerNorm : public Layer<FnActive>
 {
 public:
-    double gamma;
-    double gamma_;
+    float gamma;
+    float gamma_;
 public:
     LayerNorm(){}
     ~LayerNorm(){}
     explicit LayerNorm(std::size_t inputDim, std::size_t layerDim, bool trainFlag_)
-        :Layer<ActF>(inputDim, layerDim, trainFlag_), gamma(1){}
+        :Layer<FnActive>(inputDim, layerDim, trainFlag_), gamma(1){}
 
     static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
                                     std::size_t layerDim,
@@ -351,61 +348,61 @@ public:
     {
         return std::make_shared<LayerNorm>(inputDim, layerDim, tarinFlag);
     }
-    void feedForward(const RL::Vec &x) override
+    void feedForward(const RL::Mat &x) override
     {
-        Vec &O = Layer<ActF>::O;
-        Mat &W = Layer<ActF>::W;
-        Vec &B = Layer<ActF>::B;
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                O[i] += W[i][j] * x[j];
+        Mat &O = Layer<FnActive>::O;
+        Mat &W = Layer<FnActive>::W;
+        Mat &B = Layer<FnActive>::B;
+        for (std::size_t i = 0; i < W.rows; i++) {
+            for (std::size_t j = 0; j < W.cols; j++) {
+                O[i] += W(i, j) * x[j];
             }
         }
-        double u = RL::mean(O);
-        double sigma = RL::variance(O, u);
+        float u = O.mean();
+        float sigma = RL::variance(O, u);
         gamma_ = gamma/sqrt(sigma + 1e-9);
         for (std::size_t i = 0; i < O.size(); i++) {
-            O[i] = ActF::_(gamma_*(O[i] - u) + B[i]);
+            O[i] = FnActive::_(gamma_*(O[i] - u) + B[i]);
         }
 
         return;
     }
-    void backward(Vec &preE)
+    void backward(Mat &preE)
     {
-        for (std::size_t i = 0; i < Layer<ActF>::E.size(); i++) {
-            Layer<ActF>::E[i] *= gamma_;
+        for (std::size_t i = 0; i < Layer<FnActive>::E.size(); i++) {
+            Layer<FnActive>::E[i] *= gamma_;
         }
-        return Layer<ActF>::backward(preE);
+        return Layer<FnActive>::backward(preE);
     }
 };
 
-template<typename ActF>
-class BatchNorm : public Layer<ActF>
+template<typename FnActive>
+class BatchNorm : public Layer<FnActive>
 {
 public:
     bool trainFlag;
-    Vec gamma;
-    Vec beta;
-    std::vector<RL::Vec> x_;
-    std::vector<RL::Vec> y;
+    Mat gamma;
+    Mat beta;
+    std::vector<RL::Mat> x_;
+    std::vector<RL::Mat> y;
 public:
     explicit BatchNorm(std::size_t inputDim, std::size_t layerDim,
                           bool trainFlag_)
-        :Layer<ActF>(inputDim, layerDim, trainFlag_), trainFlag(trainFlag_)
+        :Layer<FnActive>(inputDim, layerDim, trainFlag_), trainFlag(trainFlag_)
     {
 
     }
 
-    void feedForward(const RL::Vec &x) override
+    void feedForward(const RL::Mat &x) override
     {
         return;
     }
-    void feedForward(const std::vector<RL::Vec> &x)
+    void feedForward(const std::vector<RL::Mat> &x)
     {
         /* x(batchDim, inputDim)  */
         /* u */
-        Vec u(x[0].size(), 0);
-        double batchSize = double(x.size());
+        Mat u(x[0].size(), 1);
+        float batchSize = float(x.size());
         for (std::size_t i = 0; i < x[0].size(); i++) {
             for (std::size_t j = 0; j < x.size(); j++) {
                 u[i] += x[j][i];
@@ -413,7 +410,7 @@ public:
             u[i] /= batchSize;
         }
         /* sigma */
-        Vec sigma(x[0].size(), 0);
+        Mat sigma(x[0].size(), 1);
         for (std::size_t i = 0; i < x[0].size(); i++) {
             for (std::size_t j = 0; j < x.size(); j++) {
                 sigma[i] += (x[j][i] - u[i])*(x[j][i] - u[i]);
@@ -433,7 +430,7 @@ public:
         }
         return;
     }
-    void backward(Vec &preE)
+    void backward(Mat &preE)
     {
 
         return;

@@ -6,6 +6,7 @@
 #include "loss.h"
 #include <cstring>
 #include <iostream>
+#include "mat.hpp"
 
 namespace RL {
 
@@ -124,9 +125,9 @@ public:
         for (int i = 0; i < img.height; i++) {
             for (int j = 0; j < img.width; j++) {
                 unsigned char *rgb = img.at(i, j);
-                dst[0][i][j] = double(rgb[0])/255.0;
-                dst[1][i][j] = double(rgb[1])/255.0;
-                dst[2][i][j] = double(rgb[2])/255.0;
+                dst[0](i, j) = float(rgb[0])/255.0;
+                dst[1](i, j) = float(rgb[1])/255.0;
+                dst[2](i, j) = float(rgb[2])/255.0;
             }
         }
         return;
@@ -136,39 +137,29 @@ class Filter
 {
 public:
     Mat w;
-    Vec b;
+    Mat b;
 public:
     Filter(){}
     Filter(int size_)
     {
-        w = Mat(size_, Vec(size_, 0));
-        b = Vec(1, 0);
+        w = Mat(size_, size_);
+        b = Mat(1, 1);
     }
     void random()
     {
-        std::uniform_real_distribution<double> uniform(-1, 1);
-        for (int i = 0; i < w.size(); i++) {
-            for (int j = 0; j < w[0].size(); j++) {
-                w[i][j] = uniform(Rand::engine);
-            }
-        }
-        b[0] = uniform(Rand::engine);
+        uniformRand(w, -1, 1);
+        uniformRand(b, -1, 1);
         return;
     }
     void zero()
     {
-        std::uniform_real_distribution<double> uniform(-1, 1);
-        for (int i = 0; i < w.size(); i++) {
-            for (int j = 0; j < w[0].size(); j++) {
-                w[i][j] = 0;
-            }
-        }
-        b[0] = 0;
+        w.zero();
+        b.zero();
         return;
     }
 };
 
-class Conv2D
+class Conv2d
 {
 public:
     int inputSize;
@@ -187,8 +178,8 @@ public:
      */
     std::vector<Mat> out;
 public:
-    Conv2D(){}
-    explicit Conv2D(int inputSize_ = 32,
+    Conv2d(){}
+    explicit Conv2d(int inputSize_ = 32,
          int filterSize_ = 3,
          int paddingSize_ = 2,
          int stride_ = 2,
@@ -199,7 +190,7 @@ public:
     void conv(Mat &y, const Mat &kernel, const Mat &x);
     void conv_(int ik, int jk, Mat &y, const Mat &kernel, const Mat &x);
     void backward();
-    void RMSProp(double rho, double learningRate);
+    void RMSProp(float rho, float learningRate);
     static void test();
 };
 
@@ -253,9 +244,9 @@ class FC
 {
 public:
     Mat W;
-    Vec B;
+    Mat B;
     Mat O;
-    Vec E;
+    Mat E;
 public:
     void forward(const Mat &x);
     void backward();
@@ -265,9 +256,9 @@ public:
 class CNN
 {
 public:
-    Conv2D conv1;
+    Conv2d conv1;
     MaxPooling maxpool1;
-    Conv2D conv2;
+    Conv2d conv2;
     MaxPooling maxpool2;
     FC fc1;
     FC fc2;

@@ -9,19 +9,19 @@ class LstmNet
 public:
     LSTM lstm;
     BPNN bpnet;
-    std::vector<Vec> y;
+    std::vector<Mat> y;
 public:
     LstmNet(){}
     template<typename ...TLayer>
     explicit LstmNet(const LSTM &lstm_, TLayer&&...layer)
         :lstm(lstm_),bpnet(layer...){}
-    Vec &forward(const Vec &x)
+    Mat &forward(const Mat &x)
     {
-        Vec &out = lstm.forward(x);
+        Mat &out = lstm.forward(x);
         bpnet.feedForward(out);
         return bpnet.output();
     }
-    void forward(const std::vector<RL::Vec> &sequence)
+    void forward(const std::vector<RL::Mat> &sequence)
     {
         lstm.reset();
         for (auto &x : sequence) {
@@ -34,27 +34,27 @@ public:
         }
         return;
     }
-    void backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec> &yt, BPNN::LossFunc Loss)
+    void backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat> &yt, BPNN::FnLoss Loss)
     {
         std::size_t outputDim = bpnet.output().size();
-        RL::Vec E(lstm.outputDim, 0);
+        RL::Mat E(lstm.outputDim, 1);
         LSTM::State delta_(lstm.hiddenDim, lstm.outputDim);
         for (int t = yt.size() - 1; t >= 0; t--) {
             /* loss */
-            Vec loss(outputDim, 0);
+            Mat loss(outputDim, 1);
             Loss(loss, y[t], yt[t]);
             /* backward */
             bpnet.backward(loss, E);
             /* gradient */
             bpnet.gradient(lstm.states[t].y, yt[t]);
             lstm.backwardAtTime(t, x[t], E, delta_);
-            E.assign(lstm.outputDim, 0);
+            E.zero();
         }
         y.clear();
         lstm.states.clear();
         return;
     }
-    void clamp(double c)
+    void clamp(float c)
     {
         bpnet.clamp(-c, c);
         lstm.clamp(c);
@@ -66,15 +66,15 @@ public:
         lstm.copyTo(dst.lstm);
         return;
     }
-    void softUpdateTo(LstmNet &dst, double rho)
+    void softUpdateTo(LstmNet &dst, float rho)
     {
         bpnet.softUpdateTo(dst.bpnet, rho);
         lstm.softUpdateTo(dst.lstm, rho);
         return;
     }
-    Vec& output(){return bpnet.output();}
+    Mat& output(){return bpnet.output();}
     void reset() {lstm.reset();}
-    void optimize(double learningRate, double decay)
+    void optimize(float learningRate, float decay)
     {
         lstm.RMSProp(learningRate, 0.9, decay);
         bpnet.RMSProp(0.9, learningRate, decay);
@@ -88,11 +88,11 @@ class LstmStack
 public:
     std::vector<std::shared_ptr<LSTM> > lstms;
     BPNN bpnet;
-    std::vector<Vec> y;
+    std::vector<Mat> y;
 public:
     template <typename ...TLstm>
     LstmStack(TLstm&& ...lstms_):lstms(lstms_...){}
-    Vec &forward(const Vec &x)
+    Mat &forward(const Mat &x)
     {
         LSTM::State s = lstms[0]->feedForward(x, lstms[0]->h, lstms[0]->c);
         lstms[0]->h = s.h;
@@ -104,12 +104,12 @@ public:
             lstms[i]->c = s.c;
             lstms[i]->states.push_back(s);
         }
-        Vec out = lstms.back()->output();
+        Mat out = lstms.back()->output();
         y.push_back(out);
         bpnet.feedForward(out);
         return bpnet.output();
     }
-    void forward(const std::vector<RL::Vec> &sequence)
+    void forward(const std::vector<RL::Mat> &sequence)
     {
         for (auto &lstm : lstms) {
             lstm->reset();
@@ -130,15 +130,15 @@ public:
         bpnet.feedForward(lstms.back()->output());
         return;
     }
-    void backward(const std::vector<RL::Vec> &x, const std::vector<RL::Vec> &yt, BPNN::LossFunc Loss)
+    void backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat> &yt, BPNN::FnLoss Loss)
     {
         std::size_t outputDim = bpnet.output().size();
         auto lstm = lstms.back();
-        std::vector<RL::Vec> E(x.size(), Vec(lstm->outputDim, 0));
+        std::vector<RL::Mat> E(x.size(), Mat(lstm->outputDim, 1));
         std::vector<LSTM::State> deltas(lstms.size(), LSTM::State(lstm->hiddenDim, lstm->outputDim));
         for (std::size_t t = 0; t < yt.size(); t++) {
             /* loss */
-            Vec loss(outputDim, 0);
+            Mat loss(outputDim, 1);
             Loss(loss, y[t], yt[t]);
             /* backward */
             bpnet.backward(loss, E[t]);
@@ -160,7 +160,7 @@ public:
         bpnet.copyTo(dst.bpnet);
         return;
     }
-    void softUpdateTo(LstmStack &dst, double rho)
+    void softUpdateTo(LstmStack &dst, float rho)
     {
         for (std::size_t i = 0; i < lstms.size(); i++) {
             lstms[i]->softUpdateTo(*dst.lstms[i], rho);
@@ -168,7 +168,7 @@ public:
         bpnet.softUpdateTo(dst.bpnet, rho);
         return;
     }
-    Vec& output(){return lstms.back()->output();}
+    Mat& output(){return lstms.back()->output();}
     void reset()
     {
         for (auto &lstm : lstms) {
@@ -176,7 +176,7 @@ public:
         }
         return;
     }
-    void optimize(double learningRate)
+    void optimize(float learningRate)
     {
         for (auto &lstm : lstms) {
             lstm->RMSProp(learningRate, 0.9);

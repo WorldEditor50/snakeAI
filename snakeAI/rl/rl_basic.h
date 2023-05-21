@@ -1,31 +1,37 @@
 #ifndef RL_DEF_H
 #define RL_DEF_H
 #include <vector>
+#include "mat.hpp"
+
 namespace RL {
 
-struct Transition
+class Transition
 {
-    std::vector<double> state;
-    std::vector<double> action;
-    std::vector<double> nextState;
-    double reward;
+public:
+    Mat state;
+    Mat action;
+    Mat nextState;
+    float reward;
     bool done;
+public:
     Transition(){}
-    explicit Transition(const std::vector<double>& s,
-                        const std::vector<double>& a,
-                        const std::vector<double>& s_,
-                        double r,
+    explicit Transition(const Mat& s,
+                        const Mat& a,
+                        const Mat& s_,
+                        float r,
                         bool d)
         :state(s), action(a), nextState(s_), reward(r), done(d){}
 };
 
-struct Step
+class Step
 {
-    std::vector<double> state;
-    std::vector<double> action;
-    double reward;
+public:
+    Mat state;
+    Mat action;
+    float reward;
+public:
     Step(){}
-    Step(std::vector<double>& s, std::vector<double>& a, double r)
+    Step(Mat& s, Mat& a, float r)
         :state(s), action(a), reward(r) {}
 };
 

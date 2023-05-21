@@ -7,50 +7,50 @@ namespace RL {
 
 /* activate method */
 struct Sigmoid {
-    inline static double _(double x) {return 1.0/(1 + exp(-x));}
-    inline static double d(double y) {return y*(1 - y);}
+    inline static float _(float x) {return 1.0/(1 + std::exp(-x));}
+    inline static float d(float y) {return y*(1 - y);}
 };
 
 struct Tanh {
-    inline static double _(double x) {return tanh(x);}
-    inline static double d(double y) {return 1 - y*y;}
+    inline static float _(float x) {return std::tanh(x);}
+    inline static float d(float y) {return 1 - y*y;}
 };
 
 struct Relu {
-    inline static double _(double x) {return x > 0 ? x : 0;}
-    inline static double d(double y) {return y > 0 ? 1 : 0;}
+    inline static float _(float x) {return x > 0 ? x : 0;}
+    inline static float d(float y) {return y > 0 ? 1 : 0;}
 };
 
 struct LeakyRelu {
-    inline static double _(double x) {return x > 0 ? x : 0.01*x;}
-    inline static double d(double y) {return y > 0 ? 1 : 0.01;}
+    inline static float _(float x) {return x > 0 ? x : 0.01*x;}
+    inline static float d(float y) {return y > 0 ? 1 : 0.01;}
 };
 
 struct Linear {
-    inline static double _(double x) {return x;}
-    inline static double d(double) {return 1;}
+    inline static float _(float x) {return x;}
+    inline static float d(float) {return 1;}
 };
 
 struct Swish {
-    static constexpr double beta = 1.0;//1.702;
-    inline static double _(double x) {return x*Sigmoid::_(beta*x);}
-    inline static double d(double x)
+    static constexpr float beta = 1.0;//1.702;
+    inline static float _(float x) {return x*Sigmoid::_(beta*x);}
+    inline static float d(float x)
     {
-        double s = Sigmoid::_(beta*x);
+        float s = Sigmoid::_(beta*x);
         return s + x*s*(1 - s);
     }
 };
 
 struct Gelu {
-    static constexpr double c1 = 0.79788456080287;/* sqrt(2/pi) */
-    static constexpr double c2 = 0.044715;
-    inline static double _(double x)
+    static constexpr float c1 = 0.79788456080287;/* sqrt(2/pi) */
+    static constexpr float c2 = 0.044715;
+    inline static float _(float x)
     {
-        return 0.5*x*(1 + tanh(c1*(x + c2*x*x*x)));
+        return 0.5*x*(1 + std::tanh(c1*(x + c2*x*x*x)));
     }
-    inline static double d(double x)
+    inline static float d(float x)
     {
-        double t = tanh(c1*(x + c2*x*x*x));
+        float t = std::tanh(c1*(x + c2*x*x*x));
         return 0.5*(1 + t + x*(c1*(1 + 3*c2*x*x)*(1 - t*t)));
     }
 };

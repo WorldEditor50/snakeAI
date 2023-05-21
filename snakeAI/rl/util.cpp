@@ -2,82 +2,20 @@
 
 std::default_random_engine RL::Rand::engine(std::random_device{}());
 
-int RL::argmax(const Vec &x)
-{
-    int index = 0;
-    double maxValue = x[0];
-    for (std::size_t i = 0; i < x.size(); i++) {
-        if (maxValue < x[i]) {
-            maxValue = x[i];
-            index = i;
-        }
-    }
-    return index;
-}
-
-int RL::argmin(const Vec &x)
-{
-    int index = 0;
-    double minValue = x[0];
-    for (std::size_t i = 0; i < x.size(); i++) {
-        if (minValue > x[i]) {
-            minValue = x[i];
-            index = i;
-        }
-    }
-    return index;
-}
-
-double RL::max(const Vec &x)
-{
-    double maxValue = x[0];
-    for (std::size_t i = 0; i < x.size(); i++) {
-        if (maxValue < x[i]) {
-            maxValue = x[i];
-        }
-    }
-    return maxValue;
-}
-
-double RL::min(const Vec &x)
-{
-    double minValue = x[0];
-    for (std::size_t i = 0; i < x.size(); i++) {
-        if (minValue > x[i]) {
-            minValue = x[i];
-        }
-    }
-    return minValue;
-}
-
-void RL::zscore(Vec &x)
+void RL::zscore(Mat &x)
 {
     /* sigma */
-    double sigma = variance(x);
+    float sigma = variance(x);
     for (std::size_t i = 0 ; i < x.size(); i++) {
         x[i] /= sigma;
     }
     return;
 }
 
-double RL::mean(const Vec &x)
+void RL::normalize(Mat &x)
 {
-    return sum(x) / double(x.size());
-}
-
-double RL::sum(const Vec &x)
-{
-    double s = 0;
-    for (auto& value : x) {
-        s += value;
-    }
-    return s;
-}
-
-void RL::normalize(Vec &x)
-{
-    double minValue = x[0];
-    double maxValue = x[0];
+    float minValue = x[0];
+    float maxValue = x[0];
     for (std::size_t i = 0; i < x.size(); i++) {
         if (minValue > x[i]) {
             minValue = x[i];
@@ -92,11 +30,11 @@ void RL::normalize(Vec &x)
     return;
 }
 
-double RL::variance(const Vec &x)
+float RL::variance(const Mat &x)
 {
     /* expectation */
-    double u = mean(x);
-    double sigma = 0;
+    float u = x.mean();
+    float sigma = 0;
     /* sigma */
     for (std::size_t i = 0 ; i < x.size(); i++) {
         sigma += (x[i] - u) * (x[i] - u);
@@ -104,9 +42,9 @@ double RL::variance(const Vec &x)
     return sqrt(sigma / x.size());
 }
 
-double RL::variance(const Vec &x, double u)
+float RL::variance(const Mat &x, float u)
 {
-    double sigma = 0;
+    float sigma = 0;
     /* sigma */
     for (std::size_t i = 0 ; i < x.size(); i++) {
         sigma += (x[i] - u) * (x[i] - u);
@@ -114,29 +52,20 @@ double RL::variance(const Vec &x, double u)
     return sqrt(sigma / x.size());
 }
 
-double RL::dot(const Vec& x1, const Vec& x2)
+float RL::covariance(const Mat &x1, const Mat &x2)
 {
-    double s = 0;
-    for (std::size_t i = 0; i < x1.size(); i++) {
-        s += x1[i] * x2[i];
-    }
-    return s;
-}
-
-double RL::covariance(const Vec &x1, const Vec &x2)
-{
-    double u = mean(x1);
-    double v = mean(x2);
-    double covar = 0;
+    float u = x1.mean();
+    float v = x2.mean();
+    float covar = 0;
     for (std::size_t i = 0; i < x1.size(); i++) {
          covar += (x1[i] - u) * (x2[i] - v);
     }
     return covar;
 }
 
-double RL::clip(double x, double sup, double inf)
+float RL::clip(float x, float sup, float inf)
 {
-    double y = x;
+    float y = x;
     if (x < sup) {
         y = sup;
     } else if (x > inf) {
@@ -145,25 +74,34 @@ double RL::clip(double x, double sup, double inf)
     return y;
 }
 
-double RL::hmean(const RL::Vec &x)
+float RL::hmean(const RL::Mat &x)
 {
-    double s = 0;
+    float s = 0;
     for (std::size_t i = 0; i < x.size(); i++) {
         s += 1/x[i];
     }
-    return double(x.size())/s;
+    return float(x.size())/s;
 }
 
-double RL::gmean(const RL::Vec &x)
+float RL::gmean(const RL::Mat &x)
 {
-    double s = 1;
+    float s = 1;
     for (std::size_t i = 0; i < x.size(); i++) {
         s *= x[i];
     }
     return pow(s, 1.0/x.size());
 }
 
-double RL::gaussian(double x, double u, double sigma)
+float RL::gaussian(float x, float u, float sigma)
 {
     return 1/sqrt(2*pi*sigma)*exp(-0.5*(x - u)*(x - u)/sigma);
+}
+
+void RL::uniformRand(RL::Mat &x, float x1, float x2)
+{
+    std::uniform_real_distribution<float> uniform(x1, x2);
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = uniform(Rand::engine);
+    }
+    return;
 }

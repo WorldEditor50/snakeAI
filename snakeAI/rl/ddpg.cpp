@@ -7,7 +7,7 @@ RL::DDPG::DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDi
     this->exploringRate = 1;
     this->stateDim = stateDim;
     this->actionDim = actionDim;
-    this->sa = Vec(stateDim + actionDim, 0);
+    this->sa = Mat(stateDim + actionDim, 1);
     /* actor: a = P(s, theta) */
     this->actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
@@ -36,10 +36,10 @@ RL::DDPG::DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDi
     this->criticP.copyTo(criticQ);
 }
 
-void RL::DDPG::perceive(const Vec& state,
-        const Vec &action,
-        const Vec& nextState,
-        double reward,
+void RL::DDPG::perceive(const Mat& state,
+        const Mat &action,
+        const Mat& nextState,
+        float reward,
         bool done)
 {
     if (state.size() != stateDim || nextState.size() != stateDim) {
@@ -49,7 +49,7 @@ void RL::DDPG::perceive(const Vec& state,
     return;
 }
 
-void RL::DDPG::setSA(const Vec &state, const Vec &actions)
+void RL::DDPG::setSA(const Mat &state, const Mat &actions)
 {
     for (std::size_t i = 0; i < stateDim; i++) {
         sa[i] = state[i];
@@ -60,15 +60,15 @@ void RL::DDPG::setSA(const Vec &state, const Vec &actions)
     return;
 }
 
-RL::Vec& RL::DDPG::noiseAction(const Vec &state)
+RL::Mat& RL::DDPG::noiseAction(const Mat &state)
 {
     actorQ.feedForward(state);
-    Vec& out = actorQ.output();
-    std::uniform_real_distribution<double> distributionReal(0, 1);
-    double p = distributionReal(Rand::engine);
+    Mat& out = actorQ.output();
+    std::uniform_real_distribution<float> distributionReal(0, 1);
+    float p = distributionReal(Rand::engine);
     if (p < exploringRate) {
         for (std::size_t i = 0; i < actionDim; i++) {
-            std::uniform_real_distribution<double> distribution(-1, 1);
+            std::uniform_real_distribution<float> distribution(-1, 1);
             out[i] += distribution(Rand::engine);
         }
     }
@@ -80,12 +80,12 @@ int RL::DDPG::randomAction()
     return rand() % actionDim;
 }
 
-RL::Vec& RL::DDPG::eGreedyAction(const Vec &state)
+RL::Mat& RL::DDPG::eGreedyAction(const Mat &state)
 {
-    std::uniform_real_distribution<double> distributionReal(0, 1);
-    double p = distributionReal(Rand::engine);
+    std::uniform_real_distribution<float> distributionReal(0, 1);
+    float p = distributionReal(Rand::engine);
     if (p < exploringRate) {
-        actorP.output().assign(actionDim, 0);
+        actorP.output().zero();
         std::uniform_int_distribution<int> distribution(0, actionDim - 1);
         int index = distribution(Rand::engine);
         actorP.output()[index] = 1;
@@ -95,37 +95,37 @@ RL::Vec& RL::DDPG::eGreedyAction(const Vec &state)
     return actorP.output();
 }
 
-int RL::DDPG::action(const Vec &state)
+int RL::DDPG::action(const Mat &state)
 {
     return actorP.show(), actorP.feedForward(state).argmax();
 }
 
 void RL::DDPG::experienceReplay(Transition& x)
 {
-    Vec cTarget(actionDim);
+    Mat cTarget(actionDim, 1);
     /* estimate action value */
-    Vec &p = actorP.feedForward(x.state).output();
-    int i = RL::argmax(p);
+    Mat &p = actorP.feedForward(x.state).output();
+    int i = p.argmax();
     setSA(x.state, p);
-    Vec &cMain = criticP.feedForward(sa).output();
+    Mat &cMain = criticP.feedForward(sa).output();
     cTarget = cMain;
     if (x.done == true) {
         cTarget[i] = x.reward;
     } else {
-        Vec &q = actorQ.feedForward(x.nextState).output();
-        int j = RL::argmax(q);
+        Mat &q = actorQ.feedForward(x.nextState).output();
+        int j = q.argmax();
         setSA(x.nextState, q);
-        Vec &cTargetOutput = criticQ.feedForward(sa).output();
+        Mat &cTargetOutput = criticQ.feedForward(sa).output();
         cTarget[i] = x.reward + gamma * cTargetOutput[j];
     }
     /* update criticMainNet */
     setSA(x.state, p);
     criticP.gradient(sa, cTarget, Loss::MSE);
     /* update actorMainNet */
-    Vec &actor = actorP.feedForward(x.state).output();
+    Mat &actor = actorP.feedForward(x.state).output();
     setSA(x.state, actor);
-    Vec &critic = criticP.feedForward(sa).output();
-    Vec adv(actor);
+    Mat &critic = criticP.feedForward(sa).output();
+    Mat adv(actor);
     for (std::size_t k = 0; k < actionDim; k++) {
         adv[k] =  critic[k] - actor[k]*log(actor[k]/critic[k]);
     }
@@ -137,8 +137,8 @@ void RL::DDPG::learn(OptType optType,
                      std::size_t maxMemorySize,
                      std::size_t replaceTargetIter,
                      std::size_t batchSize,
-                     double actorLearningRate,
-                     double criticLearningRate)
+                     float actorLearningRate,
+                     float criticLearningRate)
 {
     if (memories.size() < batchSize) {
         return;

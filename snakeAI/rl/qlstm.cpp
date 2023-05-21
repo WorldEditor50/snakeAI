@@ -19,10 +19,10 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
     QMainNet.lstm.gamma = 0.7;
 }
 
-void RL::QLSTM::perceive(Vec& state,
-        Vec& action,
-        Vec& nextState,
-        double reward,
+void RL::QLSTM::perceive(Mat& state,
+        Mat& action,
+        Mat& nextState,
+        float reward,
         bool done)
 {
     if (state.size() != stateDim || nextState.size() != stateDim) {
@@ -32,13 +32,13 @@ void RL::QLSTM::perceive(Vec& state,
     return;
 }
 
-RL::Vec& RL::QLSTM::eGreedyAction(Vec &state)
+RL::Mat& RL::QLSTM::eGreedyAction(const Mat &state)
 {
-    std::uniform_real_distribution<double> distributionReal(0, 1);
-    double p = distributionReal(Rand::engine);
-    Vec &out = QMainNet.output();
+    std::uniform_real_distribution<float> distributionReal(0, 1);
+    float p = distributionReal(Rand::engine);
+    Mat &out = QMainNet.output();
     if (p < exploringRate) {
-        out.assign(actionDim, 0);
+        out.zero();
         std::uniform_int_distribution<int> distribution(0, actionDim - 1);
         int index = distribution(Rand::engine);
         out[index] = 1;
@@ -48,12 +48,12 @@ RL::Vec& RL::QLSTM::eGreedyAction(Vec &state)
     return out;
 }
 
-RL::Vec &RL::QLSTM::output()
+RL::Mat &RL::QLSTM::output()
 {
     return QMainNet.output();
 }
 
-RL::Vec &RL::QLSTM::action(const Vec &state)
+RL::Mat &RL::QLSTM::action(const Mat &state)
 {
     return QMainNet.forward(state);
 }
@@ -64,20 +64,20 @@ void RL::QLSTM::reset()
     return;
 }
 
-void RL::QLSTM::experienceReplay(const Transition& x, std::vector<Vec> &y)
+void RL::QLSTM::experienceReplay(const Transition& x, std::vector<Mat> &y)
 {
-    Vec qTarget(actionDim);
+    Mat qTarget(actionDim, 1);
     /* estimate q-target: Q-Regression */
     /* select Action to estimate q-value */
-    int i = RL::argmax(x.action);
+    int i = x.action.argmax();
     qTarget = QMainNet.forward(x.state);
     if (x.done == true) {
         qTarget[i] = x.reward;
     } else {
         /* select optimal Action in the QMainNet */
-        int k = RL::argmax(QMainNet.forward(x.nextState));
+        int k = QMainNet.forward(x.nextState).argmax();
         /* select value in the QTargetNet */
-        Vec &v = QTargetNet.forward(x.nextState);
+        Mat &v = QTargetNet.forward(x.nextState);
         qTarget[i] = x.reward + gamma * v[k];
     }
     y.push_back(qTarget);
@@ -87,7 +87,7 @@ void RL::QLSTM::experienceReplay(const Transition& x, std::vector<Vec> &y)
 void RL::QLSTM::learn(std::size_t maxMemorySize,
                     std::size_t replaceTargetIter,
                     std::size_t batchSize,
-                    double learningRate)
+                    float learningRate)
 {
     if (memories.size() < batchSize) {
         return;
@@ -98,8 +98,8 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
         learningSteps = 0;
     }
     /* experience replay */
-    std::vector<Vec> x;
-    std::vector<Vec> y;
+    std::vector<Mat> x;
+    std::vector<Mat> y;
     std::uniform_int_distribution<int> uniform(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
         int k = uniform(Rand::engine);

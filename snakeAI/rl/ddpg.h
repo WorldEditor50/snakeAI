@@ -20,34 +20,34 @@ public:
     DDPG(){}
     ~DDPG(){}
     explicit DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
-    void perceive(const Vec& state,
-                  const Vec& action,
-                  const Vec& nextState,
-                  double reward,
+    void perceive(const Mat& state,
+                  const Mat& action,
+                  const Mat& nextState,
+                  float reward,
                   bool done);
-    void setSA(const Vec& state, const Vec& action);
-    Vec &noiseAction(const Vec &state);
+    void setSA(const Mat& state, const Mat& action);
+    Mat &noiseAction(const Mat &state);
     int randomAction();
-    Vec& eGreedyAction(const Vec &state);
-    Vec& output() {return actorP.output();}
-    int action(const Vec& state);
+    Mat& eGreedyAction(const Mat &state);
+    Mat& output() {return actorP.output();}
+    int action(const Mat& state);
     void experienceReplay(Transition& x);
     void learn(OptType optType  = OPT_RMSPROP,
                std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 64,
-               double actorLearningRate = 0.0001,
-               double criticLearningRate = 0.001);
+               float actorLearningRate = 0.0001,
+               float criticLearningRate = 0.001);
     void save(const std::string& actorPara, const std::string& criticPara);
     void load(const std::string& actorPara, const std::string& criticPara);
 protected:
     std::size_t stateDim;
     std::size_t actionDim;
-    double gamma;
-    double beta;
-    double exploringRate;
+    float gamma;
+    float beta;
+    float exploringRate;
     int learningSteps;
-    Vec sa;
+    Mat sa;
     BPNN actorP;
     BPNN actorQ;
     BPNN criticP;

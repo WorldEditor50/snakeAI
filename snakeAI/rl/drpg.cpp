@@ -14,13 +14,13 @@ RL::DRPG::DRPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDi
     policyNet.lstm.gamma = 0.5;
 }
 
-RL::Vec &RL::DRPG::eGreedyAction(const Vec &state)
+RL::Mat &RL::DRPG::eGreedyAction(const Mat &state)
 {
-    std::uniform_real_distribution<double> distributionReal(0, 1);
-    double p = distributionReal(Rand::engine);
-    Vec &out = policyNet.output();
+    std::uniform_real_distribution<float> distributionReal(0, 1);
+    float p = distributionReal(Rand::engine);
+    Mat &out = policyNet.output();
     if (p < exploringRate) {
-        out.assign(actionDim, 0);
+        out.zero();
         std::uniform_int_distribution<int> distribution(0, actionDim - 1);
         int index = distribution(Rand::engine);
         out[index] = 1;
@@ -30,21 +30,22 @@ RL::Vec &RL::DRPG::eGreedyAction(const Vec &state)
     return out;
 }
 
-RL::Vec &RL::DRPG::action(const Vec &state)
+RL::Mat &RL::DRPG::action(const Mat &state)
 {
     return policyNet.forward(state);
 }
 
-void RL::DRPG::reinforce(const std::vector<Vec> &x, std::vector<Vec> &y, std::vector<double>& reward, double learningRate)
+void RL::DRPG::reinforce(const std::vector<Mat> &x, std::vector<Mat> &y, std::vector<float>& reward, float learningRate)
 {
-    double r = 0;
+    float r = 0;
     for (int i = reward.size() - 1; i >= 0; i--) {
         r = gamma * r + reward[i];
         reward[i] = r;
     }
-    double u = RL::mean(reward);
+    Mat re(reward.size(), 1);
+    float u = re.argmax();
     for (std::size_t t = 0; t < y.size(); t++) {
-        int k = RL::argmax(y[t]);
+        int k = y[t].argmax();
         y[t][k] *= (reward[t] - u);
     }
     policyNet.forward(x);

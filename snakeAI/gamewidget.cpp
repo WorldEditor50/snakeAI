@@ -41,7 +41,7 @@ void GameWidget::paintEvent(QPaintEvent *ev)
     /* draw map */
     for (std::size_t i=0; i < board.rows; i++) {
         for (std::size_t j=0; j < board.cols; j++) {
-            if (board.map[i][j] == 1) {
+            if (board.map(i, j) == 1) {
                 painter.setBrush(Qt::gray);
                 QRect rect = getRect(i, j);
                 painter.drawRect(rect);
@@ -101,7 +101,7 @@ void GameWidget::play1()
             snake.add(board.xt, board.yt);
             board.setTarget(snake.body);
         }
-        if (board.map[x][y] == 1) {
+        if (board.map(x, y) == 1) {
             snake.reset(board.rows, board.cols);
             board.setTarget(snake.body);
         }
@@ -137,7 +137,7 @@ void GameWidget::play2()
             winCount++;
             emit win(QString("%1").arg(winCount));
         }
-        if (board.map[x][y] == 1) {
+        if (board.map(x, y) == 1) {
             snake.reset(board.rows, board.cols);
             board.setTarget();
             lostCount++;

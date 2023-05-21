@@ -5,7 +5,6 @@ RL::BPNN &RL::BPNN::operator =(const RL::BPNN &r)
     if (this == &r) {
         return *this;
     }
-    evalTotalError = r.evalTotalError;
     layers = r.layers;
     return *this;
 }
@@ -16,9 +15,9 @@ void RL::BPNN::copyTo(BPNN& dstNet)
         return;
     }
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
-            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
-                dstNet.layers[i]->W[j][k] = layers[i]->W[j][k];
+        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
+                dstNet.layers[i]->W(j, k) = layers[i]->W(j, k);
             }
             dstNet.layers[i]->B[j] = layers[i]->B[j];
         }
@@ -26,15 +25,15 @@ void RL::BPNN::copyTo(BPNN& dstNet)
     return;
 }
 
-void RL::BPNN::softUpdateTo(BPNN &dstNet, double alpha)
+void RL::BPNN::softUpdateTo(BPNN &dstNet, float alpha)
 {
     if (layers.size() != dstNet.layers.size()) {
         return;
     }
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
-            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
-                dstNet.layers[i]->W[j][k] = (1 - alpha) * dstNet.layers[i]->W[j][k] + alpha * layers[i]->W[j][k];
+        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
+                dstNet.layers[i]->W(j, k) = (1 - alpha) * dstNet.layers[i]->W(j, k) + alpha * layers[i]->W(j, k);
             }
             dstNet.layers[i]->B[j] = (1 - alpha) * dstNet.layers[i]->B[j] + alpha * layers[i]->B[j];
         }
@@ -42,7 +41,7 @@ void RL::BPNN::softUpdateTo(BPNN &dstNet, double alpha)
     return;
 }
 
-RL::BPNN &RL::BPNN::feedForward(const Vec& x)
+RL::BPNN &RL::BPNN::feedForward(const Mat& x)
 {
     layers[0]->feedForward(x);
     for (std::size_t i = 1; i < layers.size(); i++) {
@@ -51,7 +50,7 @@ RL::BPNN &RL::BPNN::feedForward(const Vec& x)
     return *this;
 }
 
-void RL::BPNN::backward(const RL::Vec &loss, Vec& E)
+void RL::BPNN::backward(const RL::Mat &loss, Mat& E)
 {
     std::size_t outputIndex = layers.size() - 1;
     layers[outputIndex]->E = loss;
@@ -62,7 +61,7 @@ void RL::BPNN::backward(const RL::Vec &loss, Vec& E)
     return;
 }
 
-void RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y)
+void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y)
 {
     layers[0]->gradient(x, y);
     for (std::size_t j = 1; j < layers.size(); j++) {
@@ -71,23 +70,16 @@ void RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y)
     return;
 }
 
-RL::Vec& RL::BPNN::output()
+RL::Mat& RL::BPNN::output()
 {
     return layers.back()->O;
 }
 
-double RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y, RL::BPNN::LossFunc loss)
+void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, RL::BPNN::FnLoss loss)
 {
     feedForward(x);
     std::size_t outputIndex = layers.size() - 1;
     loss(layers[outputIndex]->E, layers[outputIndex]->O, y);
-    double total = 0;
-    if (evalTotalError == true) {
-        for (std::size_t i = 0; i < y.size(); i++) {
-            total += (layers[outputIndex]->O[i] - y[i])*(layers[outputIndex]->O[i] - y[i]);
-        }
-        total /= y.size();
-    }
     /* error Backpropagate */
     for (int i = layers.size() - 1; i > 0; i--) {
         layers[i]->backward(layers[i - 1]->E);
@@ -97,10 +89,10 @@ double RL::BPNN::gradient(const RL::Vec &x, const RL::Vec &y, RL::BPNN::LossFunc
     for (std::size_t j = 1; j < layers.size(); j++) {
         layers[j]->gradient(layers[j - 1]->O, y);
     }
-    return total;
+    return;
 }
 
-void RL::BPNN::SGD(double learningRate)
+void RL::BPNN::SGD(float learningRate)
 {
     /* gradient descent */
     for (std::size_t i = 0; i < layers.size(); i++) {
@@ -109,7 +101,7 @@ void RL::BPNN::SGD(double learningRate)
     return;
 }
 
-void RL::BPNN::RMSProp(double rho, double learningRate, double decay)
+void RL::BPNN::RMSProp(float rho, float learningRate, float decay)
 {
     for (std::size_t i = 0; i < layers.size(); i++) {
         layers[i]->RMSProp(rho, learningRate, decay);
@@ -117,7 +109,7 @@ void RL::BPNN::RMSProp(double rho, double learningRate, double decay)
     return;
 }
 
-void RL::BPNN::Adam(double alpha1, double alpha2, double learningRate, double decay)
+void RL::BPNN::Adam(float alpha1, float alpha2, float learningRate, float decay)
 {
     alpha1_t *= alpha1;
     alpha2_t *= alpha2;
@@ -127,7 +119,7 @@ void RL::BPNN::Adam(double alpha1, double alpha2, double learningRate, double de
     return;
 }
 
-void RL::BPNN::optimize(OptType optType, double learningRate, double decay)
+void RL::BPNN::optimize(OptType optType, float learningRate, float decay)
 {
     switch (optType) {
         case OPT_SGD:
@@ -146,11 +138,11 @@ void RL::BPNN::optimize(OptType optType, double learningRate, double decay)
     return;
 }
 
-void RL::BPNN::clamp(double c0, double cn)
+void RL::BPNN::clamp(float c0, float cn)
 {
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
-            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
+        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
                 Optimizer::clamp(layers[i]->W, c0, cn);
             }
             Optimizer::clamp(layers[i]->B, c0, cn);
@@ -161,17 +153,17 @@ void RL::BPNN::clamp(double c0, double cn)
 
 int RL::BPNN::argmax()
 {
-    return RL::argmax(layers.back()->O);
+    return layers.back()->O.argmax();
 }
 
 int RL::BPNN::argmin()
 {
-    return RL::argmin(layers.back()->O);
+    return layers.back()->O.argmin();
 }
 
 void RL::BPNN::show()
 {
-    Vec &v = layers.back()->O;
+    Mat &v = layers.back()->O;
     for (std::size_t i = 0; i < v.size(); i++) {
         std::cout<<v[i]<<" ";
     }
@@ -184,9 +176,9 @@ void RL::BPNN::load(const std::string& fileName)
     std::ifstream file;
     file.open(fileName);
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
-            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
-                file >> layers[i]->W[j][k];
+        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
+                file >> layers[i]->W(j, k);
             }
             file >> layers[i]->B[j];
         }
@@ -199,9 +191,9 @@ void RL::BPNN::save(const std::string& fileName)
     std::ofstream file;
     file.open(fileName);
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.size(); j++) {
-            for (std::size_t k = 0; k < layers[i]->W[j].size(); k++) {
-                file << layers[i]->W[j][k];
+        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
+                file << layers[i]->W(j, k);
             }
             file << layers[i]->B[j];
             file << std::endl;
@@ -218,21 +210,21 @@ void RL::BPNN::test()
                  Layer<Sigmoid>::_(16, 16, true),
                  Layer<Linear>::_(16, 1, true)
              });
-    auto zeta = [](double x, double y) -> double {
+    auto zeta = [](float x, float y) -> float {
         return x*x + y*y + x*y;
     };
-    std::uniform_real_distribution<double> uniform(-1, 1);
-    std::vector<Vec> data;
-    std::vector<Vec> target;
+    std::uniform_real_distribution<float> uniform(-1, 1);
+    std::vector<Mat> data;
+    std::vector<Mat> target;
     for (int i = 0; i < 200; i++) {
         for (int j = 0; j < 200; j++) {
-            Vec p(2);
-            double x = uniform(Rand::engine);
-            double y = uniform(Rand::engine);
-            double z = zeta(x, y);
+            Mat p(2, 1);
+            float x = uniform(Rand::engine);
+            float y = uniform(Rand::engine);
+            float z = zeta(x, y);
             p[0] = x;
             p[1] = y;
-            Vec q(1);
+            Mat q(1, 1);
             q[0] = z;
             data.push_back(p);
             target.push_back(q);
@@ -249,10 +241,10 @@ void RL::BPNN::test()
     }
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            Vec x(2);
-            double x1 = uniform(Rand::engine);
-            double x2 = uniform(Rand::engine);
-            double z = zeta(x1, x2);
+            Mat x(2, 1);
+            float x1 = uniform(Rand::engine);
+            float x2 = uniform(Rand::engine);
+            float z = zeta(x1, x2);
             x[0] = x1;
             x[1] = x2;
             auto s = net.feedForward(x).output();

@@ -19,7 +19,6 @@ protected:
     void closeEvent(QCloseEvent *ev) override;
 private:
     Ui::MainWindow *ui;
-    GameWidget *gameWidget;
     /* visualize */
     AxisWidget *totalRewardWidget;
 };

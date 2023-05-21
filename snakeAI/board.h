@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdlib>
 #include <cmath>
+#include "mat.hpp"
 #include "common.h"
 
 #define BLANK   0
@@ -27,7 +28,7 @@ public:
     int blockNum;
     int xt;
     int yt;
-    std::vector<std::vector<int> > map;
+    RL::Mat map;
 };
 
 #endif // BOARD_H

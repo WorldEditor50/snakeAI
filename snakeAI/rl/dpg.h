@@ -18,18 +18,18 @@ public:
     DPG(){}
     explicit DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     ~DPG(){}
-    Vec &eGreedyAction(const Vec &state);
-    Vec &output(){return policyNet.output();}
-    int action(const Vec &state);
-    void reinforce(OptType optType, double learningRate, std::vector<Step>& x);
+    Mat &eGreedyAction(const Mat &state);
+    Mat &output(){return policyNet.output();}
+    int action(const Mat &state);
+    void reinforce(OptType optType, float learningRate, std::vector<Step>& x);
     void save(const std::string& fileName);
     void load(const std::string& fileName);
 protected:
     std::size_t stateDim;
     std::size_t actionDim;
-    double gamma;
-    double exploringRate;
-    double learningRate;
+    float gamma;
+    float exploringRate;
+    float learningRate;
     BPNN policyNet;
 };
 }

@@ -14,81 +14,54 @@ public:
     /* reset gate */
     Mat Wr;
     Mat Ur;
-    Vec Br;
+    Mat Br;
     /* update gate */
     Mat Wz;
     Mat Uz;
-    Vec Bz;
+    Mat Bz;
     /* h */
     Mat Wg;
     Mat Ug;
-    Vec Bg;
+    Mat Bg;
     /* predict */
     Mat W;
-    Vec B;
+    Mat B;
 public:
     GRUParam(){}
     GRUParam(std::size_t inputDim, std::size_t hiddenDim, std::size_t outputDim)
     {
-        Wr = Mat(hiddenDim, Vec(inputDim, 0));
-        Wz = Mat(hiddenDim, Vec(inputDim, 0));
-        Wg = Mat(hiddenDim, Vec(inputDim, 0));
-        Ur = Mat(hiddenDim, Vec(hiddenDim, 0));
-        Uz = Mat(hiddenDim, Vec(hiddenDim, 0));
-        Ug = Mat(hiddenDim, Vec(hiddenDim, 0));
-        Br = Vec(hiddenDim, 0);
-        Bz = Vec(hiddenDim, 0);
-        Bg = Vec(hiddenDim, 0);
-        W = Mat(outputDim, Vec(hiddenDim, 0));
-        B = Vec(outputDim, 0);
+        Wr = Mat(hiddenDim, inputDim);
+        Wz = Mat(hiddenDim, inputDim);
+        Wg = Mat(hiddenDim, inputDim);
+        Ur = Mat(hiddenDim, hiddenDim);
+        Uz = Mat(hiddenDim, hiddenDim);
+        Ug = Mat(hiddenDim, hiddenDim);
+        Br = Mat(hiddenDim, 1);
+        Bz = Mat(hiddenDim, 1);
+        Bg = Mat(hiddenDim, 1);
+        W = Mat(outputDim, hiddenDim);
+        B = Mat(outputDim, 1);
     }
 
     void zero()
     {
-        for (std::size_t i = 0; i < Wr.size(); i++) {
-            for (std::size_t j = 0; j < Wr[0].size(); j++) {
-                Wr[i][j] = 0; Wz[i][j] = 0; Wg[i][j] = 0;
-            }
-        }
-        for (std::size_t i = 0; i < Ur.size(); i++) {
-            for (std::size_t j = 0; j < Ur[0].size(); j++) {
-                Ur[i][j] = 0; Uz[i][j] = 0; Ug[i][j] = 0;
-            }
-            Br[i] = 0; Bz[i] = 0; Bg[i] = 0;
-        }
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                W[i][j] = 0;
-            }
-            B[i] = 0;
+        std::vector<Mat*> weights = {&Wr, &Wz, &Wg,
+                                     &Ur, &Uz, &Ug,
+                                     &Br, &Bz, &Bg,
+                                     &W, &B};
+        for (std::size_t i = 0; i < weights.size(); i++) {
+            weights[i]->zero();
         }
         return;
     }
     void random()
     {
-        std::uniform_real_distribution<double> uniform(-1, 1);
-        for (std::size_t i = 0; i < Wr.size(); i++) {
-            for (std::size_t j = 0; j < Wr[0].size(); j++) {
-                Wr[i][j] = uniform(Rand::engine);
-                Wz[i][j] = uniform(Rand::engine);
-                Wg[i][j] = uniform(Rand::engine);
-            }
-        }
-        for (std::size_t i = 0; i < Ur.size(); i++) {
-            for (std::size_t j = 0; j < Ur[0].size(); j++) {
-                Ur[i][j] = uniform(Rand::engine);
-                Uz[i][j] = uniform(Rand::engine);
-                Ug[i][j] = uniform(Rand::engine);
-            }
-            Br[i] = uniform(Rand::engine);
-            Bz[i] = uniform(Rand::engine);
-            Bg[i] = uniform(Rand::engine);
-        }
-        for (std::size_t i = 0; i < W.size(); i++) {
-            for (std::size_t j = 0; j < W[0].size(); j++) {
-                W[i][j] = uniform(Rand::engine);
-            }
-            B[i] = uniform(Rand::engine);
+        std::vector<Mat*> weights = {&Wr, &Wz, &Wg,
+                                     &Ur, &Uz, &Ug,
+                                     &Br, &Bz, &Bg,
+                                     &W, &B};
+        for (std::size_t i = 0; i < weights.size(); i++) {
+            uniformRand(*weights[i], -1, 1);
         }
         return;
     }
@@ -100,16 +73,16 @@ public:
     class State
     {
     public:
-        Vec r;
-        Vec z;
-        Vec g;
-        Vec h;
-        Vec y;
+        Mat r;
+        Mat z;
+        Mat g;
+        Mat h;
+        Mat y;
     public:
         State(){}
         State(std::size_t hiddenDim, std::size_t outputDim):
-            r(Vec(hiddenDim, 0)), z(Vec(hiddenDim, 0)),
-            g(Vec(hiddenDim, 0)), h(Vec(hiddenDim, 0)), y(Vec(outputDim, 0)){}
+            r(Mat(hiddenDim, 1)), z(Mat(hiddenDim, 1)),
+            g(Mat(hiddenDim, 1)), h(Mat(hiddenDim, 1)), y(Mat(outputDim, 1)){}
         void zero()
         {
             for (std::size_t k = 0; k < r.size(); k++) {
@@ -126,28 +99,28 @@ protected:
     std::size_t inputDim;
     std::size_t hiddenDim;
     std::size_t outputDim;
-    Vec h;
+    Mat h;
     /* optimize */
     GRUParam d;
     GRUParam v;
     GRUParam s;
-    double alpha_t;
-    double beta_t;
+    float alpha_t;
+    float beta_t;
     /* state */
     std::vector<State> states;
 public:
     GRU(){}
     GRU(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
     void clear();
-    State feedForward(const Vec &x, const Vec &_h);
-    void forward(const std::vector<Vec> &sequence);
-    Vec forward(const Vec &x);
-    void backward(const std::vector<Vec> &x, const std::vector<Vec> &E);
-    void gradient(const std::vector<Vec> &x, const std::vector<Vec> &yt);
-    void gradient(const std::vector<Vec> &x, const Vec &yt);
-    void SGD(double learningRate = 0.001);
-    void RMSProp(double learningRate = 0.001, double rho = 0.9);
-    void Adam(double learningRate = 0.001, double alpha = 0.9, double beta = 0.99);
+    State feedForward(const Mat &x, const Mat &_h);
+    void forward(const std::vector<Mat> &sequence);
+    Mat forward(const Mat &x);
+    void backward(const std::vector<Mat> &x, const std::vector<Mat> &E);
+    void gradient(const std::vector<Mat> &x, const std::vector<Mat> &yt);
+    void gradient(const std::vector<Mat> &x, const Mat &yt);
+    void SGD(float learningRate = 0.001);
+    void RMSProp(float learningRate = 0.001, float rho = 0.9);
+    void Adam(float learningRate = 0.001, float alpha = 0.9, float beta = 0.99);
     static void test();
 };
 

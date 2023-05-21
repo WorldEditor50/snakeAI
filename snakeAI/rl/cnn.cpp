@@ -1,6 +1,6 @@
 #include "cnn.h"
 
-RL::Conv2D::Conv2D(int inputSize_, int filterSize_, int paddingSize_,
+RL::Conv2d::Conv2d(int inputSize_, int filterSize_, int paddingSize_,
                    int stride_, int channel_, int filterNum_)
     :inputSize(inputSize_), filterSize(filterSize_),
       filterNum(filterNum_), paddingSize(paddingSize_),
@@ -11,14 +11,14 @@ RL::Conv2D::Conv2D(int inputSize_, int filterSize_, int paddingSize_,
 
 {
     outputSize = (inputSize - filterSize + 2*paddingSize)/stride + 1;
-    out = std::vector<Mat>(filterNum_, Mat(outputSize, Vec(outputSize, 0)));
-    std::uniform_real_distribution<double> uniform(-1, 1);
+    out = std::vector<Mat>(filterNum_, Mat(outputSize, outputSize));
+    std::uniform_real_distribution<float> uniform(-1, 1);
     for (std::size_t k = 0; k < filters.size(); k++) {
         filters[k].random();
     }
 }
 
-void RL::Conv2D::forward(const std::vector<RL::Mat> &x)
+void RL::Conv2d::forward(const std::vector<RL::Mat> &x)
 {
     /*
        input: (channels, height, width)
@@ -35,20 +35,20 @@ void RL::Conv2D::forward(const std::vector<RL::Mat> &x)
         /* activate */
         for (int row = 0; row < outputSize; row++) {
             for (int col = 0; col < outputSize; col++) {
-                out[i][row][col] = Relu::_(out[i][row][col] + filters[i].b[0]);
+                out[i](row, col) = Relu::_(out[i](row, col) + filters[i].b[0]);
             }
         }
     }
     return;
 }
 
-void RL::Conv2D::convNoPad(RL::Mat &y, const RL::Mat &kernel, const RL::Mat &x)
+void RL::Conv2d::convNoPad(RL::Mat &y, const RL::Mat &kernel, const RL::Mat &x)
 {
     for (int i = 0; i < outputSize; i++) {
         for (int j = 0; j < outputSize; j++) {
             for (int h = 0; h < filterSize; h++) {
                 for (int k = 0; k < filterSize; k++) {
-                    y[i][j] += kernel[h][k]*x[i + h][j + k];
+                    y(i, j) += kernel(h, k)*x(i + h, j + k);
                 }
             }
         }
@@ -56,7 +56,7 @@ void RL::Conv2D::convNoPad(RL::Mat &y, const RL::Mat &kernel, const RL::Mat &x)
     return;
 }
 
-void RL::Conv2D::conv(RL::Mat &y, const RL::Mat &kernel, const RL::Mat &x)
+void RL::Conv2d::conv(RL::Mat &y, const RL::Mat &kernel, const RL::Mat &x)
 {
     /* height */
     for (int i = 0; i < inputSize; i+=stride) {
@@ -68,7 +68,7 @@ void RL::Conv2D::conv(RL::Mat &y, const RL::Mat &kernel, const RL::Mat &x)
     return;
 }
 
-void RL::Conv2D::conv_(int ik, int jk, RL::Mat &y, const RL::Mat &kernel, const RL::Mat &x)
+void RL::Conv2d::conv_(int ik, int jk, RL::Mat &y, const RL::Mat &kernel, const RL::Mat &x)
 {
     /*
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -106,19 +106,19 @@ void RL::Conv2D::conv_(int ik, int jk, RL::Mat &y, const RL::Mat &kernel, const 
         for (int j = j0; j < je; j++) {
             int row = ik < paddingSize ? i : ik + i;
             int col = jk < paddingSize ? j : jk + j;
-            y[oi][oj] += kernel[i][j]*x[row][col];
+            y(oi, oj) += kernel(i, j)*x(row, col);
         }
     }
     return;
 }
 
-void RL::Conv2D::backward()
+void RL::Conv2d::backward()
 {
 
     return;
 }
 
-void RL::Conv2D::RMSProp(double rho, double learningRate)
+void RL::Conv2d::RMSProp(float rho, float learningRate)
 {
     for (std::size_t h = 0; h < filters.size(); h++) {
         Optimizer::RMSProp(filters[h].w, sFilters[h].w, dFilters[h].w, rho, learningRate);
@@ -128,33 +128,33 @@ void RL::Conv2D::RMSProp(double rho, double learningRate)
     return;
 }
 
-void RL::Conv2D::test()
+void RL::Conv2d::test()
 {
     /* input */
-    Mat x(6, Vec(6, 1));
-    for (std::size_t i = 0; i < x.size(); i++) {
-        for (std::size_t j = 0; j < x[0].size(); j++) {
+    Mat x(6, 6);
+    for (std::size_t i = 0; i < x.rows; i++) {
+        for (std::size_t j = 0; j < x.cols; j++) {
             if (i == 0 || j == 0 || i == 5 || j == 5) {
-                x[i][j] = 2;
+                x(i, j) = 2;
             }
         }
     }
-    Conv2D layer(6, 3, 1, 1, 1, 1);
+    Conv2d layer(6, 3, 1, 1, 1, 1);
     /* kernel */
-    layer.filters[0].w = Mat(3, Vec(3, 1));
+    layer.filters[0].w = Mat(3, 3);
     /* convolution */
     layer.conv(layer.out[0], layer.filters[0].w, x);
     /* show */
-    for (std::size_t i = 0; i < x.size(); i++) {
-        for (std::size_t j = 0; j < x[0].size(); j++) {
-            std::cout<<x[i][j]<<" ";
+    for (std::size_t i = 0; i < x.rows; i++) {
+        for (std::size_t j = 0; j < x.cols; j++) {
+            std::cout<<x(i, j)<<" ";
         }
         std::cout<<std::endl;
     }
     std::cout<<std::endl;
-    for (std::size_t i = 0; i < layer.out[0].size(); i++) {
-        for (std::size_t j = 0; j < layer.out[0][0].size(); j++) {
-            std::cout<<layer.out[0][i][j]<<" ";
+    for (std::size_t i = 0; i < layer.out[0].rows; i++) {
+        for (std::size_t j = 0; j < layer.out[0].cols; j++) {
+            std::cout<<layer.out[0](i, j)<<" ";
         }
         std::cout<<std::endl;
     }
@@ -169,7 +169,7 @@ RL::MaxPooling::MaxPooling(int poolingSize_,
       channel(channel_),poolingSize(poolingSize_)
 {
     int outputSize = inputSize_ / poolingSize;
-    out = std::vector<Mat>(filterNum_, Mat(outputSize, Vec(outputSize, 0)));
+    out = std::vector<Mat>(filterNum_, Mat(outputSize, outputSize));
 }
 
 void RL::MaxPooling::forward(const std::vector<RL::Mat> &x)
@@ -187,17 +187,17 @@ void RL::MaxPooling::forward(const std::vector<RL::Mat> &x)
                 /* sliding window */
                 int oi = i / poolingSize;
                 int oj = j / poolingSize;
-                double maxValue = 0;
+                float maxValue = 0;
                 for (int pi = 0; pi < poolingSize; pi++) {
                     for (int pj = 0; pj < poolingSize; pj++) {
                         int xi = i + pi;
                         int xj = j + pj;
-                        if (x[h][xi][xj] > maxValue) {
-                            maxValue = x[h][xi][xj];
+                        if (x[h](xi, xj) > maxValue) {
+                            maxValue = x[h](xi, xj);
                         }
                     }
                 }
-                out[h][oi][oj] = maxValue;
+                out[h](oi, oj) = maxValue;
             }
         }
     }
@@ -212,7 +212,7 @@ RL::AveragePooling::AveragePooling(int poolingSize_,
       channel(channel_),poolingSize(poolingSize_)
 {
     int outputSize = inputSize_ / poolingSize;
-    out = std::vector<Mat>(filterNum_, Mat(outputSize, Vec(outputSize, 0)));
+    out = std::vector<Mat>(filterNum_, Mat(outputSize, outputSize));
 }
 void RL::AveragePooling::forward(const std::vector<RL::Mat> &x)
 {
@@ -225,15 +225,15 @@ void RL::AveragePooling::forward(const std::vector<RL::Mat> &x)
                 /* sliding window */
                 int oi = i / poolingSize;
                 int oj = j / poolingSize;
-                double s = 0;
+                float s = 0;
                 for (int pi = 0; pi < poolingSize; pi++) {
                     for (int pj = 0; pj < poolingSize; pj++) {
                         int xi = i + pi;
                         int xj = j + pj;
-                        s += x[h][xi][xj];
+                        s += x[h](xi, xj);
                     }
                 }
-                out[h][oi][oj] = s / (poolingSize * poolingSize);
+                out[h](oi, oj) = s / (poolingSize * poolingSize);
             }
         }
     }

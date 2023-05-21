@@ -2,13 +2,12 @@
 #include <QApplication>
 #include "lstm.h"
 #include "gru.h"
-#include "mat.h"
-#include "tensor.h"
+#include "mat.hpp"
 #include "cnn.h"
 
 int main(int argc, char *argv[])
 {
-#if 0
+#if 1
     QApplication a(argc, argv);
     MainWindow w;
     w.show();

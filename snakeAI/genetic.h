@@ -17,26 +17,26 @@ public:
     Factor(const Factor& factor);
     void mutate();
     void crossover(Factor& factor);
-    double decode();
+    float decode();
     void copyTo(Factor& dstFactor);
     void swap(Factor& factor);
 public:
-    double fitness;
-    double relativeFitness;
-    double accumulateFitness;
-    double maxValue;
+    float fitness;
+    float relativeFitness;
+    float accumulateFitness;
+    float maxValue;
     std::vector<char> code;
 };
 class Genetic
 {
 public:
-    double run(char OptimizeType, std::size_t iterateNum);
+    float run(char OptimizeType, std::size_t iterateNum);
     void show(int index);
     Genetic():crossRate(0.6), mutateRate(0.3){}
     ~Genetic(){}
-    Genetic(double crossRate, double mutateRate, int maxGroupSize, int maxCodeLen);
-    void create(double crossRate, double mutateRate, std::size_t maxGroupSize, int maxCodeLen);
-    double objectFunction(double x);
+    Genetic(float crossRate, float mutateRate, int maxGroupSize, int maxCodeLen);
+    void create(float crossRate, float mutateRate, std::size_t maxGroupSize, int maxCodeLen);
+    float objectFunction(float x);
 private:
     int select();
     void crossover(int index1, int index2);
@@ -44,8 +44,8 @@ private:
     void eliminate(char OptimizeType);
     void calculateFitness();
 private:
-    double crossRate;
-    double mutateRate;
+    float crossRate;
+    float mutateRate;
     Factor optimalFactor;
     std::vector<Factor> group;
 };

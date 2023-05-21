@@ -10,15 +10,16 @@
 #include "drpg.h"
 #include "common.h"
 #include "snake.h"
+#include "mat.hpp"
 
 using namespace RL;
 class Agent : public QObject
 {
     Q_OBJECT
 public:
-    explicit Agent(QObject *parent, std::vector<std::vector<int> >& map, Snake& s);
+    explicit Agent(QObject *parent, Mat& map, Snake& s);
     ~Agent();
-    void observe(std::vector<double>& statex, int x, int y, int xt, int yt);
+    void observe(Mat& statex, int x, int y, int xt, int yt);
     int acting(int x, int y, int xt, int yt);
     int astarAction(int x, int y, int xt, int yt);
     int randAction(int x, int y, int xt, int yt);
@@ -30,23 +31,23 @@ public:
     int ppoAction(int x, int y, int xt, int yt);
     int supervisedAction(int x, int y, int xt, int yt);
 signals:
-    void totalReward(double r);
+    void totalReward(float r);
     void scale(int value);
 public slots:
     void setTrain(bool on){trainFlag = on;}
 private:
-    double reward1(int xi, int yi, int xn, int yn, int xt, int yt);
-    double reward2(int xi, int yi, int xn, int yn, int xt, int yt);
-    double reward3(int xi, int yi, int xn, int yn, int xt, int yt);
-    double reward4(int xi, int yi, int xn, int yn, int xt, int yt);
-    double reward5(int xi, int yi, int xn, int yn, int xt, int yt);
-    double reward6(int xi, int yi, int xn, int yn, int xt, int yt);
+    float reward1(int xi, int yi, int xn, int yn, int xt, int yt);
+    float reward2(int xi, int yi, int xn, int yn, int xt, int yt);
+    float reward3(int xi, int yi, int xn, int yn, int xt, int yt);
+    float reward4(int xi, int yi, int xn, int yn, int xt, int yt);
+    float reward5(int xi, int yi, int xn, int yn, int xt, int yt);
+    float reward6(int xi, int yi, int xn, int yn, int xt, int yt);
     bool simulateMove(int& x, int& y, int direct);
 private:
-    std::vector<std::vector<int> >& map;
+    Mat& map;
     Snake &snake;
-    std::vector<double> state;
-    std::vector<double> nextState;
+    Mat state;
+    Mat nextState;
     DQN dqn;
     BPNN bpnn;
     DPG dpg;

@@ -25,28 +25,28 @@ enum OptType {
 class BPNN
 {
 public:
-    using LossFunc = std::function<void(Vec&, const Vec&, const Vec&)>;
+    using FnLoss = std::function<void(Mat&, const Mat&, const Mat&)>;
     using Layers = std::vector<std::shared_ptr<LayerObject> >;
 public:
     BPNN(){}
     virtual ~BPNN(){}
     template<typename ...TLayer>
-    explicit BPNN(TLayer&&...layer):evalTotalError(false),layers({layer...}){}
-    explicit BPNN(const Layers &layers_):evalTotalError(false),layers(layers_){}
-    BPNN(const BPNN &r):evalTotalError(r.evalTotalError),layers(r.layers){}
+    explicit BPNN(TLayer&&...layer):layers({layer...}){}
+    explicit BPNN(const Layers &layers_):layers(layers_){}
+    BPNN(const BPNN &r):layers(r.layers){}
     BPNN &operator = (const BPNN &r);
     void copyTo(BPNN& dstNet);
-    void softUpdateTo(BPNN& dstNet, double alpha);
-    Vec& output();
-    BPNN &feedForward(const Vec &x);
-    void backward(const Vec &loss, Vec& E);
-    void gradient(const Vec &x, const Vec &y);
-    double gradient(const Vec &x, const Vec &y, LossFunc loss);
-    void SGD(double learningRate = 0.001);
-    void RMSProp(double rho = 0.9, double learningRate = 0.001, double decay = 0.01);
-    void Adam(double alpha1 = 0.9, double alpha2 = 0.99, double learningRate = 0.001, double decay = 0.01);
-    void optimize(OptType optType = OPT_RMSPROP, double learningRate = 0.001, double decay = 0.01);
-    void clamp(double c0, double cn);
+    void softUpdateTo(BPNN& dstNet, float alpha);
+    Mat& output();
+    BPNN &feedForward(const Mat &x);
+    void backward(const Mat &loss, Mat& E);
+    void gradient(const Mat &x, const Mat &y);
+    void gradient(const Mat &x, const Mat &y, FnLoss loss);
+    void SGD(float learningRate = 0.001);
+    void RMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0.01);
+    void Adam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001, float decay = 0.01);
+    void optimize(OptType optType = OPT_RMSPROP, float learningRate = 0.001, float decay = 0.01);
+    void clamp(float c0, float cn);
     int argmax();
     int argmin();
     void show();
@@ -54,9 +54,8 @@ public:
     void save(const std::string& fileName);
     static void test();
 protected:
-    double alpha1_t;
-    double alpha2_t;
-    bool evalTotalError;
+    float alpha1_t;
+    float alpha2_t;
     Layers layers;
 };
 

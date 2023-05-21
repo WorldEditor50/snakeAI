@@ -11,7 +11,7 @@ AxisWidget::AxisWidget(QWidget *parent) :
     x = 0;
 }
 
-void AxisWidget::addPoint(double y)
+void AxisWidget::addPoint(float y)
 {
     QPointF p(x, y);
     points.append(p);
@@ -112,7 +112,7 @@ void AxisWidget::paintEvent(QPaintEvent *event)
 void AxisWidget::timerEvent(QTimerEvent *event)
 {
     if (event->timerId() == timerID) {
-        double y = rand() % 200 - rand() % 200;
+        float y = rand() % 200 - rand() % 200;
         QPointF p(x, y);
         points.append(p);
         x++;
