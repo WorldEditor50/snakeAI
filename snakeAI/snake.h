@@ -2,20 +2,22 @@
 #define SNAKE_H
 #include <iostream>
 #include <vector>
+#include <deque>
 #include "common.h"
-using namespace std;
 
 class Snake
 {
 public:
+    std::deque<Point> body;
+public:
     Snake(){}
     ~Snake(){}
     void create(int x, int y);
-    void add(int x, int y);
+    void grow(int x, int y);
     void reset(int rows, int cols);
     void move(int direct);
     bool isHitSelf();
-    vector<Point> body;
+
 };
 
 #endif // SNAKE_H

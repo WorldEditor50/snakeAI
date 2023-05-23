@@ -25,10 +25,12 @@ public:
 signals:
     void win(const QString &count);
     void lost(const QString &count);
+    void sendTotalReward(float r);
+    void scale(int value);
 public slots:
     void setBlocks(int value);
     void setAgent(const QString &agentName);
-    void setTrain(bool on);
+    void setTrainAgent(bool on);
 protected:
     void paintEvent(QPaintEvent* ev) override;
 private:
@@ -36,13 +38,8 @@ private:
     void play1();
     void play2();
 public:
-    Agent agent;
-    using AgentMethod = std::function<int(Agent&, int, int, int, int)>;
+   Board board;
 private:
-    Board board;
-    Snake snake;
-    QString agentName;
-    QMap<QString, AgentMethod> agentMethod;
     int winCount;
     int lostCount;
 };

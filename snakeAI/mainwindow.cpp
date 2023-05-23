@@ -20,14 +20,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->gamewidget, &GameWidget::win, ui->winValueLabel, &QLabel::setText);
     connect(ui->gamewidget, &GameWidget::lost, ui->lostValueLabel, &QLabel::setText);
     ui->trainCheckBox->setChecked(true);
-    connect(ui->trainCheckBox, &QCheckBox::clicked, ui->gamewidget, &GameWidget::setTrain);
+    connect(ui->trainCheckBox, &QCheckBox::clicked, ui->gamewidget, &GameWidget::setTrainAgent);
     /* show reward */
-    totalRewardWidget = new AxisWidget;
-    totalRewardWidget->setWindowTitle("Total reward per epoch");
-    connect(&ui->gamewidget->agent, &Agent::totalReward,
-            totalRewardWidget, &AxisWidget::addPoint);
-    totalRewardWidget->move(1000, 0);
-    totalRewardWidget->show();
+    statisticalWidget = new AxisWidget;
+    statisticalWidget->setWindowTitle("Total reward per epoch");
+    connect(ui->gamewidget, &GameWidget::sendTotalReward,
+            statisticalWidget, &AxisWidget::addPoint);
+    statisticalWidget->move(1000, 0);
+    statisticalWidget->show();
 }
 
 MainWindow::~MainWindow()
@@ -37,9 +37,9 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *ev)
 {
-    if (totalRewardWidget != nullptr) {
-        totalRewardWidget->setParent(this);
-        totalRewardWidget->hide();
+    if (statisticalWidget != nullptr) {
+        statisticalWidget->setParent(this);
+        statisticalWidget->hide();
     }
     return QMainWindow::closeEvent(ev);
 }

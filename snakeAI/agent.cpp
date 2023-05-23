@@ -1,7 +1,6 @@
 #include "agent.h"
 #include <QDebug>
-Agent::Agent(QObject *parent, Mat& map, Snake &s):
-    QObject(parent),
+Agent::Agent(Mat& map, Snake &s):
     map(map),
     snake(s),
     trainFlag(true)
@@ -75,9 +74,9 @@ float Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
     float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
     float r = 0;
     if (d1 > d2) {
-        r = 0.8;
+        r = 0.8f;
     } else {
-        r = -0.8;
+        r = -0.8f;
     }
     return r;
 }
@@ -131,12 +130,7 @@ void Agent::observe(Mat& statex, int x, int y, int xt, int yt)
     return;
 }
 
-int Agent::acting(int x, int y, int xt, int yt)
-{
-    return dqnAction(x, y, xt, yt);
-}
-
-int Agent::astarAction(int x, int y, int xt, int yt)
+int Agent::astarAction(int x, int y, int xt, int yt, float &totalReward)
 {
     int distance[4];
     for(int i = 0; i < 4; i++) {
@@ -159,12 +153,12 @@ int Agent::astarAction(int x, int y, int xt, int yt)
     return minDirect;
 }
 
-int Agent::randAction(int x, int y, int xt, int yt)
+int Agent::randAction(int x, int y, int xt, int yt, float &totalReward)
 {
     int xn = x;
     int yn = y;
     int direct = 0;
-    float gamma = 0.9;
+    float gamma = 0.9f;
     float T = 10000;
     Mat act(4, 1);
     while (T > 0.001) {
@@ -194,7 +188,7 @@ int Agent::randAction(int x, int y, int xt, int yt)
     return direct;
 }
 
-int Agent::dqnAction(int x, int y, int xt, int yt)
+int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
 {
     /* exploring environment */
     int xn = x;
@@ -225,15 +219,15 @@ int Agent::dqnAction(int x, int y, int xt, int yt)
             }
             state = nextState;
         }
-        emit totalReward(total);
+        totalReward = total;
         /* training */
-        dqn.learn(OPT_RMSPROP, 8192, 256, 64, 0.001);
+        dqn.learn(OPT_RMSPROP, 8192, 256, 64, 1e-3);
     }
     /* making decision */
     return dqn.action(state_);
 }
 
-int Agent::qlstmAction(int x, int y, int xt, int yt)
+int Agent::qlstmAction(int x, int y, int xt, int yt, float &totalReward)
 {
     int xn = x;
     int yn = y;
@@ -263,7 +257,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
             }
             state = nextState;
         }
-        emit totalReward(total);
+        totalReward = total;
         /* training */
         qlstm.learn(8192, 256, 16, 0.001);
     }
@@ -276,8 +270,9 @@ int Agent::qlstmAction(int x, int y, int xt, int yt)
     return action.argmax();
 }
 
-int Agent::dpgAction(int x, int y, int xt, int yt)
+int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
 {
+
     int direct = 0;
     /* exploring environment */
     std::vector<Step> steps;
@@ -306,7 +301,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
             }
             state = nextState;
         }
-        emit totalReward(total);
+        totalReward = total;
         /* training */
         dpg.reinforce(OPT_RMSPROP, 1e-5, steps);
     }
@@ -315,7 +310,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt)
     return direct;
 }
 
-int Agent::drpgAction(int x, int y, int xt, int yt)
+int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
 {
     int direct = 0;
     std::vector<Mat> states;
@@ -348,7 +343,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt)
             }
             state = nextState;
         }
-        emit totalReward(total);
+        totalReward = total;
         /* training */
         drpg.reinforce(states, actions, rewards, 0.001);
     }
@@ -361,7 +356,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt)
     return a.argmax();
 }
 
-int Agent::ddpgAction(int x, int y, int xt, int yt)
+int Agent::ddpgAction(int x, int y, int xt, int yt, float &totalReward)
 {
     /* exploring environment */
     int xn = x;
@@ -392,14 +387,14 @@ int Agent::ddpgAction(int x, int y, int xt, int yt)
             }
             state = nextState;
         }
-        emit totalReward(total);
+        totalReward = total;
         /* training */
         ddpg.learn(OPT_RMSPROP, 8192, 256, 32, 0.001, 0.001);
     }
     return ddpg.action(state_);
 }
 
-int Agent::ppoAction(int x, int y, int xt, int yt)
+int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
 {
     /* exploring environment */
     int xn = x;
@@ -419,20 +414,18 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
             float r = reward4(xi, yi, xn, yn, xt, yt);
-            //if (j%8 == 0 || (xn == xt && yn == yt) || map[xn][yn] == 1) {
-                Transition transition;
-                transition.state = state;
-                transition.action = output;
-                transition.reward = r;
-                trans.push_back(transition);
-            //}
+            Transition transition;
+            transition.state = state;
+            transition.action = output;
+            transition.reward = r;
+            trans.push_back(transition);
             total += r;
             if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
                 break;
             }
             state = nextState;
         }
-        emit totalReward(total);
+        totalReward = total;
         /* training */
         ppo.learnWithClipObjective(0.01, trans);
     }
@@ -445,7 +438,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt)
     return a.argmax();
 }
 
-int Agent::supervisedAction(int x, int y, int xt, int yt)
+int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
 {
     int direct1 = 0;
     int direct2 = 0;
@@ -458,7 +451,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt)
         for (std::size_t i = 0; i < 128; i++) {
             bpnn.feedForward(state);
             direct1 = action.argmax();
-            direct2 = astarAction(xn, yn, xt, yt);
+            direct2 = astarAction(xn, yn, xt, yt, totalReward);
             if (direct1 != direct2) {
                 Mat target(4, 1);
                 target[direct2] = 1;

@@ -2,8 +2,6 @@
 
 GameWidget::GameWidget(QWidget *parent) :
     QWidget(parent),
-    agent(this, board.map, snake),
-    agentName("dpg"),
     winCount(0),
     lostCount(0)
 {
@@ -11,15 +9,6 @@ GameWidget::GameWidget(QWidget *parent) :
     int h = 600;
     this->setFixedSize(w, h);
     this->board.init(w, h);
-    this->snake.create(25, 25);
-    agentMethod.insert("astar", &Agent::astarAction);
-    agentMethod.insert("rand", &Agent::randAction);
-    agentMethod.insert("dqn", &Agent::dqnAction);
-    agentMethod.insert("dpg", &Agent::dpgAction);
-    agentMethod.insert("ppo", &Agent::ppoAction);
-    agentMethod.insert("ddpg", &Agent::ddpgAction);
-    agentMethod.insert("qlstm", &Agent::qlstmAction);
-    agentMethod.insert("drpg", &Agent::drpgAction);
 }
 
 QRect GameWidget::getRect(int x, int y)
@@ -39,9 +28,9 @@ void GameWidget::paintEvent(QPaintEvent *ev)
     painter.setBrush(Qt::gray);
     painter.setRenderHint(QPainter::Antialiasing);
     /* draw map */
-    for (std::size_t i=0; i < board.rows; i++) {
-        for (std::size_t j=0; j < board.cols; j++) {
-            if (board.map(i, j) == 1) {
+    for (std::size_t i = 0; i < board.rows; i++) {
+        for (std::size_t j = 0; j < board.cols; j++) {
+            if (board.map(i, j) == Board::OBJ_BLOCK) {
                 painter.setBrush(Qt::gray);
                 QRect rect = getRect(i, j);
                 painter.drawRect(rect);
@@ -56,8 +45,8 @@ void GameWidget::paintEvent(QPaintEvent *ev)
     /* draw snake */
     painter.setBrush(Qt::red);
     painter.setPen(Qt::red);
-    for (std::size_t i = 0; i < snake.body.size(); i++) {
-        QRect rect = getRect(snake.body[i].x, snake.body[i].y);
+    for (std::size_t i = 0; i < board.snake.body.size(); i++) {
+        QRect rect = getRect(board.snake.body[i].x, board.snake.body[i].y);
         painter.drawRect(rect);
     }
     /* move */
@@ -78,42 +67,29 @@ void GameWidget::setAgent(const QString &name)
     emit win(QString("%1").arg(0));
     lostCount = 0;
     emit lost(QString("%1").arg(0));
-    agentName = name;
+    board.setAgent(name.toStdString());
     return;
 }
 
-void GameWidget::setTrain(bool on)
+void GameWidget::setTrainAgent(bool on)
 {
-    agent.setTrain(on);
+    board.setTrainAgent(on);
+    return;
 }
 
 void GameWidget::play1()
 {
     QTimer::singleShot(200, [&]{
-        int x = snake.body[0].x;
-        int y = snake.body[0].y;
-        cout<<"x: "<<x<<" y:"<<y<<endl;
-        int direct = agent.astarAction(x, y, board.xt, board.yt);
-        snake.move(direct);
-        x = snake.body[0].x;
-        y = snake.body[0].y;
-        if (x == board.xt && y == board.yt) {
-            snake.add(board.xt, board.yt);
-            board.setTarget(snake.body);
+        float r = 0;
+        int ret = board.play1(r);
+        if (ret > 0) {
+            winCount++;
+            emit win(QString("%1").arg(winCount));
+        } else if (ret < 0) {
+            lostCount++;
+            emit lost(QString("%1").arg(lostCount));
         }
-        if (board.map(x, y) == 1) {
-            snake.reset(board.rows, board.cols);
-            board.setTarget(snake.body);
-        }
-#if 0
-        for (std::size_t i = 1; i < snake.body.size(); i++) {
-            if (x == snake.body[i].x && y == snake.body[i].y) {
-                snake.reset(board.rows, board.cols);
-                board.setTarget(snake.body);
-                break;
-            }
-        }
-#endif
+        emit sendTotalReward(r);
         update();
     });
     return;
@@ -122,33 +98,16 @@ void GameWidget::play1()
 void GameWidget::play2()
 {
     QTimer::singleShot(100, [=](){
-        int x = snake.body[0].x;
-        int y = snake.body[0].y;
-        int direct = 0;
-        direct = agentMethod[agentName](agent, x, y, board.xt, board.yt);
-        snake.move(direct);
-        x = snake.body[0].x;
-        y = snake.body[0].y;
-        if (x == board.xt && y == board.yt) {
-            if (snake.body.size() < 500) {
-               snake.add(board.xt, board.yt);
-            }
-            board.setTarget();
+        float r = 0;
+        int ret = board.play2(r);
+        if (ret > 0) {
             winCount++;
             emit win(QString("%1").arg(winCount));
-        }
-        if (board.map(x, y) == 1) {
-            snake.reset(board.rows, board.cols);
-            board.setTarget();
+        } else if (ret < 0) {
             lostCount++;
             emit lost(QString("%1").arg(lostCount));
         }
-#if 0
-        if (snake.isHitSelf()) {
-            snake.reset(board.rows, board.cols);
-            board.setTarget();
-        }
-#endif
+        emit sendTotalReward(r);
         update();
     });
     return;

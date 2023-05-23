@@ -20,6 +20,6 @@ protected:
 private:
     Ui::MainWindow *ui;
     /* visualize */
-    AxisWidget *totalRewardWidget;
+    AxisWidget *statisticalWidget;
 };
 #endif // MAINWINDOW_H

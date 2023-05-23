@@ -76,12 +76,16 @@ public:
         }
         return y;
     }
+    /* size */
     inline std::size_t size() const {return totalSize;}
+    /* visit */
     inline float &operator[](std::size_t i){return val[i];}
     inline float operator[](std::size_t i) const {return val[i];}
     inline float operator()(std::size_t i, std::size_t j) const {return val[i*cols + j];}
     inline float &operator()(std::size_t i, std::size_t j) {return val[i*cols + j];}
-
+    /* iterator */
+    inline std::vector<ValueType>::iterator begin() {return val.begin();}
+    inline std::vector<ValueType>::iterator end() {return val.end();}
     Mat &operator=(const Mat &r)
     {
         if (this == &r) {
