@@ -10,7 +10,6 @@
 #include <ctime>
 #include <cstdlib>
 #include "bpnn.h"
-#include "lstmnet.h"
 #include "rl_basic.h"
 namespace RL {
 
@@ -23,8 +22,8 @@ public:
     Mat &eGreedyAction(const Mat &state);
     Mat &action(const Mat &state);
     Mat& output(){return actorP.output();}
-    void learnWithKLpenalty(float learningRate, std::vector<Transition>& trajectory);
-    void learnWithClipObjective(float learningRate, std::vector<Transition>& x);
+    void learnWithKLpenalty(float learningRate, std::vector<Step>& trajectory);
+    void learnWithClipObjective(float learningRate, std::vector<Step>& x);
     void save(const std::string &actorPara, const std::string &criticPara);
     void load(const std::string &actorPara, const std::string &criticPara);
 protected:
@@ -36,9 +35,9 @@ protected:
     float epsilon;
     float exploringRate;
     int learningSteps;
-    LstmNet actorP;
-    LstmNet actorQ;
-    LstmNet critic;
+    BPNN actorP;
+    BPNN actorQ;
+    BPNN critic;
 };
 }
 #endif // PPO_H

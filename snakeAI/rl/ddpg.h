@@ -29,7 +29,6 @@ public:
     Mat &noiseAction(const Mat &state);
     int randomAction();
     Mat& eGreedyAction(const Mat &state);
-    Mat& output() {return actorP.output();}
     int action(const Mat& state);
     void experienceReplay(Transition& x);
     void learn(OptType optType  = OPT_RMSPROP,

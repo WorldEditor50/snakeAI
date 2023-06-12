@@ -11,24 +11,18 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
     this->stateDim = stateDim;
     this->actionDim = actionDim;
 
-    actorP = LstmNet(LSTM(stateDim, hiddenDim, hiddenDim, true),
-                     Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                     LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                     SoftmaxLayer::_(hiddenDim, actionDim, true));
-    actorP.lstm.ema = true;
-    actorP.lstm.gamma = 0.5;
+    actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  SoftmaxLayer::_(hiddenDim, actionDim, true));
 
-    actorQ = LstmNet(LSTM(stateDim, hiddenDim, hiddenDim, false),
-                     Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                     LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                     SoftmaxLayer::_(hiddenDim, actionDim, false));
+    actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                  SoftmaxLayer::_(hiddenDim, actionDim, false));
 
-    critic = LstmNet(LSTM(stateDim, hiddenDim, hiddenDim, true),
-                     Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                     LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                     Layer<Relu>::_(hiddenDim, actionDim, true));
-    critic.lstm.ema = true;
-    critic.lstm.gamma = 0.5;
+    critic = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  Layer<Relu>::_(hiddenDim, actionDim, true));
+
 }
 
 RL::Mat &RL::PPO::eGreedyAction(const Mat &state)
@@ -51,7 +45,7 @@ RL::Mat &RL::PPO::action(const Mat &state)
     return actorP.forward(state);
 }
 
-void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Transition> &trajectory)
+void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &trajectory)
 {
     /* reward */
     int end = trajectory.size() - 1;
@@ -66,24 +60,23 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Transition>
         learningSteps = 0;
     }
     float KLexpect = 0;
-    std::vector<Mat> x;
-    std::vector<Mat> y;
-    std::vector<Mat> reward(trajectory.size(), Mat(actionDim, 1));
     for (std::size_t t = 0; t < trajectory.size(); t++) {
         int k = trajectory[t].action.argmax();
         /* advangtage */
         Mat& v = critic.forward(trajectory[t].state);
         float advantage = trajectory[t].reward - v[k];
         /* critic */
-        reward[t][k] = trajectory[t].reward;
+        Mat r(actionDim, 1);
+        r[k] = trajectory[t].reward;
+        critic.gradient(trajectory[t].state, r, Loss::MSE);
         /* actor */
         Mat& q = trajectory[t].action;
         Mat& p = actorP.forward(trajectory[t].state);
         float kl = p[k] * log(p[k]/q[k]);
         q[k] += p[k] / q[k] * advantage - beta * kl;
         KLexpect += kl;
-        x.push_back(trajectory[t].state);
-        y.push_back(q);
+
+        actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
     }
     /* KL-Penalty */
     KLexpect /= float(trajectory.size());
@@ -92,12 +85,8 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Transition>
     } else if (KLexpect <= delta / 1.5) {
         beta /= 2;
     }
-    actorP.forward(x);
-    actorP.backward(x, y, Loss::CROSS_EMTROPY);
-    actorP.optimize(learningRate, 0.01);
-    critic.forward(x);
-    critic.backward(x, reward, Loss::MSE);
-    critic.optimize(0.001, 0.01);
+    actorP.optimize(OPT_RMSPROP, learningRate, 0.01);
+    critic.optimize(OPT_RMSPROP, 0.001, 0.01);
     /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
@@ -105,11 +94,10 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Transition>
     return;
 }
 
-void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Transition> &trajectory)
+void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &trajectory)
 {
     if (learningSteps % 10 == 0) {
         actorP.softUpdateTo(actorQ, 0.01);
-        //actorP.copyTo(actorQ);
         learningSteps = 0;
     }
     int end = trajectory.size() - 1;
@@ -118,32 +106,26 @@ void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Transit
         r = trajectory[i].reward + gamma * r;
         trajectory[i].reward = r;
     }
-    std::vector<Mat> x;
-    std::vector<Mat> y;
-    std::vector<Mat> reward(trajectory.size(), Mat(actionDim, 1));
-    for (std::size_t t = 0; t < trajectory.size(); t++) {
+
+    for (int t = end; t >= 0; t--) {
         int k = trajectory[t].action.argmax();
         /* advangtage */
         Mat& v = critic.forward(trajectory[t].state);
         float adv = trajectory[t].reward - v[k];
         /* critic */
-        reward[t][k] = trajectory[t].reward;
+        Mat r(actionDim, 1);
+        r[k] = trajectory[t].reward;
+        critic.gradient(trajectory[t].state, r, Loss::MSE);
         /* actor */
         Mat& q = trajectory[t].action;
         Mat& p = actorP.forward(trajectory[t].state);
         float ratio = p[k]/q[k];
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
         q[k] += ratio * adv;
-        x.push_back(trajectory[t].state);
-        y.push_back(q);
+        actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
     }
-    actorP.forward(x);
-    actorP.backward(x, y, Loss::CROSS_EMTROPY);
-    actorP.optimize(learningRate, 0.01);
-
-    critic.forward(x);
-    critic.backward(x, reward, Loss::MSE);
-    critic.optimize(0.001, 0.01);
+    actorP.optimize(OPT_RMSPROP, learningRate, 0.01);
+    critic.optimize(OPT_RMSPROP, 1e-3);
 
     /* update step */
     exploringRate *= 0.99999;
@@ -154,15 +136,15 @@ void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Transit
 
 void RL::PPO::save(const std::string &actorPara, const std::string &criticPara)
 {
-    //actorP.save(actorPara);
-    //critic.save(criticPara);
+    actorP.save(actorPara);
+    critic.save(criticPara);
     return;
 }
 
 void RL::PPO::load(const std::string &actorPara, const std::string &criticPara)
 {
-    //actorP.load(actorPara);
-    //actorP.copyTo(actorQ);
-    //critic.load(criticPara);
+    actorP.load(actorPara);
+    actorP.copyTo(actorQ);
+    critic.load(criticPara);
     return;
 }

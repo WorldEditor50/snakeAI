@@ -31,7 +31,7 @@ public:
     float reward;
 public:
     Step(){}
-    Step(Mat& s, Mat& a, float r)
+    Step(const Mat& s, const Mat& a, float r)
         :state(s), action(a), reward(r) {}
 };
 

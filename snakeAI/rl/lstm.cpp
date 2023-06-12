@@ -74,18 +74,18 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Mat &x, const RL::Mat &_h, const
         }
     }
     for (std::size_t i = 0; i < state.f.size(); i++) {
-        state.f[i] = Sigmoid::_(state.f[i] + Bf[i]);
-        state.i[i] = Sigmoid::_(state.i[i] + Bi[i]);
-        state.g[i] =    Tanh::_(state.g[i] + Bg[i]);
-        state.o[i] = Sigmoid::_(state.o[i] + Bo[i]);
+        state.f[i] = Sigmoid::f(state.f[i] + Bf[i]);
+        state.i[i] = Sigmoid::f(state.i[i] + Bi[i]);
+        state.g[i] =    Tanh::f(state.g[i] + Bg[i]);
+        state.o[i] = Sigmoid::f(state.o[i] + Bo[i]);
         state.c[i] = state.f[i] * _c[i] + state.i[i]*state.g[i];
-        state.h[i] = state.o[i] * Tanh::_(state.c[i]);
+        state.h[i] = state.o[i] * Tanh::f(state.c[i]);
     }
     for (std::size_t i = 0; i < W.rows; i++) {
         for (std::size_t j = 0; j < W.cols; j++) {
             state.y[i] += W(i, j) * state.h[j];
         }
-        state.y[i] = Linear::_(state.y[i] + B[i]);
+        state.y[i] = Linear::f(state.y[i] + B[i]);
     }
     return state;
 }
@@ -155,7 +155,7 @@ void RL::LSTM::backwardAtTime(int t,
     Mat _c = t > 0 ? states[t - 1].c : Mat(hiddenDim, 1);
     for (std::size_t i = 0; i < delta.o.size(); i++) {
         delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::d(states[t].c[i]) + delta_.c[i] * f_[i];
-        delta.o[i] = delta.h[i] * Tanh::_(states[t].c[i]) * Sigmoid::d(states[t].o[i]);
+        delta.o[i] = delta.h[i] * Tanh::f(states[t].c[i]) * Sigmoid::d(states[t].o[i]);
         delta.g[i] = delta.c[i] * states[t].i[i] * Tanh::d(states[t].g[i]);
         delta.i[i] = delta.c[i] * states[t].g[i] * Sigmoid::d(states[t].i[i]);
         delta.f[i] = delta.c[i] * _c[i] * Sigmoid::d(states[t].f[i]);

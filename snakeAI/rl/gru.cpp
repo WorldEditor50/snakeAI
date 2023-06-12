@@ -60,12 +60,12 @@ RL::GRU::State RL::GRU::feedForward(const RL::Mat &x, const RL::Mat &_h)
             state.r[i] += Ur(i, j) * _h[j];
             state.z[i] += Uz(i, j) * _h[j];
         }
-        state.r[i] = Sigmoid::_(state.r[i] + Br[i]);
-        state.z[i] = Sigmoid::_(state.z[i] + Bz[i]);
+        state.r[i] = Sigmoid::f(state.r[i] + Br[i]);
+        state.z[i] = Sigmoid::f(state.z[i] + Bz[i]);
         for (std::size_t j = 0; j < Ur.cols; j++) {
             state.g[i] += Ug(i, j) * _h[j] * state.r[j];
         }
-        state.g[i] = Tanh::_(state.g[i] + Bg[i]);
+        state.g[i] = Tanh::f(state.g[i] + Bg[i]);
         state.h[i] = (1 - state.z[i]) * _h[i] + state.z[i] * state.g[i];
     }
 
@@ -74,7 +74,7 @@ RL::GRU::State RL::GRU::feedForward(const RL::Mat &x, const RL::Mat &_h)
         for (std::size_t j = 0; j < W.cols; j++) {
             sy += W(i, j) * state.h[j];
         }
-        state.y[i] = Linear::_(sy + B[i]);
+        state.y[i] = Linear::f(sy + B[i]);
     }
     return state;
 }

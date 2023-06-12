@@ -37,18 +37,17 @@ public:
     BPNN &operator = (const BPNN &r);
     void copyTo(BPNN& dstNet);
     void softUpdateTo(BPNN& dstNet, float alpha);
-    Mat& output();
-    BPNN &feedForward(const Mat &x);
+    Mat &forward(const Mat &x);
+    inline Mat& operator()(const Mat &x) {return forward(x);}
+    Mat &output();
     void backward(const Mat &loss, Mat& E);
     void gradient(const Mat &x, const Mat &y);
-    void gradient(const Mat &x, const Mat &y, FnLoss loss);
+    void gradient(const Mat &x, const Mat &y, const FnLoss &loss);
     void SGD(float learningRate = 0.001);
     void RMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0.01);
     void Adam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001, float decay = 0.01);
     void optimize(OptType optType = OPT_RMSPROP, float learningRate = 0.001, float decay = 0.01);
     void clamp(float c0, float cn);
-    int argmax();
-    int argmin();
     void show();
     void load(const std::string& fileName);
     void save(const std::string& fileName);

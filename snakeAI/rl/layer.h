@@ -132,7 +132,7 @@ public:
             for (std::size_t j = 0; j < W.cols; j++) {
                 O[i] += W(i, j) * x[j];
             }
-            O[i] = FnActive::_(O[i] +  B[i]);
+            O[i] = FnActive::f(O[i] +  B[i]);
         }
         return;
     }
@@ -218,7 +218,7 @@ public:
                 O0[i] += W(i, j) * x[j];
             }
             O0[i] += B[i];
-            O[i] = Gelu::_(O0[i]);
+            O[i] = Gelu::f(O0[i]);
         }
         return;
     }
@@ -261,7 +261,7 @@ public:
                 O0[i] += W(i, j) * x[j];
             }
             O0[i] += B[i];
-            O[i] = Swish::_(O0[i]);
+            O[i] = Swish::f(O0[i]);
         }
         return;
     }
@@ -362,7 +362,7 @@ public:
         float sigma = RL::variance(O, u);
         gamma_ = gamma/sqrt(sigma + 1e-9);
         for (std::size_t i = 0; i < O.size(); i++) {
-            O[i] = FnActive::_(gamma_*(O[i] - u) + B[i]);
+            O[i] = FnActive::f(gamma_*(O[i] - u) + B[i]);
         }
 
         return;

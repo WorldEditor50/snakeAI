@@ -22,14 +22,14 @@ RL::Mat &RL::DPG::eGreedyAction(const Mat &state)
         int index = distribution(Rand::engine);
         policyNet.output()[index] = 1;
     } else {
-        policyNet.feedForward(state);
+        policyNet.forward(state);
     }
     return policyNet.output();
 }
 
 int RL::DPG::action(const Mat &state)
 {
-    return policyNet.show(), policyNet.feedForward(state).argmax();
+    return policyNet.show(), policyNet.forward(state).argmax();
 }
 
 void RL::DPG::reinforce(OptType optType, float learningRate, std::vector<Step>& x)
@@ -44,7 +44,7 @@ void RL::DPG::reinforce(OptType optType, float learningRate, std::vector<Step>& 
     for (std::size_t i = 0; i < x.size(); i++) {
         int k = x[i].action.argmax();
         x[i].action[k] *= discoutedReward[i] - u;
-        policyNet.gradient(x[i].state, x[i].action, Loss::CROSS_EMTROPY);
+        policyNet.gradient(x[i].state, x[i].action, Loss::CrossEntropy);
     }
     policyNet.optimize(optType, learningRate, 0.1);
     //policyNet.clamp(-1, 1);

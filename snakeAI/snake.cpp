@@ -10,7 +10,6 @@ void Snake::create(int x, int y)
 
 void Snake::grow(int x, int y)
 {
-    body.pop_back();
     body.push_front(Point(x, y));
     return;
 }

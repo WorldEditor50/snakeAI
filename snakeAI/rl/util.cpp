@@ -96,12 +96,3 @@ float RL::gaussian(float x, float u, float sigma)
 {
     return 1/sqrt(2*pi*sigma)*exp(-0.5*(x - u)*(x - u)/sigma);
 }
-
-void RL::uniformRand(RL::Mat &x, float x1, float x2)
-{
-    std::uniform_real_distribution<float> uniform(x1, x2);
-    for (std::size_t i = 0; i < x.size(); i++) {
-        x[i] = uniform(Rand::engine);
-    }
-    return;
-}

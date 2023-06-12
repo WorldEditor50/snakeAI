@@ -18,6 +18,7 @@ RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                             Layer<Sigmoid>::_(hiddenDim, actionDim, false));
     this->QMainNet.copyTo(QTargetNet);
+
 }
 
 void RL::DQN::perceive(Mat& state,
@@ -44,7 +45,7 @@ RL::Mat& RL::DQN::eGreedyAction(Mat &state)
         int index = distribution(Rand::engine);
         out[index] = 1;
     } else {
-        QMainNet.feedForward(state);
+        QMainNet.forward(state);
     }
     return out;
 }
@@ -56,7 +57,7 @@ RL::Mat &RL::DQN::output()
 
 int RL::DQN::action(const Mat &state)
 {
-    int a = QMainNet.feedForward(state).argmax();
+    int a = QMainNet.forward(state).argmax();
     QMainNet.show();
     return a;
 }
@@ -67,14 +68,14 @@ void RL::DQN::experienceReplay(const Transition& x)
     /* estimate q-target: Q-Regression */
     /* select Action to estimate q-value */
     int i = x.action.argmax();
-    qTarget = QMainNet.feedForward(x.state).output();
+    qTarget = QMainNet.forward(x.state);
     if (x.done == true) {
         qTarget[i] = x.reward;
     } else {
         /* select optimal Action in the QMainNet */
-        int k = QMainNet.feedForward(x.nextState).argmax();
+        int k = QMainNet.forward(x.nextState).argmax();
         /* select value in the QTargetNet */
-        Mat &v = QTargetNet.feedForward(x.nextState).output();
+        Mat &v = QTargetNet.forward(x.nextState);
         qTarget[i] = x.reward + gamma * v[k];
     }
     /* train QMainNet */

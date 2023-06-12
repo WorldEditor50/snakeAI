@@ -5,29 +5,30 @@
 namespace RL {
 
 /* loss type */
-struct Loss
+namespace Loss {
+
+inline void MSE(Mat& E, const Mat& O, const Mat& y)
 {
-    static void MSE(Mat& E, const Mat& O, const Mat& y)
-    {
-        for (std::size_t i = 0; i < O.size(); i++) {
-             E[i] = 2*(O[i] - y[i]);
-        }
-        return;
+    for (std::size_t i = 0; i < O.size(); i++) {
+         E[i] = 2*(O[i] - y[i]);
     }
-    static void CROSS_EMTROPY(Mat& E, const Mat& O, const Mat& y)
-    {
-        for (std::size_t i = 0; i < O.size(); i++) {
-            E[i] = -y[i] * log(O[i]);
-        }
-        return;
+    return;
+}
+inline void CrossEntropy(Mat& E, const Mat& O, const Mat& y)
+{
+    for (std::size_t i = 0; i < O.size(); i++) {
+        E[i] = -y[i] * std::log(O[i]);
     }
-    static void BCE(Mat& E, const Mat& O, const Mat& y)
-    {
-        for (std::size_t i = 0; i < O.size(); i++) {
-            E[i] = -(y[i] * log(O[i]) + (1 - y[i]) * log(1 - O[i]));
-        }
-        return;
+    return;
+}
+inline void BCE(Mat& E, const Mat& O, const Mat& y)
+{
+    for (std::size_t i = 0; i < O.size(); i++) {
+        E[i] = -(y[i] * std::log(O[i]) + (1 - y[i]) * std::log(1 - O[i]));
     }
+    return;
+}
+
 };
 
 }

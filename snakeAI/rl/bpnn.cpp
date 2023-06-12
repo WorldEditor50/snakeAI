@@ -41,13 +41,18 @@ void RL::BPNN::softUpdateTo(BPNN &dstNet, float alpha)
     return;
 }
 
-RL::BPNN &RL::BPNN::feedForward(const Mat& x)
+RL::Mat &RL::BPNN::forward(const Mat& x)
 {
     layers[0]->feedForward(x);
     for (std::size_t i = 1; i < layers.size(); i++) {
         layers[i]->feedForward(layers[i - 1]->O);
     }
-    return *this;
+    return layers.back()->O;
+}
+
+RL::Mat &RL::BPNN::output()
+{
+    return layers.back()->O;
 }
 
 void RL::BPNN::backward(const RL::Mat &loss, Mat& E)
@@ -70,14 +75,9 @@ void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y)
     return;
 }
 
-RL::Mat& RL::BPNN::output()
+void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, const RL::BPNN::FnLoss &loss)
 {
-    return layers.back()->O;
-}
-
-void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, RL::BPNN::FnLoss loss)
-{
-    feedForward(x);
+    forward(x);
     std::size_t outputIndex = layers.size() - 1;
     loss(layers[outputIndex]->E, layers[outputIndex]->O, y);
     /* error Backpropagate */
@@ -149,16 +149,6 @@ void RL::BPNN::clamp(float c0, float cn)
         }
     }
     return;
-}
-
-int RL::BPNN::argmax()
-{
-    return layers.back()->O.argmax();
-}
-
-int RL::BPNN::argmin()
-{
-    return layers.back()->O.argmin();
 }
 
 void RL::BPNN::show()
@@ -234,7 +224,7 @@ void RL::BPNN::test()
     for (int i = 0; i < 10000; i++) {
         for (int j = 0; j < 128; j++) {
             int k = selectIndex(Rand::engine);
-            net.feedForward(data[k]);
+            net.forward(data[k]);
             net.gradient(data[k], target[k], Loss::MSE);
         }
         net.Adam();
@@ -247,7 +237,7 @@ void RL::BPNN::test()
             float z = zeta(x1, x2);
             x[0] = x1;
             x[1] = x2;
-            auto s = net.feedForward(x).output();
+            Mat &s = net.forward(x);
             std::cout<<"x1 = "<<x1<<" x2 = "<<x2<<" z = "<<z<<"  predict: "
                     <<s[0]<<" error:"<<s[0] - z<<std::endl;
         }

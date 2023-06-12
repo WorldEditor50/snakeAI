@@ -44,7 +44,7 @@ float Agent::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
     }
     float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
     float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    float r = sqrt(d1) - sqrt(d2);
+    float r = std::sqrt(d1) - std::sqrt(d2);
     return r / sqrt(r * r + 1);
 }
 
@@ -59,7 +59,7 @@ float Agent::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
     float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
     float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
     float r = d1 - d2;
-    return r / sqrt(1 + r*r);
+    return r / std::sqrt(1 + r*r);
 }
 
 float Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
@@ -105,7 +105,7 @@ float Agent::reward5(int xi, int yi, int xn, int yn, int xt, int yt)
     }
     float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
     float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    return sqrt(d1) - sqrt(d2);
+    return std::sqrt(d1) - sqrt(d2);
 }
 
 float Agent::reward6(int xi, int yi, int xn, int yn, int xt, int yt)
@@ -259,7 +259,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        qlstm.learn(8192, 256, 16, 0.001);
+        qlstm.learn(8192, 256, 16, 1e-3);
     }
     /* making decision */
     Mat &action = qlstm.action(state_);
@@ -345,7 +345,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        drpg.reinforce(states, actions, rewards, 0.001);
+        drpg.reinforce(states, actions, rewards, 1e-3);
     }
     /* making decision */
     Mat &a = drpg.action(state_);
@@ -403,7 +403,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
     observe(state, x, y, xt, yt);
     Mat state_ = state;
     if (trainFlag == true) {
-        std::vector<Transition> trans;
+        std::vector<Step> trajectories;
         for (std::size_t j = 0; j < 32; j++) {
             int xi = xn;
             int yi = yn;
@@ -414,11 +414,8 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
             float r = reward4(xi, yi, xn, yn, xt, yt);
-            Transition transition;
-            transition.state = state;
-            transition.action = output;
-            transition.reward = r;
-            trans.push_back(transition);
+
+            trajectories.push_back(Step(state, output, r));
             total += r;
             if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
                 break;
@@ -427,7 +424,11 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        ppo.learnWithClipObjective(0.01, trans);
+#if 1
+        ppo.learnWithClipObjective(1e-2, trajectories);
+#else
+        ppo.learnWithKLpenalty(1e-2, trajectories);
+#endif
     }
     /* making decision */
     Mat &a = ppo.action(state_);
@@ -449,7 +450,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
     if (trainFlag == true) {
         observe(state, xn, yn, xt, yt);
         for (std::size_t i = 0; i < 128; i++) {
-            bpnn.feedForward(state);
+            bpnn.forward(state);
             direct1 = action.argmax();
             direct2 = astarAction(xn, yn, xt, yt, totalReward);
             if (direct1 != direct2) {
@@ -471,7 +472,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
         }
     }
     observe(state, x, y, xt, yt);
-    bpnn.feedForward(state);
+    bpnn.forward(state);
     direct1 = action.argmax();
     bpnn.show();
     return direct1;

@@ -62,7 +62,7 @@ void RL::DDPG::setSA(const Mat &state, const Mat &actions)
 
 RL::Mat& RL::DDPG::noiseAction(const Mat &state)
 {
-    actorQ.feedForward(state);
+    actorQ.forward(state);
     Mat& out = actorQ.output();
     std::uniform_real_distribution<float> distributionReal(0, 1);
     float p = distributionReal(Rand::engine);
@@ -90,46 +90,46 @@ RL::Mat& RL::DDPG::eGreedyAction(const Mat &state)
         int index = distribution(Rand::engine);
         actorP.output()[index] = 1;
     } else {
-        actorP.feedForward(state);
+        actorP.forward(state);
     }
     return actorP.output();
 }
 
 int RL::DDPG::action(const Mat &state)
 {
-    return actorP.show(), actorP.feedForward(state).argmax();
+    return actorP.show(), actorP.forward(state).argmax();
 }
 
 void RL::DDPG::experienceReplay(Transition& x)
 {
     Mat cTarget(actionDim, 1);
     /* estimate action value */
-    Mat &p = actorP.feedForward(x.state).output();
+    Mat &p = actorP.forward(x.state);
     int i = p.argmax();
     setSA(x.state, p);
-    Mat &cMain = criticP.feedForward(sa).output();
+    Mat &cMain = criticP.forward(sa);
     cTarget = cMain;
     if (x.done == true) {
         cTarget[i] = x.reward;
     } else {
-        Mat &q = actorQ.feedForward(x.nextState).output();
+        Mat &q = actorQ.forward(x.nextState);
         int j = q.argmax();
         setSA(x.nextState, q);
-        Mat &cTargetOutput = criticQ.feedForward(sa).output();
+        Mat &cTargetOutput = criticQ.forward(sa);
         cTarget[i] = x.reward + gamma * cTargetOutput[j];
     }
     /* update criticMainNet */
     setSA(x.state, p);
     criticP.gradient(sa, cTarget, Loss::MSE);
     /* update actorMainNet */
-    Mat &actor = actorP.feedForward(x.state).output();
+    Mat &actor = actorP.forward(x.state);
     setSA(x.state, actor);
-    Mat &critic = criticP.feedForward(sa).output();
+    Mat &critic = criticP.forward(sa);
     Mat adv(actor);
     for (std::size_t k = 0; k < actionDim; k++) {
         adv[k] =  critic[k] - actor[k]*log(actor[k]/critic[k]);
     }
-    actorP.gradient(x.state, adv, Loss::CROSS_EMTROPY);
+    actorP.gradient(x.state, adv, Loss::CrossEntropy);
     return;
 }
 

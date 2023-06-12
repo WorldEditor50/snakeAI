@@ -18,7 +18,7 @@ public:
     Mat &forward(const Mat &x)
     {
         Mat &out = lstm.forward(x);
-        bpnet.feedForward(out);
+        bpnet.forward(out);
         return bpnet.output();
     }
     void forward(const std::vector<RL::Mat> &sequence)
@@ -29,7 +29,7 @@ public:
             lstm.h = s.h;
             lstm.c = s.c;
             lstm.states.push_back(s);
-            bpnet.feedForward(s.y);
+            bpnet.forward(s.y);
             y.push_back(bpnet.output());
         }
         return;
@@ -106,7 +106,7 @@ public:
         }
         Mat out = lstms.back()->output();
         y.push_back(out);
-        bpnet.feedForward(out);
+        bpnet.forward(out);
         return bpnet.output();
     }
     void forward(const std::vector<RL::Mat> &sequence)
@@ -127,7 +127,7 @@ public:
             }
             y.push_back(lstms.back()->output());
         }
-        bpnet.feedForward(lstms.back()->output());
+        bpnet.forward(lstms.back()->output());
         return;
     }
     void backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat> &yt, BPNN::FnLoss Loss)

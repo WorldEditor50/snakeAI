@@ -3,7 +3,7 @@
 #include "lstm.h"
 #include "gru.h"
 #include "mat.hpp"
-#include "cnn.h"
+#include "conv2d.h"
 
 int main(int argc, char *argv[])
 {

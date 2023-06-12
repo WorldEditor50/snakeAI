@@ -102,6 +102,14 @@ public:
         return *this;
     }
 
+    Mat &operator=(float value)
+    {
+        for (std::size_t i = 0; i < val.size(); i++) {
+            val[i] = value;
+        }
+        return *this;
+    }
+
     Mat &operator=(Mat &&r)
     {
         if (this == &r) {

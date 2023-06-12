@@ -4,6 +4,8 @@
 #include <string>
 #include <fstream>
 #include <vector>
+#include <thread>
+#include <condition_variable>
 #include <deque>
 #include <cmath>
 #include <ctime>

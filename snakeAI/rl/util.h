@@ -31,6 +31,15 @@ float covariance(const Mat& x1, const Mat& x2);
 void zscore(Mat &x);
 void normalize(Mat &x);
 
-void uniformRand(Mat &x, float x1, float x2);
+template<typename T>
+inline void uniformRand(T &x, float x1, float x2)
+{
+    std::uniform_real_distribution<float> uniform(x1, x2);
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = uniform(Rand::engine);
+    }
+    return;
+}
+
 }
 #endif // UTIL_H

@@ -4,17 +4,18 @@
 
 namespace RL {
 
-namespace  Optimizer {
+namespace Optimizer {
 
-inline void SGD(Mat &w, const Mat &dw, float learningRate)
+template<typename T>
+inline void SGD(T &w, const T &dw, float learningRate)
 {
     for (std::size_t i = 0; i < w.size(); i++) {
         w[i] -= learningRate * dw[i];
     }
     return;
 }
-
-inline void Adagrad(Mat &w, Mat &r, const Mat &dw, float learningRate)
+template<typename T>
+inline void Adagrad(T &w, T &r, const T &dw, float learningRate)
 {
     for (std::size_t i = 0; i < w.size(); i++) {
         r[i] += dw[i]*dw[i];
@@ -22,8 +23,8 @@ inline void Adagrad(Mat &w, Mat &r, const Mat &dw, float learningRate)
     }
     return;
 }
-
-inline void AdaDelta(Mat &w, Mat &S, Mat &delta, Mat &dwPrime, const Mat &dw, float learningRate, float rho)
+template<typename T>
+inline void AdaDelta(T &w, T &S, T &delta, T &dwPrime, const T &dw, float learningRate, float rho)
 {
     for (std::size_t i = 0; i < w.size(); i++) {
         S[i] = rho * S[i] + (1 - rho) * dw[i] * dw[i];
@@ -33,8 +34,8 @@ inline void AdaDelta(Mat &w, Mat &S, Mat &delta, Mat &dwPrime, const Mat &dw, fl
     }
     return;
 }
-
-inline void RMSProp(Mat &w, Mat &S, const Mat &dw, float learningRate, float rho, float decay = 0.01)
+template<typename T>
+inline void RMSProp(T &w, T &S, const T &dw, float learningRate, float rho, float decay = 0.01)
 {
     for (std::size_t i = 0; i < w.size(); i++) {
         S[i] = rho * S[i] + (1 - rho) * dw[i] * dw[i];
@@ -42,8 +43,8 @@ inline void RMSProp(Mat &w, Mat &S, const Mat &dw, float learningRate, float rho
     }
     return;
 }
-
-inline void Adam(Mat &w, Mat &S, Mat &V, const Mat &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0.01)
+template<typename T>
+inline void Adam(T &w, T &S, T &V, const T &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0.01)
 {
     for (std::size_t i = 0; i < w.size(); i++) {
         V[i] = alpha * V[i] + (1 - alpha) * dw[i];
@@ -55,7 +56,8 @@ inline void Adam(Mat &w, Mat &S, Mat &V, const Mat &dw, float alpha_, float beta
     return;
 }
 
-inline void clamp(Mat &w, float c0, float cn)
+template<typename T>
+inline void clamp(T &w, float c0, float cn)
 {
     std::uniform_real_distribution<float> distribution(c0, cn);
     for (std::size_t i = 0; i < w.size(); i++) {
