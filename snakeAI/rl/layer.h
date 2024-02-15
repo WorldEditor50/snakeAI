@@ -146,6 +146,7 @@ public:
             }
             d.B[i] += dy;
             E[i] = 0;
+            O[i] = 0;
         }
         return;
     }
@@ -189,6 +190,7 @@ public:
                 d.W(i, j) += dy * x[j];
             }
             d.B[i] += dy;
+            O[i] = 0;
         }
         return;
     }
@@ -232,6 +234,7 @@ public:
             }
             d.B[i] += dy;
             E[i] = 0;
+            O[i] = 0;
         }
         return;
     }
@@ -275,6 +278,7 @@ public:
             }
             d.B[i] += dy;
             E[i] = 0;
+            O[i] = 0;
         }
         return;
     }

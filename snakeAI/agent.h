@@ -42,12 +42,10 @@ public:
     int supervisedAction(int x, int y, int xt, int yt, float &totalReward);
     void setTrain(bool on){trainFlag = on;}
 private:
+    float reward0(int xi, int yi, int xn, int yn, int xt, int yt);
     float reward1(int xi, int yi, int xn, int yn, int xt, int yt);
     float reward2(int xi, int yi, int xn, int yn, int xt, int yt);
     float reward3(int xi, int yi, int xn, int yn, int xt, int yt);
-    float reward4(int xi, int yi, int xn, int yn, int xt, int yt);
-    float reward5(int xi, int yi, int xn, int yn, int xt, int yt);
-    float reward6(int xi, int yi, int xn, int yn, int xt, int yt);
     bool simulateMove(int& x, int& y, int direct);
 
 };

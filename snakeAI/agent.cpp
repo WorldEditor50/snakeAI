@@ -15,7 +15,7 @@ Agent::Agent(Mat& map, Snake &s):
                 Layer<Sigmoid>::_(16, 16, true),
                 Layer<Sigmoid>::_(16, 4, true));
     qlstm = QLSTM(stateDim, 16, 4);
-    drpg = DRPG(stateDim, 32, 4);
+    drpg = DRPG(stateDim, 16, 4);
     state = Mat(stateDim, 1);
     nextState = Mat(stateDim, 1);
     dqn.load("./dqn");
@@ -34,7 +34,7 @@ Agent::~Agent()
     ppo.save("./ppo_actor", "./ppo_critic");
 }
 
-float Agent::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
 {
     if (map(xn, yn) == 1) {
         return -1;
@@ -44,11 +44,10 @@ float Agent::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
     }
     float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
     float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    float r = std::sqrt(d1) - std::sqrt(d2);
-    return r / sqrt(r * r + 1);
+    return std::sqrt(d1) - std::sqrt(d2);
 }
 
-float Agent::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
 {
     if (map(xn, yn) == 1) {
         return -1;
@@ -62,7 +61,7 @@ float Agent::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
     return r / std::sqrt(1 + r*r);
 }
 
-float Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
 {
     if (map(xn, yn) == 1) {
         return -1;
@@ -81,7 +80,7 @@ float Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
     return r;
 }
 
-float Agent::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
+float Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
 {
     if (map(xn, yn) == 1) {
         return -1;
@@ -89,34 +88,13 @@ float Agent::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
     if (xn == xt && yn == yt) {
         return 1;
     }
-    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    float r = sqrt(d1) - sqrt(d2);
-    return 1.5 * r / (1 + r * r);
-}
-
-float Agent::reward5(int xi, int yi, int xn, int yn, int xt, int yt)
-{
-    if (map(xn, yn) == 1) {
-        return -1;
+    float d1 = std::sqrt((xi - xt) * (xi - xt) + (yi - yt) * (yi - yt));
+    float d2 = std::sqrt((xn - xt) * (xn - xt) + (yn - yt) * (yn - yt));
+    float r = (1 - 2*d2 + d2*d2)/(1 - d2 + d2*d2);
+    if (d2 - d1 > 0) {
+        r = -1;
     }
-    if (xn == xt && yn == yt) {
-        return 1;
-    }
-    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    return std::sqrt(d1) - sqrt(d2);
-}
-
-float Agent::reward6(int xi, int yi, int xn, int yn, int xt, int yt)
-{
-    if (map(xn, yn) == 1) {
-        return -1;
-    }
-    if (xn == xt && yn == yt) {
-        return 1;
-    }
-    return 0;
+    return r;
 }
 
 void Agent::observe(Mat& statex, int x, int y, int xt, int yt)
@@ -168,7 +146,7 @@ int Agent::randAction(int x, int y, int xt, int yt, float &totalReward)
             int xi = xn;
             int yi = yn;
             simulateMove(xn, yn, direct);
-            act[direct] = gamma * act[direct] + reward4(xi, yi, xn, yn, xt, yt);
+            act[direct] = gamma * act[direct] + reward0(xi, yi, xn, yn, xt, yt);
             if ((map(xn, yn) == 1) || (xn == xt && yn == yt)) {
                 break;
             }
@@ -204,7 +182,7 @@ int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
             Mat& action = dqn.eGreedyAction(state);
             int k = action.argmax();
             simulateMove(xn, yn, k);
-            r = reward1(xi, yi, xn, yn, xt, yt);
+            r = reward0(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (map(xn, yn) == 1) {
@@ -242,7 +220,7 @@ int Agent::qlstmAction(int x, int y, int xt, int yt, float &totalReward)
             Mat& action = qlstm.eGreedyAction(state);
             int k = action.argmax();
             simulateMove(xn, yn, k);
-            r = reward1(xi, yi, xn, yn, xt, yt);
+            r = reward0(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (map(xn, yn) == 1) {
@@ -293,7 +271,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
             Step s;
             s.state = state;
             s.action  = output;
-            s.reward  = reward1(xi, yi, xn, yn, xt, yt);
+            s.reward  = reward0(xi, yi, xn, yn, xt, yt);
             total += s.reward;
             steps.push_back(s);
             if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
@@ -330,13 +308,11 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
             direct = output.argmax();
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
-            float r = reward1(xi, yi, xn, yn, xt, yt);
-            /* sparse sample */
-            //if (j%8 == 0 || (xn == xt && yn == yt) || map[xn][yn] == 1) {
-                states.push_back(state);
-                actions.push_back(output);
-                rewards.push_back(r);
-            //}
+            float r = reward0(xi, yi, xn, yn, xt, yt);
+            /* sample */
+            states.push_back(state);
+            actions.push_back(output);
+            rewards.push_back(r);
             total += r;
             if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
                 break;
@@ -413,8 +389,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
             /* move */
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
-            float r = reward4(xi, yi, xn, yn, xt, yt);
-
+            float r = reward0(xi, yi, xn, yn, xt, yt);
             trajectories.push_back(Step(state, output, r));
             total += r;
             if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
@@ -425,9 +400,9 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
         totalReward = total;
         /* training */
 #if 1
-        ppo.learnWithClipObjective(1e-2, trajectories);
+        ppo.learnWithClipObjective(1e-3, trajectories);
 #else
-        ppo.learnWithKLpenalty(1e-2, trajectories);
+        ppo.learnWithKLpenalty(1e-3, trajectories);
 #endif
     }
     /* making decision */

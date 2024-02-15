@@ -2,7 +2,7 @@
 #define CONV2D_HPP
 #include "tensor.hpp"
 #include "activate.h"
-
+#include "util.h"
 
 inline void conv2d(Tensor &y, const Tensor &kernels, const Tensor &x, int stride=1, int padding=0)
 {
@@ -209,13 +209,13 @@ public:
         Conv2dParam(inChannels_, h, w, outChannels_, kernelSize_, stride_, padding_, bias_, withgrad_)
     {
         kernels = Tensor(outChannels, inChannels, kernelSize, kernelSize);
-        uniformRand(kernels, -1, 1);
+        //uniformRand(kernels, -1, 1);
         ho = std::floor((hi - kernelSize + 2*padding)/stride) + 1;
         wo = std::floor((wi - kernelSize + 2*padding)/stride) + 1;
         o = Tensor(outChannels, ho, wo);
         if (bias == true) {
             b = Tensor(outChannels, kernelSize, kernelSize);
-            uniformRand(b, -1, 1);
+            //uniformRand(b, -1, 1);
         }
     }
 

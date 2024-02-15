@@ -1,5 +1,6 @@
 #ifndef TENSOR_H
 #define TENSOR_H
+#include <cmath>
 #include <vector>
 #include <functional>
 #include <iostream>
@@ -58,7 +59,16 @@ private:
 public:
     /* default construct */
     Tensor_():totalSize(0){}
-
+    static std::vector<int> sizesOf(const std::vector<int> &shape)
+    {
+        std::vector<int> sizes(shape.size(), 1);
+        for (std::size_t i = 0; i < shape.size() - 1; i++) {
+            for (std::size_t j = i + 1; j < shape.size(); j++) {
+                 sizes[i] *= shape[j];
+            }
+        }
+        return sizes;
+    }
     static void initParams(const Shape &shape, Size &sizes, std::size_t &totalsize)
     {
         totalsize = 1;
@@ -93,6 +103,18 @@ public:
         initParams(shape, sizes, totalSize);
     }
 
+    explicit Tensor_(const std::vector<Tensor_> &x)
+    {
+        totalSize = x.size()*x[0].totalsize;
+        sizes.push_back(x.size()*x[0].sizes[0]);
+        sizes.push_back(x[0].sizes);
+        shape.push_back(x.size());
+        shape.push_back(x[0].shape);
+        for (std::size_t i = 0; i < x.size(); i++) {
+            val.push_back(x[i].val);
+        }
+    }
+
     /* construct with shape */
     template<typename ...Dim>
     explicit Tensor_(Dim ...dim):totalSize(1),shape({int(dim)...})
@@ -113,6 +135,24 @@ public:
         sizes.swap(r.sizes);
         val.swap(r.val);
         r.totalSize = 0;
+    }
+
+    inline operator T* () noexcept
+    {
+        return val.data();
+    }
+
+    inline operator Vector ()
+    {
+        return val;
+    }
+
+    inline Tensor_& operator - ()
+    {
+        for (std::size_t i = 0; i < val.size(); i++) {
+            val[i] = -val[i];
+        }
+        return *this;
     }
 
     inline T* ptr() noexcept { return val.data(); }
@@ -141,11 +181,11 @@ public:
 
     void zero(){val.assign(totalSize, 0);}
     void fill(T value){val.assign(totalSize, value);}
-    inline T &operator[](std::size_t i) {return val[i];}
-    inline T operator[](std::size_t i) const {return val[i];}
+    inline T &operator[](int i) {return val[i];}
+    inline T operator[](int i) const {return val[i];}
 
     /* assign operator */
-    inline Tensor_ &operator=(const Tensor_ &r)
+    inline Tensor_& operator=(const Tensor_ &r)
     {
         if (this == &r) {
             return *this;
@@ -157,16 +197,17 @@ public:
         return *this;
     }
 
-    inline Tensor_ operator=(const std::vector<T> &x)
+    inline Tensor_& operator=(const std::vector<T> &x)
     {
         val.assign(x.begin(), x.end());
         return *this;
     }
-    inline Tensor_ operator=(T x)
+    inline Tensor_& operator=(T x)
     {
         val.assign(totalSize, x);
         return *this;
     }
+
     /* move */
     Tensor_ &operator=(Tensor_ &&r)
     {
@@ -222,6 +263,22 @@ public:
         return y;
     }
 
+    Tensor_ block(const std::vector<int> &offset, const std::vector<int> &blockShape) const
+    {
+        Tensor_ y(blockShape);
+        std::vector<int> indexs(shape.size(), 0);
+        for (std::size_t i = 0; i < y.totalSize; i++) {
+            /* local offset */
+            y.indexOf(i, indexs);
+            for (int j = 0; j < indexs.size(); j++) {
+                indexs[j] += offset[j];
+            }
+            int o = posOf(indexs);
+            y.val[i] = val[o];
+        }
+        return y;
+    }
+
     template<typename ...Index>
     void slice(Tensor_ &y, Index ...index) const
     {
@@ -262,6 +319,15 @@ public:
         return pos;
     }
 
+    inline static std::size_t posOf(const std::vector<int> &indexs, const std::vector<int> &shape)
+    {
+        std::vector<int> sizes = sizesOf(shape);
+        std::size_t pos = 0;
+        for (std::size_t i = 0; i < sizes.size(); i++) {
+            pos += sizes[i]*indexs[i];
+        }
+        return pos;
+    }
     inline void indexOf(int pos, std::vector<int> &indexs) const
     {
         /*
@@ -719,13 +785,24 @@ public:
         return;
     }
 
+    T norm2() const
+    {
+        T s = 0;
+        for (std::size_t i = 0; i < totalSize; i++) {
+            s += val[i]*val[i];
+        }
+        return std::sqrt(s);
+    }
+
     struct Mul {
         static void ikkj(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
         {
+            //int rows = x.shape[0];
+            //int cols = x.shape[1];
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[1]; k++) {
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
-                        /* (i, j) = (i, k) * (k, j) */
+                        /* x(i, j) = x1(i, k) * x2(k, j) */
                         x.val[i*x.shape[1] + j] += x1.val[i*x1.shape[1] + k]*x2.val[k*x2.shape[1] + j];
                     }
                 }
@@ -738,7 +815,7 @@ public:
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[0]; k++) {
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
-                        /* (i, j) = (k, i)^T * (k, j) */
+                        /* x(i, j) = x1(k, i)^T * x2(k, j) */
                         x.val[i*x.shape[1] + j] += x1.val[k*x1.shape[1] + i]*x2.val[k*x2.shape[1] + j];
                     }
                 }
@@ -751,7 +828,7 @@ public:
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[1]; k++) {
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
-                        /* (i, j) = (i, k) * (j, k)^T */
+                        /* x(i, j) = x1(i, k) * x2(j, k)^T */
                         x.val[i*x.shape[1] + j] += x1.val[i*x1.shape[1] + k]*x2.val[j*x2.shape[1] + k];
                     }
                 }
@@ -764,7 +841,7 @@ public:
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[0]; k++) {
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
-                        /* (i, j) = (k, i)^T * (j, k)^T */
+                        /* x(i, j) = x1(k, i)^T * x2(j, k)^T */
                         x.val[i*x.shape[1] + j] += x1.val[k*x1.shape[1] + i] * x2.val[j*x2.shape[1] + k];
                     }
                 }
@@ -835,10 +912,13 @@ public:
 
 };
 
-using Tensorc = Tensor_<char>;
-using Tensori = Tensor_<int>;
-using Tensorf = Tensor_<float>;
-using Tensord = Tensor_<double>;
-using Tensor  = Tensorf;
+using Tensorc  = Tensor_<char>;
+using Tensoru8 = Tensor_<unsigned char>;
+using Tensori  = Tensor_<int>;
+using Tensorf  = Tensor_<float>;
+using Tensord  = Tensor_<double>;
+using Tensor = Tensorf;
+using InTensor = const Tensor&;
+using OutTensor = Tensor&;
 
 #endif // TENSOR_H

@@ -3,12 +3,38 @@
 GameWidget::GameWidget(QWidget *parent) :
     QWidget(parent),
     winCount(0),
-    lostCount(0)
+    lostCount(0),
+    isPlaying(false)
 {
     int w = 600;
     int h = 600;
-    this->setFixedSize(w, h);
-    this->board.init(w, h);
+    setFixedSize(w, h);
+    connect(this, &GameWidget::readyForPaint, this, [=](){
+        update();
+    }, Qt::QueuedConnection);
+
+}
+
+void GameWidget::start()
+{
+    if (isPlaying) {
+        return;
+    }
+    int w = 600;
+    int h = 600;
+    board.init(w, h);
+    isPlaying = true;
+    playThread = std::thread(&GameWidget::run, this);
+    return;
+}
+
+void GameWidget::stop()
+{
+    if (isPlaying) {
+        isPlaying = false;
+        playThread.join();
+    }
+    return;
 }
 
 QRect GameWidget::getRect(int x, int y)
@@ -49,10 +75,27 @@ void GameWidget::paintEvent(QPaintEvent *ev)
         QRect rect = getRect(board.snake.body[i].x, board.snake.body[i].y);
         painter.drawRect(rect);
     }
-    /* move */
-    this->play2();
-    QThread::msleep(10);
     return QWidget::paintEvent(ev);
+}
+
+void GameWidget::run()
+{
+    /* play */
+    while (isPlaying) {
+        float r = 0;
+        int ret = board.play2(r);
+        if (ret > 0) {
+            winCount++;
+            emit win(QString("%1").arg(winCount));
+        } else if (ret < 0) {
+            lostCount++;
+            emit lost(QString("%1").arg(lostCount));
+        }
+        emit sendTotalReward(r);
+        emit readyForPaint();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return;
 }
 
 void GameWidget::setBlocks(int value)

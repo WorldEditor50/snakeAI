@@ -1,6 +1,7 @@
 #ifndef LOSS_H
 #define LOSS_H
 #include "util.h"
+#include <iostream>
 
 namespace RL {
 
@@ -17,7 +18,11 @@ inline void MSE(Mat& E, const Mat& O, const Mat& y)
 inline void CrossEntropy(Mat& E, const Mat& O, const Mat& y)
 {
     for (std::size_t i = 0; i < O.size(); i++) {
-        E[i] = -y[i] * std::log(O[i]);
+        if (O[i] > 0) {
+            E[i] = -y[i] * std::log(O[i] + 1e-9);
+        } else {
+            E[i] = 0;
+        }
     }
     return;
 }

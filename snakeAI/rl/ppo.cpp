@@ -13,15 +13,21 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
 
     actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                   LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   SoftmaxLayer::_(hiddenDim, actionDim, true));
 
     actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                  Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                   LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                   SoftmaxLayer::_(hiddenDim, actionDim, false));
 
     critic = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                   LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                  Layer<Relu>::_(hiddenDim, actionDim, true));
+                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  Layer<Linear>::_(hiddenDim, actionDim, true));
 
 }
 
@@ -54,7 +60,7 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
         r = trajectory[i].reward + gamma * r;
         trajectory[i].reward = r;
     }
-    if (learningSteps % 10 == 0) {
+    if (learningSteps % 16 == 0) {
         actorP.softUpdateTo(actorQ, 0.01);
         //actorP.copyTo(actorQ);
         learningSteps = 0;
@@ -72,10 +78,10 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
         /* actor */
         Mat& q = trajectory[t].action;
         Mat& p = actorP.forward(trajectory[t].state);
-        float kl = p[k] * log(p[k]/q[k]);
-        q[k] += p[k] / q[k] * advantage - beta * kl;
+        float kl = p[k] * std::log(p[k]/q[k] + 1e-9);
+        float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
+        q[k] += ratio*advantage - beta*kl;
         KLexpect += kl;
-
         actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
     }
     /* KL-Penalty */
@@ -85,8 +91,8 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
     } else if (KLexpect <= delta / 1.5) {
         beta /= 2;
     }
-    actorP.optimize(OPT_RMSPROP, learningRate, 0.01);
-    critic.optimize(OPT_RMSPROP, 0.001, 0.01);
+    actorP.optimize(OPT_RMSPROP, learningRate, 0.1);
+    critic.optimize(OPT_RMSPROP, 1e-3, 0.01);
     /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
@@ -96,7 +102,7 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
 
 void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &trajectory)
 {
-    if (learningSteps % 10 == 0) {
+    if (learningSteps % 16 == 0) {
         actorP.softUpdateTo(actorQ, 0.01);
         learningSteps = 0;
     }
@@ -106,26 +112,30 @@ void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &
         r = trajectory[i].reward + gamma * r;
         trajectory[i].reward = r;
     }
-
     for (int t = end; t >= 0; t--) {
         int k = trajectory[t].action.argmax();
         /* advangtage */
         Mat& v = critic.forward(trajectory[t].state);
         float adv = trajectory[t].reward - v[k];
         /* critic */
-        Mat r(actionDim, 1);
-        r[k] = trajectory[t].reward;
+        Mat r = v;
+        if (t == end) {
+            r[k] = trajectory[t].reward;
+        } else {
+            v = critic.forward(trajectory[t + 1].state);
+            r[k] = trajectory[t].reward + 0.99*v[k];
+        }
         critic.gradient(trajectory[t].state, r, Loss::MSE);
         /* actor */
         Mat& q = trajectory[t].action;
         Mat& p = actorP.forward(trajectory[t].state);
-        float ratio = p[k]/q[k];
+        float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
         q[k] += ratio * adv;
         actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
     }
-    actorP.optimize(OPT_RMSPROP, learningRate, 0.01);
-    critic.optimize(OPT_RMSPROP, 1e-3);
+    actorP.optimize(OPT_RMSPROP, learningRate, 0.1);
+    critic.optimize(OPT_RMSPROP, 1e-3, 0.01);
 
     /* update step */
     exploringRate *= 0.99999;

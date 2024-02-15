@@ -1,23 +1,23 @@
 #include "dqn.h"
 
-RL::DQN::DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
+RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
-    this->gamma = 0.99;
-    this->exploringRate = 1;
-    this->stateDim = stateDim;
-    this->actionDim = actionDim;
-    this->QMainNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                          LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                          Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                          LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                          Layer<Sigmoid>::_(hiddenDim, actionDim, true));
+    gamma = 0.99;
+    exploringRate = 1;
+    stateDim = stateDim_;
+    actionDim = actionDim_;
+    QMainNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+                    LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                    Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                    LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                    Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    this->QTargetNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
-                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                            Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                            LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                            Layer<Sigmoid>::_(hiddenDim, actionDim, false));
-    this->QMainNet.copyTo(QTargetNet);
+    QTargetNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
+                      LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                      Layer<Tanh>::_(hiddenDim, hiddenDim, false),
+                      LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                      Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+    QMainNet.copyTo(QTargetNet);
 
 }
 

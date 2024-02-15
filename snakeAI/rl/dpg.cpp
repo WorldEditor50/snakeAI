@@ -29,21 +29,24 @@ RL::Mat &RL::DPG::eGreedyAction(const Mat &state)
 
 int RL::DPG::action(const Mat &state)
 {
-    return policyNet.show(), policyNet.forward(state).argmax();
+    int a = policyNet.forward(state).argmax();
+    policyNet.show();
+    return a;
 }
 
 void RL::DPG::reinforce(OptType optType, float learningRate, std::vector<Step>& x)
 {
     float r = 0;
-    Mat discoutedReward(x.size(), 1);
+    Mat discountedReward(x.size(), 1);
     for (int i = x.size() - 1; i >= 0; i--) {
         r = gamma * r + x[i].reward;
-        discoutedReward[i] = r;
+        discountedReward[i] = r;
     }
-    float u = discoutedReward.mean();
+    float u = discountedReward.mean();
     for (std::size_t i = 0; i < x.size(); i++) {
         int k = x[i].action.argmax();
-        x[i].action[k] *= discoutedReward[i] - u;
+        float ri = discountedReward[i] - u;
+        x[i].action[k] *= ri;
         policyNet.gradient(x[i].state, x[i].action, Loss::CrossEntropy);
     }
     policyNet.optimize(optType, learningRate, 0.1);
