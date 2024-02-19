@@ -4,6 +4,7 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
 {
     gamma = 0.99;
     exploringRate = 1;
+    totalReward = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
     QMainNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
@@ -17,24 +18,21 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                       Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                       LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                       Layer<Sigmoid>::_(hiddenDim, actionDim, false));
-    QMainNet.copyTo(QTargetNet);
 
+    QMainNet.copyTo(QTargetNet);
 }
 
-void RL::DQN::perceive(Mat& state,
-        Mat& action,
-        Mat& nextState,
-        float reward,
-        bool done)
+void RL::DQN::perceive(const Mat& state,
+                       const Mat& action,
+                       const Mat& nextState,
+                       float reward,
+                       bool done)
 {
-    if (state.size() != stateDim || nextState.size() != stateDim) {
-        return;
-    }
     memories.push_back(Transition(state, action, nextState, reward, done));
     return;
 }
 
-RL::Mat& RL::DQN::eGreedyAction(Mat &state)
+RL::Mat& RL::DQN::eGreedyAction(const Mat &state)
 {
     std::uniform_real_distribution<float> distributionReal(0, 1);
     float p = distributionReal(Rand::engine);
@@ -64,11 +62,10 @@ int RL::DQN::action(const Mat &state)
 
 void RL::DQN::experienceReplay(const Transition& x)
 {
-    Mat qTarget(actionDim, 1);
     /* estimate q-target: Q-Regression */
     /* select Action to estimate q-value */
     int i = x.action.argmax();
-    qTarget = QMainNet.forward(x.state);
+    Mat qTarget = QMainNet.forward(x.state);
     if (x.done == true) {
         qTarget[i] = x.reward;
     } else {
@@ -113,7 +110,6 @@ void RL::DQN::learn(OptType optType,
             memories.pop_front();
         }
     }
-    /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     learningSteps++;

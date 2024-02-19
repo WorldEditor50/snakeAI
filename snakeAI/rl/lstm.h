@@ -156,7 +156,7 @@ public:
     void SGD(float learningRate);
     void RMSProp(float learningRate, float rho = 0.9, float decay = 0.01);
     void Adam(float learningRate, float alpha = 0.9, float beta = 0.99, float decay = 0.01);
-    void clamp(float c);
+    void clamp(float c0, float cn);
     /* parameter */
     void copyTo(LSTM &dst);
     void softUpdateTo(LSTM &dst, float rho);

@@ -10,6 +10,7 @@ Agent::Agent(Mat& map, Snake &s):
     dpg = DPG(stateDim, 16, 4);
     ddpg = DDPG(stateDim, 16, 4);
     ppo = PPO(stateDim, 16, 4);
+    sac = SAC(stateDim, 16, 4);
     bpnn = BPNN(Layer<Sigmoid>::_(stateDim, 16, true),
                 Layer<Sigmoid>::_(16, 16, true),
                 Layer<Sigmoid>::_(16, 16, true),
@@ -19,7 +20,7 @@ Agent::Agent(Mat& map, Snake &s):
     state = Mat(stateDim, 1);
     nextState = Mat(stateDim, 1);
     dqn.load("./dqn");
-    //dpg.load("./dpg");
+    dpg.load("./dpg");
     ddpg.load("./ddpg_actor", "./ddpg_critic");
     bpnn.load("./bpnn");
     ppo.load("./ppo_actor", "./ppo_critic");
@@ -57,8 +58,8 @@ float Agent::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
     }
     float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
     float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    float r = d1 - d2;
-    return r / std::sqrt(1 + r*r);
+    float r = std::sqrt(d1) - std::sqrt(d2);
+    return r/std::sqrt(1 + r*r);
 }
 
 float Agent::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
@@ -171,20 +172,20 @@ int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
     /* exploring environment */
     int xn = x;
     int yn = y;
-    float r = 0;
-    float total = 0;
     observe(state, x, y, xt, yt);
-    Mat state_ = state;
+    Mat state0 = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 128; j++) {
+        int i = 0;
+        float total = 0;
+        for (i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
             Mat& action = dqn.eGreedyAction(state);
             int k = action.argmax();
             simulateMove(xn, yn, k);
-            r = reward0(xi, yi, xn, yn, xt, yt);
-            total += r;
+            float r = reward1(xi, yi, xn, yn, xt, yt);
             observe(nextState, xn, yn, xt, yt);
+            total += r;
             if (map(xn, yn) == 1) {
                 dqn.perceive(state, action, nextState, r, true);
                 break;
@@ -195,14 +196,14 @@ int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
             } else {
                 dqn.perceive(state, action, nextState, r, false);
             }
-            state = nextState;
+            state = nextState; 
         }
         totalReward = total;
         /* training */
         dqn.learn(OPT_RMSPROP, 8192, 256, 64, 1e-3);
     }
     /* making decision */
-    return dqn.action(state_);
+    return dqn.action(state0);
 }
 
 int Agent::qlstmAction(int x, int y, int xt, int yt, float &totalReward)
@@ -407,6 +408,50 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
     }
     /* making decision */
     Mat &a = ppo.action(state_);
+    for (std::size_t i = 0; i < a.size(); i++) {
+        std::cout<<a[i]<<" ";
+    }
+    std::cout<<std::endl;
+    return a.argmax();
+}
+
+int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
+{
+    int xn = x;
+    int yn = y;
+    float r = 0;
+    float total = 0;
+    observe(state, x, y, xt, yt);
+    Mat state_ = state;
+    int i = 0;
+    if (trainFlag == true) {
+        for (i = 0; i < 128; i++) {
+            int xi = xn;
+            int yi = yn;
+            Mat& action = sac.eGreedyAction(state);
+            int k = action.argmax();
+            simulateMove(xn, yn, k);
+            r = reward0(xi, yi, xn, yn, xt, yt);
+            total += r;
+            observe(nextState, xn, yn, xt, yt);
+            if (map(xn, yn) == 1) {
+                sac.perceive(state, action, nextState, r, true);
+                break;
+            }
+            if (xn == xt && yn == yt) {
+                sac.perceive(state, action, nextState, r, true);
+                break;
+            } else {
+                sac.perceive(state, action, nextState, r, false);
+            }
+            state = nextState;
+        }
+        totalReward = total;
+        /* training */
+        sac.learn(OPT_RMSPROP, 8192, 256, 64, 1e-3);
+    }
+    /* making decision */
+    Mat& a = sac.action(state_);
     for (std::size_t i = 0; i < a.size(); i++) {
         std::cout<<a[i]<<" ";
     }

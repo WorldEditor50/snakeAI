@@ -1,15 +1,15 @@
 #include "dpg.h"
-RL::DPG::DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
+RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
-    this->gamma = 0.9;
-    this->exploringRate = 1;
-    this->stateDim = stateDim;
-    this->actionDim = actionDim;
-    this->policyNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                           LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                           Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                           LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                           SoftmaxLayer::_(hiddenDim, actionDim, true));
+    gamma = 0.9;
+    exploringRate = 1;
+    stateDim = stateDim_;
+    actionDim = actionDim_;
+    policyNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+                     LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                     Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                     LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                     SoftmaxLayer::_(hiddenDim, actionDim, true));
 }
 
 RL::Mat &RL::DPG::eGreedyAction(const Mat &state)
@@ -50,7 +50,7 @@ void RL::DPG::reinforce(OptType optType, float learningRate, std::vector<Step>& 
         policyNet.gradient(x[i].state, x[i].action, Loss::CrossEntropy);
     }
     policyNet.optimize(optType, learningRate, 0.1);
-    //policyNet.clamp(-1, 1);
+    policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;

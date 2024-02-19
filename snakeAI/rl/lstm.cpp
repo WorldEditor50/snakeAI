@@ -306,25 +306,25 @@ void RL::LSTM::Adam(float learningRate,  float alpha, float beta, float decay)
     return;
 }
 
-void RL::LSTM::clamp(float c)
+void RL::LSTM::clamp(float c0, float cn)
 {
-    Optimizer::clamp(W, -c, c);
-    Optimizer::clamp(B, -c, c);
+    Optimizer::clamp(W, c0, cn);
+    Optimizer::clamp(B, c0, cn);
 
-    Optimizer::clamp(Wi, -c, c);
-    Optimizer::clamp(Wg, -c, c);
-    Optimizer::clamp(Wf, -c, c);
-    Optimizer::clamp(Wo, -c, c);
+    Optimizer::clamp(Wi, c0, cn);
+    Optimizer::clamp(Wg, c0, cn);
+    Optimizer::clamp(Wf, c0, cn);
+    Optimizer::clamp(Wo, c0, cn);
 
-    Optimizer::clamp(Ui, -c, c);
-    Optimizer::clamp(Ug, -c, c);
-    Optimizer::clamp(Uf, -c, c);
-    Optimizer::clamp(Uo, -c, c);
+    Optimizer::clamp(Ui, c0, cn);
+    Optimizer::clamp(Ug, c0, cn);
+    Optimizer::clamp(Uf, c0, cn);
+    Optimizer::clamp(Uo, c0, cn);
 
-    Optimizer::clamp(Bi, -c, c);
-    Optimizer::clamp(Bg, -c, c);
-    Optimizer::clamp(Bf, -c, c);
-    Optimizer::clamp(Bo, -c, c);
+    Optimizer::clamp(Bi, c0, cn);
+    Optimizer::clamp(Bg, c0, cn);
+    Optimizer::clamp(Bf, c0, cn);
+    Optimizer::clamp(Bo, c0, cn);
     return;
 }
 

@@ -10,6 +10,7 @@
 #include "common.h"
 #include "snake.h"
 #include "mat.hpp"
+#include "sac.h"
 
 using namespace RL;
 class Agent
@@ -24,6 +25,7 @@ private:
     DPG dpg;
     DDPG ddpg;
     PPO ppo;
+    SAC sac;
     QLSTM qlstm;
     DRPG drpg;
     bool trainFlag;
@@ -39,6 +41,7 @@ public:
     int drpgAction(int x, int y, int xt, int yt, float &totalReward);
     int ddpgAction(int x, int y, int xt, int yt, float &totalReward);
     int ppoAction(int x, int y, int xt, int yt, float &totalReward);
+    int sacAction(int x, int y, int xt, int yt, float &totalReward);
     int supervisedAction(int x, int y, int xt, int yt, float &totalReward);
     void setTrain(bool on){trainFlag = on;}
 private:

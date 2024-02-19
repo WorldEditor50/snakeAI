@@ -9,31 +9,31 @@ RL::DDPG::DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDi
     this->actionDim = actionDim;
     this->sa = Mat(stateDim + actionDim, 1);
     /* actor: a = P(s, theta) */
-    this->actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                        LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                        Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                        LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                        SoftmaxLayer::_(hiddenDim, actionDim, true));
+    actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  SoftmaxLayer::_(hiddenDim, actionDim, true));
 
-    this->actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim,false),
-                        LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                        Layer<Tanh>::_(hiddenDim, hiddenDim,false),
-                        LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                        SoftmaxLayer::_(hiddenDim, actionDim, false));
-    this->actorP.copyTo(actorQ);
+    actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim,false),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                  Layer<Tanh>::_(hiddenDim, hiddenDim,false),
+                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                  SoftmaxLayer::_(hiddenDim, actionDim, false));
+    actorP.copyTo(actorQ);
     /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
-    this->criticP = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
-                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                         Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                         Layer<Sigmoid>::_(hiddenDim, actionDim, true));
+    criticP = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
+                   LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                   LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                   Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    this->criticQ = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, false),
-                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                         Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                         LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                         Layer<Sigmoid>::_(hiddenDim, actionDim, false));
-    this->criticP.copyTo(criticQ);
+    criticQ = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, false),
+                   LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                   Layer<Tanh>::_(hiddenDim, hiddenDim, false),
+                   LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                   Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+    criticP.copyTo(criticQ);
 }
 
 void RL::DDPG::perceive(const Mat& state,
@@ -148,8 +148,6 @@ void RL::DDPG::learn(OptType optType,
         /* update critic */
         criticP.softUpdateTo(criticQ, 0.01);
         learningSteps = 0;
-    }
-    if (learningSteps % replaceTargetIter == 0) {
         std::cout<<"update target net"<<std::endl;
         /* update actor */
         actorP.softUpdateTo(actorQ, 0.01);

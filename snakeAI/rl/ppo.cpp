@@ -135,6 +135,7 @@ void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &
         actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
     }
     actorP.optimize(OPT_RMSPROP, learningRate, 0.1);
+    actorP.clamp(-1, 1);
     critic.optimize(OPT_RMSPROP, 1e-3, 0.01);
 
     /* update step */

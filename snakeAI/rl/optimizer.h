@@ -35,7 +35,7 @@ inline void AdaDelta(T &w, T &S, T &delta, T &dwPrime, const T &dw, float learni
     return;
 }
 template<typename T>
-inline void RMSProp(T &w, T &S, const T &dw, float learningRate, float rho, float decay = 0.01)
+inline void RMSProp(T &w, T &S, const T &dw, float learningRate, float rho, float decay = 0)
 {
     for (std::size_t i = 0; i < w.size(); i++) {
         S[i] = rho * S[i] + (1 - rho) * dw[i] * dw[i];
@@ -44,7 +44,7 @@ inline void RMSProp(T &w, T &S, const T &dw, float learningRate, float rho, floa
     return;
 }
 template<typename T>
-inline void Adam(T &w, T &S, T &V, const T &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0.01)
+inline void Adam(T &w, T &S, T &V, const T &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
 {
     for (std::size_t i = 0; i < w.size(); i++) {
         V[i] = alpha * V[i] + (1 - alpha) * dw[i];

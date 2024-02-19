@@ -43,10 +43,11 @@ public:
     void backward(const Mat &loss, Mat& E);
     void gradient(const Mat &x, const Mat &y);
     void gradient(const Mat &x, const Mat &y, const FnLoss &loss);
+    void gradient(const Mat &x, const RL::Mat &y, const Mat &loss);
     void SGD(float learningRate = 0.001);
-    void RMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0.01);
-    void Adam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001, float decay = 0.01);
-    void optimize(OptType optType = OPT_RMSPROP, float learningRate = 0.001, float decay = 0.01);
+    void RMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0);
+    void Adam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001, float decay = 0);
+    void optimize(OptType optType = OPT_RMSPROP, float learningRate = 0.001, float decay = 0);
     void clamp(float c0, float cn);
     void show();
     void load(const std::string& fileName);

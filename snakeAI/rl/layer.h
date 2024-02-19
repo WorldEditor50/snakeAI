@@ -314,9 +314,7 @@ public:
             for (std::size_t i = 0; i < Layer<FnActive>::O.size(); i++) {
                 mask[i] = bernoulli(Rand::engine) / (1 - p);
             }
-            for (std::size_t i = 0; i < Layer<FnActive>::O.size(); i++) {
-                Layer<FnActive>::O[i] *= mask[i];
-            }
+            Layer<FnActive>::O *= mask;
         }
         return;
     }
@@ -324,9 +322,7 @@ public:
     void backward(Mat& preE) override
     {
         if (trainFlag == true) {
-            for (std::size_t i = 0; i < Layer<FnActive>::E.size(); i++) {
-                Layer<FnActive>::E[i] *= mask[i];
-            }
+            Layer<FnActive>::E *= mask;
         }
         Layer<FnActive>::backward(preE);
         return;
@@ -373,9 +369,7 @@ public:
     }
     void backward(Mat &preE)
     {
-        for (std::size_t i = 0; i < Layer<FnActive>::E.size(); i++) {
-            Layer<FnActive>::E[i] *= gamma_;
-        }
+        Layer<FnActive>::E *= gamma_;
         return Layer<FnActive>::backward(preE);
     }
 };

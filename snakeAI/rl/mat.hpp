@@ -364,7 +364,7 @@ public:
 
     void show() const
     {
-        std::cout<<"row:"<<rows<<", cols:"<<cols<<std::endl;
+        //std::cout<<"row:"<<rows<<", cols:"<<cols<<std::endl;
         for (std::size_t i = 0; i < rows; i++) {
             for (std::size_t j = 0; j < cols; j++) {
                 std::size_t index = i*cols + j;

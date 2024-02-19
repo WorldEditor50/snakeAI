@@ -21,14 +21,15 @@ public:
     DQN(){}
     explicit DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     ~DQN(){}
-    void perceive(Mat& state,
-                  Mat& action,
-                  Mat& nextState,
+    void perceive(const Mat& state,
+                  const Mat& action,
+                  const Mat& nextState,
                   float reward,
                   bool done);
-    Mat& eGreedyAction(Mat& state);
+    Mat& eGreedyAction(const Mat& state);
     Mat& output();
     int action(const Mat &state);
+    void annealing(float r);
     void experienceReplay(const Transition& x);
     void learn(OptType optType = OPT_RMSPROP,
                std::size_t maxMemorySize = 4096,
@@ -42,6 +43,7 @@ protected:
     std::size_t actionDim;
     float gamma;
     float exploringRate;
+    float totalReward;
     int learningSteps;
     BPNN QMainNet;
     BPNN QTargetNet;

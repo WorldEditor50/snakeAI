@@ -51,6 +51,7 @@ void RL::DRPG::reinforce(const std::vector<Mat> &x, std::vector<Mat> &y, std::ve
     policyNet.forward(x);
     policyNet.backward(x, y, Loss::CrossEntropy);
     policyNet.optimize(learningRate, 0.1);
+    policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;

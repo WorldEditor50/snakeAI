@@ -10,6 +10,7 @@ SOURCES += $$PWD/bpnn.cpp \
             $$PWD/lstm.cpp \
             $$PWD/ppo.cpp \
             $$PWD/qlstm.cpp \
+            $$PWD/sac.cpp \
             $$PWD/util.cpp
 
 HEADERS += $$PWD/bpnn.h \
@@ -26,8 +27,10 @@ HEADERS += $$PWD/bpnn.h \
             $$PWD/lstmnet.h \
             $$PWD/mat.hpp \
             $$PWD/optimizer.h \
+            $$PWD/parameter.hpp \
             $$PWD/ppo.h \
             $$PWD/qlstm.h \
             $$PWD/rl_basic.h \
+            $$PWD/sac.h \
             $$PWD/tensor.hpp \
             $$PWD/util.h

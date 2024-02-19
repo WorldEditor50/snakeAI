@@ -10,10 +10,10 @@ Board::Board():blockNum(0),agent(map, snake)
     agentMethod.insert(std::pair<std::string, AgentMethod>("dqn", &Agent::dqnAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("dpg", &Agent::dpgAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("ppo", &Agent::ppoAction));
-    agentMethod.insert(std::pair<std::string, AgentMethod>("ddpg", &Agent::ddpgAction));
+    agentMethod.insert(std::pair<std::string, AgentMethod>("sac", &Agent::sacAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("qlstm", &Agent::qlstmAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("drpg", &Agent::drpgAction));
-    act = agentMethod["dpg"];
+    act = agentMethod["sac"];
 }
 void Board::init(size_t w, size_t h)
 {

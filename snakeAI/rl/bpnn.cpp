@@ -92,6 +92,22 @@ void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, const RL::BPNN::FnLo
     return;
 }
 
+void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, const RL::Mat &loss)
+{
+    std::size_t outputIndex = layers.size() - 1;
+    layers[outputIndex]->E = loss;
+    /* error Backpropagate */
+    for (int i = layers.size() - 1; i > 0; i--) {
+        layers[i]->backward(layers[i - 1]->E);
+    }
+    /* gradient */
+    layers[0]->gradient(x, y);
+    for (std::size_t j = 1; j < layers.size(); j++) {
+        layers[j]->gradient(layers[j - 1]->O, y);
+    }
+    return;
+}
+
 void RL::BPNN::SGD(float learningRate)
 {
     /* gradient descent */

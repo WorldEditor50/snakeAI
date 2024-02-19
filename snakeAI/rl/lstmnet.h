@@ -54,12 +54,7 @@ public:
         lstm.states.clear();
         return;
     }
-    void clamp(float c)
-    {
-        bpnet.clamp(-c, c);
-        lstm.clamp(c);
-        return;
-    }
+
     void copyTo(LstmNet &dst)
     {
         bpnet.copyTo(dst.bpnet);
@@ -78,6 +73,12 @@ public:
     {
         lstm.RMSProp(learningRate, 0.9, decay);
         bpnet.RMSProp(0.9, learningRate, decay);
+        return;
+    }
+    void clamp(float c0, float cn)
+    {
+        bpnet.clamp(c0, cn);
+        lstm.clamp(c0, cn);
         return;
     }
 };

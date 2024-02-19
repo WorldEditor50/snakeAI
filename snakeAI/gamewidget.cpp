@@ -49,7 +49,8 @@ QRect GameWidget::getRect(int x, int y)
 void GameWidget::paintEvent(QPaintEvent *ev)
 {
     Q_UNUSED(ev)
-    QPainter painter(this);
+    QPainter painter;
+    painter.begin(this);
     painter.setPen(Qt::black);
     painter.setBrush(Qt::gray);
     painter.setRenderHint(QPainter::Antialiasing);
@@ -75,7 +76,8 @@ void GameWidget::paintEvent(QPaintEvent *ev)
         QRect rect = getRect(board.snake.body[i].x, board.snake.body[i].y);
         painter.drawRect(rect);
     }
-    return QWidget::paintEvent(ev);
+    painter.end();
+    return;// QWidget::paintEvent(ev);
 }
 
 void GameWidget::run()
