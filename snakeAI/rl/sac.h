@@ -35,8 +35,8 @@ public:
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 32,
                float learningRate = 0.001);
-    void save(const std::string& fileName);
-    void load(const std::string& fileName);
+    void save();
+    void load();
 protected:
     int stateDim;
     int actionDim;
@@ -51,7 +51,6 @@ protected:
     BPNN critic1TargetNet;
     BPNN critic2Net;
     BPNN critic2TargetNet;
-
 };
 
 }

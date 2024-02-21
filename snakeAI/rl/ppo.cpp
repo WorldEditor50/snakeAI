@@ -80,7 +80,7 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
         Mat& p = actorP.forward(trajectory[t].state);
         float kl = p[k] * std::log(p[k]/q[k] + 1e-9);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
-        q[k] += ratio*advantage - beta*kl;
+        q[k] *= ratio*advantage - beta*kl;
         KLexpect += kl;
         actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
     }
@@ -131,7 +131,7 @@ void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &
         Mat& p = actorP.forward(trajectory[t].state);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
-        q[k] += ratio * adv;
+        q[k] *= ratio * adv;
         actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
     }
     actorP.optimize(OPT_RMSPROP, learningRate, 0.1);

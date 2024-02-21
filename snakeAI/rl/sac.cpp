@@ -6,8 +6,8 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    alpha = GradValue(actionDim_, 1); // re-parameterization
-    alpha.val.fill(-1.2);
+    alpha = GradValue(actionDim, 1);
+    alpha.val.fill(-4);
     actor = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
@@ -74,15 +74,17 @@ RL::Mat& RL::SAC::action(const RL::Mat &state)
 
 void RL::SAC::experienceReplay(const RL::Transition &x)
 {
-    int i = x.action.argmax();
+    std::size_t i = x.action.argmax();
     /* train critic net */
     {
+        /* select action */
         Mat& nextProb = actor.forward(x.nextState);
-        float entropy = -nextProb[i]*std::log(nextProb[i] + 1e-9);
+        std::size_t k = nextProb.argmax();
+        /* select value */
         Mat& q1 = critic1TargetNet.forward(x.nextState);
         Mat& q2 = critic2TargetNet.forward(x.nextState);
-        float minValue = nextProb[i]*std::min(q1[i], q2[i]);
-        float nextValue = minValue + std::exp(alpha[i])*entropy;
+        float q = std::min(q1[k], q2[k]);
+        float nextValue = -std::exp(alpha[k])*nextProb[k]*std::log(nextProb[k]) + nextProb[k]*q;
         float qTarget = 0;
         if (x.done) {
             qTarget = x.reward;
@@ -99,20 +101,16 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
     /* train policy net */
     {
         const Mat& prob = x.action;
-        float entropy = -prob[i]*std::log(prob[i] + 1e-9);
         Mat& q1 = critic1Net.forward(x.state);
         Mat& q2 = critic2Net.forward(x.state);
-        float q = prob[i]*std::min(q1[i], q2[i]);
+        float q = std::min(q1[i], q2[i]);
         Mat target = prob;
-        target[i] = -std::exp(alpha[i])*(entropy - q);
+        target[i] *= -std::exp(alpha[i])*prob[i]*std::log(prob[i]) + prob[i]*q;
         actor.gradient(x.state, target, Loss::CrossEntropy);
-        /* parameter */
-        //alpha.d[i] += -std::exp(alpha[i])*(entropy - q);
-
-        //float kl = prob[i]*std::log(prob[i]/q + 1e-9);
-        //target[i] = -std::exp(alpha[i])*kl;
-        //actor.gradient(x.state, target, Loss::CrossEntropy);
-        //alpha.d[i] += -std::exp(alpha[i])*kl;
+        //target[i] = std::exp(q) - prob[i];
+        //actor.gradient(x.state, target, Loss::MSE);
+        /* alpha -> 0 */
+        alpha.d[i] = std::exp(alpha[i])*(-prob[i]*std::log(prob[i]) + 1)*alpha[i];
     }
     return;
 }
@@ -127,7 +125,7 @@ void RL::SAC::learn(RL::OptType optType, size_t maxMemorySize, size_t replaceTar
         std::cout<<"update target net"<<std::endl;
         /* update */
         critic1Net.softUpdateTo(critic1TargetNet, 0.01);
-        critic2Net.softUpdateTo(critic2TargetNet, 0.01);
+        critic2Net.softUpdateTo(critic2TargetNet, 0.001);
         learningSteps = 0;
     }
     /* experience replay */
@@ -138,7 +136,7 @@ void RL::SAC::learn(RL::OptType optType, size_t maxMemorySize, size_t replaceTar
     }
     actor.optimize(optType, 1e-3, 0.1);
     actor.clamp(-1, 1);
-    //alpha.RMSProp(0.9, 1e-3, 0);
+    alpha.RMSProp(0.9, 1e-2, 0.1);
 #if 0
     for (std::size_t i = 0; i < alpha.val.size(); i++) {
         std::cout<<alpha.val[i]<<" ";
@@ -161,12 +159,20 @@ void RL::SAC::learn(RL::OptType optType, size_t maxMemorySize, size_t replaceTar
     return;
 }
 
-void RL::SAC::save(const std::string &fileName)
+void RL::SAC::save()
 {
-
+    actor.save("sac_actor");
+    critic1Net.save("sca_critic1");
+    critic2Net.save("sca_critic2");
+    return;
 }
 
-void RL::SAC::load(const std::string &fileName)
+void RL::SAC::load()
 {
-
+    actor.load("sac_actor");
+    critic1Net.load("sca_critic1");
+    critic2Net.load("sca_critic2");
+    critic1Net.copyTo(critic1TargetNet);
+    critic2Net.copyTo(critic2TargetNet);
+    return;
 }

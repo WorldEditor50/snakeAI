@@ -452,10 +452,12 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
     }
     /* making decision */
     Mat& a = sac.action(state_);
+#if 1
     for (std::size_t i = 0; i < a.size(); i++) {
         std::cout<<a[i]<<" ";
     }
     std::cout<<std::endl;
+#endif
     return a.argmax();
 }
 
