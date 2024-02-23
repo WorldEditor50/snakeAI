@@ -33,17 +33,20 @@ RL::PPO::PPO(int stateDim, int hiddenDim, int actionDim)
 
 RL::Mat &RL::PPO::eGreedyAction(const Mat &state)
 {
-    std::uniform_real_distribution<float> distributionReal(0, 1);
-    float p = distributionReal(Rand::engine);
-    if (p < exploringRate) {
-        actorQ.output().zero();
-        std::uniform_int_distribution<int> distribution(0, actionDim - 1);
-        int index = distribution(Rand::engine);
-        actorQ.output()[index] = 1;
-    } else {
-        actorQ.forward(state);
-    }
-    return actorQ.output();
+    Mat& out = actorQ.forward(state);
+    return eGreedy(out, exploringRate);
+}
+
+RL::Mat &RL::PPO::noiseAction(const RL::Mat &state)
+{
+    Mat& out = actorQ.forward(state);
+    return noise2(out, exploringRate);
+}
+
+RL::Mat &RL::PPO::gumbelMax(const RL::Mat &state)
+{
+    Mat& out = actorQ.forward(state);
+    return gumbelSoftmax(out);
 }
 
 RL::Mat &RL::PPO::action(const Mat &state)

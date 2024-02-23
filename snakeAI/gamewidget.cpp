@@ -108,6 +108,7 @@ void GameWidget::setBlocks(int value)
 
 void GameWidget::setAgent(const QString &name)
 {
+    emit clearReward();
     winCount = 0;
     emit win(QString("%1").arg(0));
     lostCount = 0;

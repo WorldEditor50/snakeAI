@@ -12,6 +12,8 @@ public:
     explicit DRPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     ~DRPG(){}
     Mat &eGreedyAction(const Mat &state);
+    RL::Mat &noiseAction(const RL::Mat &state);
+    RL::Mat &gumbelMax(const RL::Mat &state);
     Mat &output(){return policyNet.output();}
     Mat &action(const Mat &state);
     void reinforce(const std::vector<Mat> &x,

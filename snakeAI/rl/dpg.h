@@ -19,6 +19,8 @@ public:
     explicit DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     ~DPG(){}
     Mat &eGreedyAction(const Mat &state);
+    Mat &noiseAction(const Mat &state);
+    Mat &gumbelMax(const RL::Mat &state);
     Mat &output(){return policyNet.output();}
     int action(const Mat &state);
     void reinforce(OptType optType, float learningRate, std::vector<Step>& x);

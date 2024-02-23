@@ -31,6 +31,17 @@ float covariance(const Mat& x1, const Mat& x2);
 void zscore(Mat &x);
 void normalize(Mat &x);
 
+inline void clamp(Mat &x, float x1, float x2)
+{
+    std::uniform_real_distribution<float> uniform(x1, x2);
+    for (std::size_t i = 0; i < x.size(); i++) {
+        float xi = x[i];
+        x[i] = xi < x1 ? x1 : xi;
+        x[i] = xi > x2 ? x2 : xi;
+    }
+    return;
+}
+
 template<typename T>
 inline void uniformRand(T &x, float x1, float x2)
 {
@@ -40,6 +51,82 @@ inline void uniformRand(T &x, float x1, float x2)
     }
     return;
 }
+
+inline Mat& eGreedy(Mat& x, float exploringRate)
+{
+    std::uniform_real_distribution<float> distributionReal(0, 1);
+    float p = distributionReal(Rand::engine);
+    if (p < exploringRate) {
+        x.zero();
+        std::uniform_int_distribution<int> distribution(0, x.size() - 1);
+        int index = distribution(Rand::engine);
+        x[index] = 1;
+    }
+    return x;
+}
+
+inline Mat& noise(Mat& x, float x1=0, float x2=1)
+{
+    Mat epsilon(x);
+    uniformRand(epsilon, x1, x2);
+    x += epsilon;
+    float s = x.max();
+    x /= s;
+    clamp(x, 0, 1);
+    return x;
+}
+
+inline Mat& noise2(Mat& x, float exploringRate)
+{
+    std::uniform_real_distribution<float> distributionReal(0, 1);
+    float p = distributionReal(Rand::engine);
+    if (p < exploringRate) {
+        Mat epsilon(x);
+        uniformRand(epsilon, -1, 1);
+        x += epsilon;
+        float s = x.max();
+        x /= s;
+        clamp(x, 0, 1);
+    }
+    return x;
+}
+
+inline Mat& softmax(Mat &x)
+{
+    float s = 0;
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = std::exp(x[i]);
+        s += x[i];
+    }
+    x /= s;
+    return x;
+}
+
+inline Mat& gumbelSoftmax(Mat &x)
+{
+    Mat epsilon(x);
+    uniformRand(epsilon, 0, 1);
+    for (std::size_t i = 0; i < epsilon.size(); i++) {
+        epsilon[i] = -std::log(-std::log(epsilon[i]));
+    }
+    x += epsilon;
+    x = softmax(x);
+    return x;
+}
+
+inline Mat& gumbelSoftmax(Mat &x, const Mat &alpha)
+{
+    Mat epsilon(x);
+    uniformRand(epsilon, 0, 1);
+    for (std::size_t i = 0; i < epsilon.size(); i++) {
+        epsilon[i] = -std::log(-std::log(epsilon[i]));
+    }
+    x += epsilon;
+    x /= alpha;
+    x = softmax(x);
+    return x;
+}
+
 
 }
 #endif // UTIL_H

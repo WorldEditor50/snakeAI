@@ -7,7 +7,7 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     stateDim = stateDim_;
     actionDim = actionDim_;
     alpha = GradValue(actionDim, 1);
-    alpha.val.fill(-4);
+    alpha.val.fill(10);
     actor = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
@@ -54,17 +54,14 @@ void RL::SAC::perceive(const RL::Mat &state,
 
 RL::Mat &RL::SAC::eGreedyAction(const RL::Mat &state)
 {
-    std::uniform_real_distribution<float> distributionReal(0, 1);
-    float p = distributionReal(Rand::engine);
-    if (p < exploringRate) {
-        actor.output().zero();
-        std::uniform_int_distribution<int> distribution(0, actionDim - 1);
-        int index = distribution(Rand::engine);
-        actor.output()[index] = 1;
-    } else {
-        actor.forward(state);
-    }
-    return actor.output();
+    Mat& out = actor.forward(state);
+    return eGreedy(out, exploringRate);
+}
+
+RL::Mat &RL::SAC::gumbelMax(const RL::Mat &state)
+{
+    Mat& out = actor.forward(state);
+    return gumbelSoftmax(out, alpha.val);
 }
 
 RL::Mat& RL::SAC::action(const RL::Mat &state)
@@ -105,12 +102,11 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         Mat& q2 = critic2Net.forward(x.state);
         float q = std::min(q1[i], q2[i]);
         Mat target = prob;
-        target[i] *= -std::exp(alpha[i])*prob[i]*std::log(prob[i]) + prob[i]*q;
-        actor.gradient(x.state, target, Loss::CrossEntropy);
+        target[i] = -std::exp(alpha[i])*prob[i]*std::log(prob[i]) + prob[i]*q;
         //target[i] = std::exp(q) - prob[i];
-        //actor.gradient(x.state, target, Loss::MSE);
+        actor.gradient(x.state, target, Loss::CrossEntropy);
         /* alpha -> 0 */
-        alpha.d[i] = std::exp(alpha[i])*(-prob[i]*std::log(prob[i]) + 1)*alpha[i];
+        alpha.d[i] += std::exp(alpha[i])*(-prob[i]*std::log(prob[i]) + 1)*alpha[i];
     }
     return;
 }
@@ -136,8 +132,8 @@ void RL::SAC::learn(RL::OptType optType, size_t maxMemorySize, size_t replaceTar
     }
     actor.optimize(optType, 1e-3, 0.1);
     actor.clamp(-1, 1);
-    alpha.RMSProp(0.9, 1e-2, 0.1);
-#if 0
+    alpha.RMSProp(0.9, 1e-3, 0.1);
+#if 1
     for (std::size_t i = 0; i < alpha.val.size(); i++) {
         std::cout<<alpha.val[i]<<" ";
     }

@@ -27,6 +27,7 @@ public:
 signals:
     void win(const QString &count);
     void lost(const QString &count);
+    void clearReward();
     void sendTotalReward(float r);
     void scale(int value);
     void readyForPaint();

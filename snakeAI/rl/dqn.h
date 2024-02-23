@@ -27,6 +27,7 @@ public:
                   float reward,
                   bool done);
     Mat& eGreedyAction(const Mat& state);
+    Mat& noiseAction(const Mat& state);
     Mat& output();
     int action(const Mat &state);
     void annealing(float r);

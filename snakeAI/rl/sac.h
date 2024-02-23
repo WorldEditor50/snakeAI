@@ -28,6 +28,7 @@ public:
                   float reward,
                   bool done);
     Mat& eGreedyAction(const Mat& state);
+    Mat& gumbelMax(const Mat &state);
     Mat& action(const Mat &state);
     void experienceReplay(const Transition& x);
     void learn(OptType optType = OPT_RMSPROP,
@@ -41,7 +42,6 @@ protected:
     int stateDim;
     int actionDim;
     float gamma;
-    float epsilon;
     float exploringRate;
     int learningSteps;
     std::deque<Transition> memories;

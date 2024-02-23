@@ -34,18 +34,14 @@ void RL::DQN::perceive(const Mat& state,
 
 RL::Mat& RL::DQN::eGreedyAction(const Mat &state)
 {
-    std::uniform_real_distribution<float> distributionReal(0, 1);
-    float p = distributionReal(Rand::engine);
-    Mat &out = QMainNet.output();
-    if (p < exploringRate) {
-        out.zero();
-        std::uniform_int_distribution<int> distribution(0, actionDim - 1);
-        int index = distribution(Rand::engine);
-        out[index] = 1;
-    } else {
-        QMainNet.forward(state);
-    }
-    return out;
+    Mat& out = QMainNet.forward(state);
+    return eGreedy(out, exploringRate);
+}
+
+RL::Mat& RL::DQN::noiseAction(const Mat &state)
+{
+    Mat& out = QMainNet.forward(state);
+    return noise2(out, exploringRate);
 }
 
 RL::Mat &RL::DQN::output()

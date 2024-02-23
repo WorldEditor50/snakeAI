@@ -14,17 +14,20 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
 
 RL::Mat &RL::DPG::eGreedyAction(const Mat &state)
 {
-    std::uniform_real_distribution<float> distributionReal(0, 1);
-    float p = distributionReal(Rand::engine);
-    if (p < exploringRate) {
-        policyNet.output().zero();
-        std::uniform_int_distribution<int> distribution(0, actionDim - 1);
-        int index = distribution(Rand::engine);
-        policyNet.output()[index] = 1;
-    } else {
-        policyNet.forward(state);
-    }
-    return policyNet.output();
+    Mat& out = policyNet.forward(state);
+    return eGreedy(out, exploringRate);
+}
+
+RL::Mat &RL::DPG::noiseAction(const RL::Mat &state)
+{
+    Mat& out = policyNet.forward(state);
+    return noise(out);
+}
+
+RL::Mat &RL::DPG::gumbelMax(const RL::Mat &state)
+{
+    Mat& out = policyNet.forward(state);
+    return gumbelSoftmax(out);
 }
 
 int RL::DPG::action(const Mat &state)

@@ -7,6 +7,7 @@
 #include <QWheelEvent>
 #include <QTimer>
 #include <cmath>
+#include <mutex>
 
 class AxisWidget : public QWidget
 {
@@ -24,7 +25,9 @@ public slots:
     void addPoint(float y);
     void setInterval(int value);
     void setScale(int value);
+    void clearPoints();
 public:
+    std::mutex mutex;
     QList<QPointF> points;
     int timerID;
     float x = 0;

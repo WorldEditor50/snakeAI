@@ -20,6 +20,8 @@ public:
     explicit PPO(int stateDim, int hiddenDim, int actionDim);
     ~PPO(){}
     Mat &eGreedyAction(const Mat &state);
+    RL::Mat &noiseAction(const RL::Mat &state);
+    RL::Mat &gumbelMax(const RL::Mat &state);
     Mat &action(const Mat &state);
     Mat& output(){return actorP.output();}
     void learnWithKLpenalty(float learningRate, std::vector<Step>& trajectory);

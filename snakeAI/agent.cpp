@@ -98,6 +98,19 @@ float Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
     return r;
 }
 
+float Agent::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    if (map(xn, yn) == 1) {
+        return -1;
+    }
+    if (xn == xt && yn == yt) {
+        return 1;
+    }
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    return std::tanh(1/(d1 - d2));
+}
+
 void Agent::observe(Mat& statex, int x, int y, int xt, int yt)
 {
     float xc = float(map.rows) / 2;
@@ -180,10 +193,10 @@ int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
         for (i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
-            Mat& action = dqn.eGreedyAction(state);
+            Mat& action = dqn.noiseAction(state);
             int k = action.argmax();
             simulateMove(xn, yn, k);
-            float r = reward1(xi, yi, xn, yn, xt, yt);
+            float r = reward0(xi, yi, xn, yn, xt, yt);
             observe(nextState, xn, yn, xt, yt);
             total += r;
             if (map(xn, yn) == 1) {
@@ -265,7 +278,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
             int xi = xn;
             int yi = yn;
             /* sample */
-            Mat &output = dpg.eGreedyAction(state);
+            Mat &output = dpg.gumbelMax(state);
             direct = output.argmax();
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
@@ -305,7 +318,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
             int xi = xn;
             int yi = yn;
             /* move */
-            Mat &output = drpg.eGreedyAction(state);
+            Mat &output = drpg.gumbelMax(state);
             direct = output.argmax();
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
@@ -385,7 +398,7 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
             int xi = xn;
             int yi = yn;
             /* sample */
-            Mat &output = ppo.eGreedyAction(state);
+            Mat &output = ppo.gumbelMax(state);
             int direct = output.argmax();
             /* move */
             simulateMove(xn, yn, direct);
@@ -452,7 +465,7 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
     }
     /* making decision */
     Mat& a = sac.action(state_);
-#if 1
+#if 0
     for (std::size_t i = 0; i < a.size(); i++) {
         std::cout<<a[i]<<" ";
     }

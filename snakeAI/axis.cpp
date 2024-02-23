@@ -34,6 +34,12 @@ void AxisWidget::setScale(int value)
     return;
 }
 
+void AxisWidget::clearPoints()
+{
+    points.clear();
+    return;
+}
+
 void AxisWidget::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
