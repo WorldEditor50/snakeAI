@@ -2,37 +2,39 @@
 
 RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
 {
-    gamma = 0.9;
+    gamma = 0.99;
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(10);
+    targetEntropy = -0.9*std::log(0.25);
     actor = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                  SoftmaxLayer::_(hiddenDim, actionDim, true));
 
-    critic1Net = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+    int criticStateDim = stateDim;
+    critic1Net = BPNN(Layer<Tanh>::_(criticStateDim, hiddenDim, true),
                       LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                       Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                       LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                       Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    critic1TargetNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
+    critic1TargetNet = BPNN(Layer<Tanh>::_(criticStateDim, hiddenDim, false),
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                             Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                             Layer<Sigmoid>::_(hiddenDim, actionDim, false));
 
-    critic2Net = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+    critic2Net = BPNN(Layer<Tanh>::_(criticStateDim, hiddenDim, true),
                       LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                       Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                       LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                       Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    critic2TargetNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
+    critic2TargetNet = BPNN(Layer<Tanh>::_(criticStateDim, hiddenDim, false),
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                             Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                             LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
@@ -55,13 +57,13 @@ void RL::SAC::perceive(const RL::Mat &state,
 RL::Mat &RL::SAC::eGreedyAction(const RL::Mat &state)
 {
     Mat& out = actor.forward(state);
-    return eGreedy(out, exploringRate);
+    return eGreedy(out, exploringRate, true);
 }
 
 RL::Mat &RL::SAC::gumbelMax(const RL::Mat &state)
 {
     Mat& out = actor.forward(state);
-    return gumbelSoftmax(out, alpha.val);
+    return RL::gumbelSoftmax(out, alpha.val);
 }
 
 RL::Mat& RL::SAC::action(const RL::Mat &state)
@@ -77,11 +79,12 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         /* select action */
         Mat& nextProb = actor.forward(x.nextState);
         std::size_t k = nextProb.argmax();
-        /* select value */
+        /* select value */;
         Mat& q1 = critic1TargetNet.forward(x.nextState);
         Mat& q2 = critic2TargetNet.forward(x.nextState);
         float q = std::min(q1[k], q2[k]);
-        float nextValue = -std::exp(alpha[k])*nextProb[k]*std::log(nextProb[k]) + nextProb[k]*q;
+        float nextValue = 0;
+        nextValue = nextProb[k]*q - alpha[k]*nextProb[k]*std::log(nextProb[k] + 1e-8);
         float qTarget = 0;
         if (x.done) {
             qTarget = x.reward;
@@ -100,13 +103,12 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         const Mat& prob = x.action;
         Mat& q1 = critic1Net.forward(x.state);
         Mat& q2 = critic2Net.forward(x.state);
-        float q = std::min(q1[i], q2[i]);
         Mat target = prob;
-        target[i] = -std::exp(alpha[i])*prob[i]*std::log(prob[i]) + prob[i]*q;
-        //target[i] = std::exp(q) - prob[i];
-        actor.gradient(x.state, target, Loss::CrossEntropy);
+        float q = std::min(q1[i], q2[i]);
+        target[i] = prob[i]*q - alpha[i]*prob[i]*std::log(prob[i] + 1e-8);
         /* alpha -> 0 */
-        alpha.d[i] += std::exp(alpha[i])*(-prob[i]*std::log(prob[i]) + 1)*alpha[i];
+        alpha.g[i] += -alpha[i]*(std::log(prob[i] + 1e-8) + targetEntropy);
+        actor.gradient(x.state, target, Loss::CrossEntropy);
     }
     return;
 }
@@ -121,7 +123,7 @@ void RL::SAC::learn(RL::OptType optType, size_t maxMemorySize, size_t replaceTar
         std::cout<<"update target net"<<std::endl;
         /* update */
         critic1Net.softUpdateTo(critic1TargetNet, 0.01);
-        critic2Net.softUpdateTo(critic2TargetNet, 0.001);
+        critic2Net.softUpdateTo(critic2TargetNet, 0.01);
         learningSteps = 0;
     }
     /* experience replay */

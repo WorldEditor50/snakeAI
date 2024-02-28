@@ -3,7 +3,7 @@
 #include <iostream>
 #include "util.h"
 #include "activate.h"
-#include "optimizer.h"
+#include "optimize.h"
 #include "loss.h"
 
 namespace RL {

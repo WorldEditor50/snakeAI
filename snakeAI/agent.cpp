@@ -441,7 +441,7 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
         for (i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
-            Mat& action = sac.eGreedyAction(state);
+            Mat& action = sac.gumbelMax(state);
             int k = action.argmax();
             simulateMove(xn, yn, k);
             r = reward0(xi, yi, xn, yn, xt, yt);
@@ -465,7 +465,7 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
     }
     /* making decision */
     Mat& a = sac.action(state_);
-#if 0
+#if 1
     for (std::size_t i = 0; i < a.size(); i++) {
         std::cout<<a[i]<<" ";
     }

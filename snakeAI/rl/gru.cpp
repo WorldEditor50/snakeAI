@@ -227,40 +227,40 @@ void RL::GRU::gradient(const std::vector<RL::Mat> &x, const RL::Mat &yt)
 
 void RL::GRU::SGD(float learningRate)
 {
-    Optimizer::SGD(W, d.W, learningRate);
-    Optimizer::SGD(B, d.B, learningRate);
+    Optimize::SGD(W, d.W, learningRate);
+    Optimize::SGD(B, d.B, learningRate);
 
-    Optimizer::SGD(Wr, d.Wr, learningRate);
-    Optimizer::SGD(Wz, d.Wz, learningRate);
-    Optimizer::SGD(Wg, d.Wg, learningRate);
+    Optimize::SGD(Wr, d.Wr, learningRate);
+    Optimize::SGD(Wz, d.Wz, learningRate);
+    Optimize::SGD(Wg, d.Wg, learningRate);
 
-    Optimizer::SGD(Ur, d.Ur, learningRate);
-    Optimizer::SGD(Uz, d.Uz, learningRate);
-    Optimizer::SGD(Ug, d.Ug, learningRate);
+    Optimize::SGD(Ur, d.Ur, learningRate);
+    Optimize::SGD(Uz, d.Uz, learningRate);
+    Optimize::SGD(Ug, d.Ug, learningRate);
 
-    Optimizer::SGD(Br, d.Br, learningRate);
-    Optimizer::SGD(Bz, d.Bz, learningRate);
-    Optimizer::SGD(Bg, d.Bg, learningRate);
+    Optimize::SGD(Br, d.Br, learningRate);
+    Optimize::SGD(Bz, d.Bz, learningRate);
+    Optimize::SGD(Bg, d.Bg, learningRate);
     d.zero();
     return;
 }
 
 void RL::GRU::RMSProp(float learningRate, float rho)
 {
-    Optimizer::RMSProp(W, s.W, d.W, learningRate, rho);
-    Optimizer::RMSProp(B, s.B, d.B, learningRate, rho);
+    Optimize::RMSProp(W, s.W, d.W, learningRate, rho);
+    Optimize::RMSProp(B, s.B, d.B, learningRate, rho);
 
-    Optimizer::RMSProp(Wr, s.Wr, d.Wr, learningRate, rho);
-    Optimizer::RMSProp(Wz, s.Wz, d.Wz, learningRate, rho);
-    Optimizer::RMSProp(Wg, s.Wg, d.Wg, learningRate, rho);
+    Optimize::RMSProp(Wr, s.Wr, d.Wr, learningRate, rho);
+    Optimize::RMSProp(Wz, s.Wz, d.Wz, learningRate, rho);
+    Optimize::RMSProp(Wg, s.Wg, d.Wg, learningRate, rho);
 
-    Optimizer::RMSProp(Ur, s.Ur, d.Ur, learningRate, rho);
-    Optimizer::RMSProp(Uz, s.Uz, d.Uz, learningRate, rho);
-    Optimizer::RMSProp(Ug, s.Ug, d.Ug, learningRate, rho);
+    Optimize::RMSProp(Ur, s.Ur, d.Ur, learningRate, rho);
+    Optimize::RMSProp(Uz, s.Uz, d.Uz, learningRate, rho);
+    Optimize::RMSProp(Ug, s.Ug, d.Ug, learningRate, rho);
 
-    Optimizer::RMSProp(Br, s.Br, d.Br, learningRate, rho);
-    Optimizer::RMSProp(Bz, s.Bz, d.Bz, learningRate, rho);
-    Optimizer::RMSProp(Bg, s.Bg, d.Bg, learningRate, rho);
+    Optimize::RMSProp(Br, s.Br, d.Br, learningRate, rho);
+    Optimize::RMSProp(Bz, s.Bz, d.Bz, learningRate, rho);
+    Optimize::RMSProp(Bg, s.Bg, d.Bg, learningRate, rho);
 
     d.zero();
     return;
@@ -270,20 +270,20 @@ void RL::GRU::Adam(float learningRate,  float alpha, float beta)
 {
     alpha_t *= alpha;
     beta_t *= beta;
-    Optimizer::Adam(W, s.W, v.W, d.W, alpha_t, beta_t, learningRate, alpha, beta);
-    Optimizer::Adam(B, s.B, v.B, d.B, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(W, s.W, v.W, d.W, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(B, s.B, v.B, d.B, alpha_t, beta_t, learningRate, alpha, beta);
 
-    Optimizer::Adam(Wr, s.Wr, v.Wr, d.Wr, alpha_t, beta_t, learningRate, alpha, beta);
-    Optimizer::Adam(Wz, s.Wz, v.Wz, d.Wz, alpha_t, beta_t, learningRate, alpha, beta);
-    Optimizer::Adam(Wg, s.Wg, v.Wg, d.Wg, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(Wr, s.Wr, v.Wr, d.Wr, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(Wz, s.Wz, v.Wz, d.Wz, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(Wg, s.Wg, v.Wg, d.Wg, alpha_t, beta_t, learningRate, alpha, beta);
 
-    Optimizer::Adam(Ur, s.Ur, v.Ur, d.Ur, alpha_t, beta_t, learningRate, alpha, beta);
-    Optimizer::Adam(Uz, s.Uz, v.Uz, d.Uz, alpha_t, beta_t, learningRate, alpha, beta);
-    Optimizer::Adam(Ug, s.Ug, v.Ug, d.Ug, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(Ur, s.Ur, v.Ur, d.Ur, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(Uz, s.Uz, v.Uz, d.Uz, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(Ug, s.Ug, v.Ug, d.Ug, alpha_t, beta_t, learningRate, alpha, beta);
 
-    Optimizer::Adam(Br, s.Br, v.Br, d.Br, alpha_t, beta_t, learningRate, alpha, beta);
-    Optimizer::Adam(Bz, s.Bz, v.Bz, d.Bz, alpha_t, beta_t, learningRate, alpha, beta);
-    Optimizer::Adam(Bg, s.Bg, v.Bg, d.Bg, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(Br, s.Br, v.Br, d.Br, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(Bz, s.Bz, v.Bz, d.Bz, alpha_t, beta_t, learningRate, alpha, beta);
+    Optimize::Adam(Bg, s.Bg, v.Bg, d.Bg, alpha_t, beta_t, learningRate, alpha, beta);
     d.zero();
     return;
 }

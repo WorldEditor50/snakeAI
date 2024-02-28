@@ -236,46 +236,46 @@ void RL::LSTM::gradient(const std::vector<RL::Mat> &x, const RL::Mat &yt)
 
 void RL::LSTM::SGD(float learningRate)
 {   
-    Optimizer::SGD(W, d.W, learningRate);
-    Optimizer::SGD(B, d.B, learningRate);
+    Optimize::SGD(W, d.W, learningRate);
+    Optimize::SGD(B, d.B, learningRate);
 
-    Optimizer::SGD(Wi, d.Wi, learningRate);
-    Optimizer::SGD(Wg, d.Wg, learningRate);
-    Optimizer::SGD(Wf, d.Wf, learningRate);
-    Optimizer::SGD(Wo, d.Wo, learningRate);
+    Optimize::SGD(Wi, d.Wi, learningRate);
+    Optimize::SGD(Wg, d.Wg, learningRate);
+    Optimize::SGD(Wf, d.Wf, learningRate);
+    Optimize::SGD(Wo, d.Wo, learningRate);
 
-    Optimizer::SGD(Ui, d.Ui, learningRate);
-    Optimizer::SGD(Ug, d.Ug, learningRate);
-    Optimizer::SGD(Uf, d.Uf, learningRate);
-    Optimizer::SGD(Uo, d.Uo, learningRate);
+    Optimize::SGD(Ui, d.Ui, learningRate);
+    Optimize::SGD(Ug, d.Ug, learningRate);
+    Optimize::SGD(Uf, d.Uf, learningRate);
+    Optimize::SGD(Uo, d.Uo, learningRate);
 
-    Optimizer::SGD(Bi, d.Bi, learningRate);
-    Optimizer::SGD(Bg, d.Bg, learningRate);
-    Optimizer::SGD(Bf, d.Bf, learningRate);
-    Optimizer::SGD(Bo, d.Bo, learningRate);
+    Optimize::SGD(Bi, d.Bi, learningRate);
+    Optimize::SGD(Bg, d.Bg, learningRate);
+    Optimize::SGD(Bf, d.Bf, learningRate);
+    Optimize::SGD(Bo, d.Bo, learningRate);
     d.zero();
     return;
 }
 
 void RL::LSTM::RMSProp(float learningRate, float rho, float decay)
 {
-    Optimizer::RMSProp(W, s.W, d.W, learningRate, rho, decay);
-    Optimizer::RMSProp(B, s.B, d.B, learningRate, rho, decay);
+    Optimize::RMSProp(W, s.W, d.W, learningRate, rho, decay);
+    Optimize::RMSProp(B, s.B, d.B, learningRate, rho, decay);
 
-    Optimizer::RMSProp(Wi, s.Wi, d.Wi, learningRate, rho, decay);
-    Optimizer::RMSProp(Wg, s.Wg, d.Wg, learningRate, rho, decay);
-    Optimizer::RMSProp(Wf, s.Wf, d.Wf, learningRate, rho, decay);
-    Optimizer::RMSProp(Wo, s.Wo, d.Wo, learningRate, rho, decay);
+    Optimize::RMSProp(Wi, s.Wi, d.Wi, learningRate, rho, decay);
+    Optimize::RMSProp(Wg, s.Wg, d.Wg, learningRate, rho, decay);
+    Optimize::RMSProp(Wf, s.Wf, d.Wf, learningRate, rho, decay);
+    Optimize::RMSProp(Wo, s.Wo, d.Wo, learningRate, rho, decay);
 
-    Optimizer::RMSProp(Ui, s.Ui, d.Ui, learningRate, rho, decay);
-    Optimizer::RMSProp(Ug, s.Ug, d.Ug, learningRate, rho, decay);
-    Optimizer::RMSProp(Uf, s.Uf, d.Uf, learningRate, rho, decay);
-    Optimizer::RMSProp(Uo, s.Uo, d.Uo, learningRate, rho, decay);
+    Optimize::RMSProp(Ui, s.Ui, d.Ui, learningRate, rho, decay);
+    Optimize::RMSProp(Ug, s.Ug, d.Ug, learningRate, rho, decay);
+    Optimize::RMSProp(Uf, s.Uf, d.Uf, learningRate, rho, decay);
+    Optimize::RMSProp(Uo, s.Uo, d.Uo, learningRate, rho, decay);
 
-    Optimizer::RMSProp(Bi, s.Bi, d.Bi, learningRate, rho, decay);
-    Optimizer::RMSProp(Bg, s.Bg, d.Bg, learningRate, rho, decay);
-    Optimizer::RMSProp(Bf, s.Bf, d.Bf, learningRate, rho, decay);
-    Optimizer::RMSProp(Bo, s.Bo, d.Bo, learningRate, rho, decay);
+    Optimize::RMSProp(Bi, s.Bi, d.Bi, learningRate, rho, decay);
+    Optimize::RMSProp(Bg, s.Bg, d.Bg, learningRate, rho, decay);
+    Optimize::RMSProp(Bf, s.Bf, d.Bf, learningRate, rho, decay);
+    Optimize::RMSProp(Bo, s.Bo, d.Bo, learningRate, rho, decay);
 
     d.zero();
     return;
@@ -285,46 +285,46 @@ void RL::LSTM::Adam(float learningRate,  float alpha, float beta, float decay)
 {
     alpha_t *= alpha;
     beta_t *= beta;
-    Optimizer::Adam(W, s.W, v.W, d.W, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(B, s.B, v.B, d.B, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(W, s.W, v.W, d.W, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(B, s.B, v.B, d.B, alpha_t, beta_t, learningRate, alpha, beta, decay);
 
-    Optimizer::Adam(Wi, s.Wi, v.Wi, d.Wi, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(Wg, s.Wg, v.Wg, d.Wg, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(Wf, s.Wf, v.Wf, d.Wf, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(Wo, s.Wo, v.Wo, d.Wo, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Wi, s.Wi, v.Wi, d.Wi, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Wg, s.Wg, v.Wg, d.Wg, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Wf, s.Wf, v.Wf, d.Wf, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Wo, s.Wo, v.Wo, d.Wo, alpha_t, beta_t, learningRate, alpha, beta, decay);
 
-    Optimizer::Adam(Ui, s.Ui, v.Ui, d.Ui, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(Ug, s.Ug, v.Ug, d.Ug, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(Uf, s.Uf, v.Uf, d.Uf, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(Uo, s.Uo, v.Uo, d.Uo, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Ui, s.Ui, v.Ui, d.Ui, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Ug, s.Ug, v.Ug, d.Ug, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Uf, s.Uf, v.Uf, d.Uf, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Uo, s.Uo, v.Uo, d.Uo, alpha_t, beta_t, learningRate, alpha, beta, decay);
 
-    Optimizer::Adam(Bi, s.Bi, v.Bi, d.Bi, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(Bg, s.Bg, v.Bg, d.Bg, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(Bf, s.Bf, v.Bf, d.Bf, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimizer::Adam(Bo, s.Bo, v.Bo, d.Bo, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Bi, s.Bi, v.Bi, d.Bi, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Bg, s.Bg, v.Bg, d.Bg, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Bf, s.Bf, v.Bf, d.Bf, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(Bo, s.Bo, v.Bo, d.Bo, alpha_t, beta_t, learningRate, alpha, beta, decay);
     d.zero();
     return;
 }
 
 void RL::LSTM::clamp(float c0, float cn)
 {
-    Optimizer::clamp(W, c0, cn);
-    Optimizer::clamp(B, c0, cn);
+    Optimize::clamp(W, c0, cn);
+    Optimize::clamp(B, c0, cn);
 
-    Optimizer::clamp(Wi, c0, cn);
-    Optimizer::clamp(Wg, c0, cn);
-    Optimizer::clamp(Wf, c0, cn);
-    Optimizer::clamp(Wo, c0, cn);
+    Optimize::clamp(Wi, c0, cn);
+    Optimize::clamp(Wg, c0, cn);
+    Optimize::clamp(Wf, c0, cn);
+    Optimize::clamp(Wo, c0, cn);
 
-    Optimizer::clamp(Ui, c0, cn);
-    Optimizer::clamp(Ug, c0, cn);
-    Optimizer::clamp(Uf, c0, cn);
-    Optimizer::clamp(Uo, c0, cn);
+    Optimize::clamp(Ui, c0, cn);
+    Optimize::clamp(Ug, c0, cn);
+    Optimize::clamp(Uf, c0, cn);
+    Optimize::clamp(Uo, c0, cn);
 
-    Optimizer::clamp(Bi, c0, cn);
-    Optimizer::clamp(Bg, c0, cn);
-    Optimizer::clamp(Bf, c0, cn);
-    Optimizer::clamp(Bo, c0, cn);
+    Optimize::clamp(Bi, c0, cn);
+    Optimize::clamp(Bg, c0, cn);
+    Optimize::clamp(Bf, c0, cn);
+    Optimize::clamp(Bo, c0, cn);
     return;
 }
 

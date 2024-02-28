@@ -35,13 +35,13 @@ void RL::DQN::perceive(const Mat& state,
 RL::Mat& RL::DQN::eGreedyAction(const Mat &state)
 {
     Mat& out = QMainNet.forward(state);
-    return eGreedy(out, exploringRate);
+    return eGreedy(out, exploringRate, false);
 }
 
 RL::Mat& RL::DQN::noiseAction(const Mat &state)
 {
     Mat& out = QMainNet.forward(state);
-    return noise2(out, exploringRate);
+    return noise(out, exploringRate);
 }
 
 RL::Mat &RL::DQN::output()

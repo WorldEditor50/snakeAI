@@ -26,7 +26,8 @@ HEADERS += $$PWD/bpnn.h \
             $$PWD/lstm.h \
             $$PWD/lstmnet.h \
             $$PWD/mat.hpp \
-            $$PWD/optimizer.h \
+            $$PWD/net.hpp \
+            $$PWD/optimize.h \
             $$PWD/parameter.hpp \
             $$PWD/ppo.h \
             $$PWD/qlstm.h \

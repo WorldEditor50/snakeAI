@@ -27,6 +27,11 @@ class BPNN
 public:
     using FnLoss = std::function<void(Mat&, const Mat&, const Mat&)>;
     using Layers = std::vector<std::shared_ptr<LayerObject> >;
+protected:
+    float alpha1_t;
+    float alpha2_t;
+public:
+    Layers layers;
 public:
     BPNN(){}
     virtual ~BPNN(){}
@@ -53,10 +58,7 @@ public:
     void load(const std::string& fileName);
     void save(const std::string& fileName);
     static void test();
-protected:
-    float alpha1_t;
-    float alpha2_t;
-    Layers layers;
+
 };
 
 }

@@ -125,22 +125,6 @@ public:
         return *this;
     }
 
-    Mat operator *(const Mat &x) const
-    {
-        if (cols != x.rows) {
-            return Mat();
-        }
-        Mat y(rows, x.cols);
-        for (std::size_t i = 0; i < y.rows; i++) {
-            for (std::size_t j = 0; j < y.cols; j++) {
-                for (std::size_t k = 0; k < cols; k++) {
-                    y.val[i*y.cols + j] += val[i*cols + k] * x.val[k*x.cols + j];
-                }
-            }
-        }
-        return y;
-    }
-
     Mat operator /(const Mat &x) const
     {
         Mat y(rows, cols);
@@ -168,7 +152,7 @@ public:
         return y;
     }
 
-    Mat operator %(const Mat &x) const
+    Mat operator *(const Mat &x) const
     {
         Mat y(rows, cols);
         for (std::size_t i = 0; i < y.val.size(); i++) {
@@ -201,7 +185,7 @@ public:
         return *this;
     }
 
-    Mat &operator %=(const Mat &x)
+    Mat &operator *=(const Mat &x)
     {
         for (std::size_t i = 0; i < val.size(); i++) {
             val[i] *= x.val[i];
@@ -482,7 +466,7 @@ public:
             return;
         }
     };
-    struct Multiply {
+    struct Mul {
         static void ikkj(Mat &y, const Mat &x1, const Mat &x2)
         {
             /* no transpose */
@@ -539,14 +523,17 @@ public:
             return;
         }
     };
-    struct Concat {
-
-        static Mat col(const Mat &x1, const Mat &x2)
-        {
-            assert(x1.rows == x2.rows);
-            Mat y(x1.rows, x1.cols + x2.cols);
-            for (std::size_t i = 0; i < y.rows; i++) {
-                for (std::size_t j = 0; i < y.cols; j++) {
+    static Mat& concat(int dim, Mat &y, const Mat &x1, const Mat &x2)
+    {
+        for (std::size_t i = 0; i < y.rows; i++) {
+            for (std::size_t j = 0; j < y.cols; j++) {
+                if (dim == 0) {
+                    if (i < x1.rows) {
+                        y(i, j) = x1(i, j);
+                    } else {
+                        y(i, j) = x2(i - x1.rows, j);
+                    }
+                } else if (dim == 1) {
                     if (j < x1.cols) {
                         y(i, j) = x1(i, j);
                     } else {
@@ -554,25 +541,9 @@ public:
                     }
                 }
             }
-            return y;
         }
-
-        static Mat row(const Mat &x1, const Mat &x2)
-        {
-            assert(x1.cols == x2.cols);
-            Mat y(x1.rows + x2.rows, x1.cols);
-            for (std::size_t i = 0; i < y.rows; i++) {
-                for (std::size_t j = 0; i < y.cols; j++) {
-                    if (i < x1.rows) {
-                        y(i, j) = x1(i, j);
-                    } else {
-                        y(i, j) = x2(i - x1.rows, j);
-                    }
-                }
-            }
-            return y;
-        }
-    };
+        return y;
+    }
     static void parse(std::istringstream &stream, std::size_t cols, Mat &x)
     {
         /* csv:<rows><cols><data> */

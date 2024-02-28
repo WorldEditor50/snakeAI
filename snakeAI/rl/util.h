@@ -13,6 +13,91 @@ struct Rand {
     static std::default_random_engine engine;
 };
 
+inline Mat& exp(Mat& x)
+{
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = std::exp(x[i]);
+    }
+    return x;
+}
+
+inline Mat& log(Mat& x)
+{
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = std::log(x[i]);
+    }
+    return x;
+}
+
+inline Mat& tanh(Mat& x)
+{
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = std::tanh(x[i]);
+    }
+    return x;
+}
+
+inline Mat& sin(Mat& x)
+{
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = std::sin(x[i]);
+    }
+    return x;
+}
+
+inline Mat& cos(Mat& x)
+{
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = std::cos(x[i]);
+    }
+    return x;
+}
+
+inline Mat exp(const Mat& x)
+{
+    Mat y(x.rows, x.cols);
+    for (std::size_t i = 0; i < x.size(); i++) {
+        y[i] = std::exp(x[i]);
+    }
+    return y;
+}
+
+inline Mat log(const Mat& x)
+{
+    Mat y(x.rows, x.cols);
+    for (std::size_t i = 0; i < x.size(); i++) {
+        y[i] = std::log(x[i]);
+    }
+    return y;
+}
+
+inline Mat tanh(const Mat& x)
+{
+    Mat y(x.rows, x.cols);
+    for (std::size_t i = 0; i < x.size(); i++) {
+        y[i] = std::tanh(x[i]);
+    }
+    return y;
+}
+
+inline Mat sin(const Mat& x)
+{
+    Mat y(x.rows, x.cols);
+    for (std::size_t i = 0; i < x.size(); i++) {
+        y[i] = std::sin(x[i]);
+    }
+    return y;
+}
+
+inline Mat cos(const Mat& x)
+{
+    Mat y(x.rows, x.cols);
+    for (std::size_t i = 0; i < x.size(); i++) {
+        y[i] /= std::cos(x[i]);
+    }
+    return y;
+}
+
 /* exponential moving average */
 inline void EMA(Mat &s, const Mat s_, float r)
 {
@@ -52,12 +137,14 @@ inline void uniformRand(T &x, float x1, float x2)
     return;
 }
 
-inline Mat& eGreedy(Mat& x, float exploringRate)
+inline Mat& eGreedy(Mat& x, float exploringRate, bool hard)
 {
     std::uniform_real_distribution<float> distributionReal(0, 1);
     float p = distributionReal(Rand::engine);
     if (p < exploringRate) {
-        x.zero();
+        if (hard) {
+            x.zero();
+        }
         std::uniform_int_distribution<int> distribution(0, x.size() - 1);
         int index = distribution(Rand::engine);
         x[index] = 1;
@@ -65,10 +152,10 @@ inline Mat& eGreedy(Mat& x, float exploringRate)
     return x;
 }
 
-inline Mat& noise(Mat& x, float x1=0, float x2=1)
+inline Mat& noise(Mat& x)
 {
     Mat epsilon(x);
-    uniformRand(epsilon, x1, x2);
+    uniformRand(epsilon, -1, 1);
     x += epsilon;
     float s = x.max();
     x /= s;
@@ -76,10 +163,10 @@ inline Mat& noise(Mat& x, float x1=0, float x2=1)
     return x;
 }
 
-inline Mat& noise2(Mat& x, float exploringRate)
+inline Mat& noise(Mat& x, float exploringRate)
 {
-    std::uniform_real_distribution<float> distributionReal(0, 1);
-    float p = distributionReal(Rand::engine);
+    std::uniform_real_distribution<float> distribution(0, 1);
+    float p = distribution(Rand::engine);
     if (p < exploringRate) {
         Mat epsilon(x);
         uniformRand(epsilon, -1, 1);
@@ -102,27 +189,28 @@ inline Mat& softmax(Mat &x)
     return x;
 }
 
-inline Mat& gumbelSoftmax(Mat &x)
+inline Mat& gumbelSoftmax(Mat &x, float temperture)
 {
     Mat epsilon(x);
     uniformRand(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
-        epsilon[i] = -std::log(-std::log(epsilon[i]));
+        epsilon[i] = -std::log(-std::log(epsilon[i]) + 1e-8);
     }
     x += epsilon;
+    x /= temperture;
     x = softmax(x);
     return x;
 }
 
-inline Mat& gumbelSoftmax(Mat &x, const Mat &alpha)
+inline Mat& gumbelSoftmax(Mat &x, const Mat &temperture)
 {
     Mat epsilon(x);
     uniformRand(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
-        epsilon[i] = -std::log(-std::log(epsilon[i]));
+        epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8));
     }
     x += epsilon;
-    x /= alpha;
+    x /= RL::exp(temperture);
     x = softmax(x);
     return x;
 }

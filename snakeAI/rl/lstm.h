@@ -4,7 +4,7 @@
 #include <memory>
 #include "util.h"
 #include "activate.h"
-#include "optimizer.h"
+#include "optimize.h"
 #include "loss.h"
 
 namespace RL {
@@ -224,11 +224,11 @@ public:
         */
         float s = 0;
         for (std::size_t i = 0; i < sequenceLen; i++) {
-             s += exp(o2[i]);
+             s += std::exp(o2[i]);
         }
         Mat alpha(sequenceLen, 1);
         for (std::size_t i = 0; i < sequenceLen; i++) {
-             alpha[i] = exp(o2[i])/s;
+             alpha[i] = std::exp(o2[i])/s;
         }
         /*
              o3 = o ⊙ alpha

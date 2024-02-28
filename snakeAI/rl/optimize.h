@@ -4,7 +4,7 @@
 
 namespace RL {
 
-namespace Optimizer {
+namespace Optimize {
 
 template<typename T>
 inline void SGD(T &w, const T &dw, float learningRate)
@@ -14,6 +14,17 @@ inline void SGD(T &w, const T &dw, float learningRate)
     }
     return;
 }
+
+template<typename T>
+inline void SGDM(T &w, T &v, const T &dw, float learningRate, float alpha, float decay=0)
+{
+    for (std::size_t i = 0; i < w.size(); i++) {
+        v[i] = (1 - decay)*v[i] - alpha*dw;
+        w[i] -= learningRate * v[i];
+    }
+    return;
+}
+
 template<typename T>
 inline void Adagrad(T &w, T &r, const T &dw, float learningRate)
 {

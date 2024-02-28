@@ -89,10 +89,10 @@ float RL::gmean(const RL::Mat &x)
     for (std::size_t i = 0; i < x.size(); i++) {
         s *= x[i];
     }
-    return pow(s, 1.0/x.size());
+    return std::pow(s, 1.0/x.size());
 }
 
 float RL::gaussian(float x, float u, float sigma)
 {
-    return 1/sqrt(2*pi*sigma)*exp(-0.5*(x - u)*(x - u)/sigma);
+    return 1/std::sqrt(2*pi*sigma)*std::exp(-0.5*(x - u)*(x - u)/sigma);
 }

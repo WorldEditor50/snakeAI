@@ -15,11 +15,11 @@ void RL::BPNN::copyTo(BPNN& dstNet)
         return;
     }
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
-                dstNet.layers[i]->W(j, k) = layers[i]->W(j, k);
+        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
+                dstNet.layers[i]->w(j, k) = layers[i]->w(j, k);
             }
-            dstNet.layers[i]->B[j] = layers[i]->B[j];
+            dstNet.layers[i]->b[j] = layers[i]->b[j];
         }
     }
     return;
@@ -31,11 +31,11 @@ void RL::BPNN::softUpdateTo(BPNN &dstNet, float alpha)
         return;
     }
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
-                dstNet.layers[i]->W(j, k) = (1 - alpha) * dstNet.layers[i]->W(j, k) + alpha * layers[i]->W(j, k);
+        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
+                dstNet.layers[i]->w(j, k) = (1 - alpha) * dstNet.layers[i]->w(j, k) + alpha * layers[i]->w(j, k);
             }
-            dstNet.layers[i]->B[j] = (1 - alpha) * dstNet.layers[i]->B[j] + alpha * layers[i]->B[j];
+            dstNet.layers[i]->b[j] = (1 - alpha) * dstNet.layers[i]->b[j] + alpha * layers[i]->b[j];
         }
     }
     return;
@@ -45,22 +45,22 @@ RL::Mat &RL::BPNN::forward(const Mat& x)
 {
     layers[0]->feedForward(x);
     for (std::size_t i = 1; i < layers.size(); i++) {
-        layers[i]->feedForward(layers[i - 1]->O);
+        layers[i]->feedForward(layers[i - 1]->o);
     }
-    return layers.back()->O;
+    return layers.back()->o;
 }
 
 RL::Mat &RL::BPNN::output()
 {
-    return layers.back()->O;
+    return layers.back()->o;
 }
 
 void RL::BPNN::backward(const RL::Mat &loss, Mat& E)
 {
     std::size_t outputIndex = layers.size() - 1;
-    layers[outputIndex]->E = loss;
+    layers[outputIndex]->e = loss;
     for (int i = layers.size() - 1; i > 0; i--) {
-        layers[i]->backward(layers[i - 1]->E);
+        layers[i]->backward(layers[i - 1]->e);
     }
     layers[0]->backward(E);
     return;
@@ -70,7 +70,7 @@ void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y)
 {
     layers[0]->gradient(x, y);
     for (std::size_t j = 1; j < layers.size(); j++) {
-        layers[j]->gradient(layers[j - 1]->O, y);
+        layers[j]->gradient(layers[j - 1]->o, y);
     }
     return;
 }
@@ -79,15 +79,15 @@ void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, const RL::BPNN::FnLo
 {
     forward(x);
     std::size_t outputIndex = layers.size() - 1;
-    loss(layers[outputIndex]->E, layers[outputIndex]->O, y);
+    loss(layers[outputIndex]->e, layers[outputIndex]->o, y);
     /* error Backpropagate */
     for (int i = layers.size() - 1; i > 0; i--) {
-        layers[i]->backward(layers[i - 1]->E);
+        layers[i]->backward(layers[i - 1]->e);
     }
     /* gradient */
     layers[0]->gradient(x, y);
     for (std::size_t j = 1; j < layers.size(); j++) {
-        layers[j]->gradient(layers[j - 1]->O, y);
+        layers[j]->gradient(layers[j - 1]->o, y);
     }
     return;
 }
@@ -95,15 +95,15 @@ void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, const RL::BPNN::FnLo
 void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, const RL::Mat &loss)
 {
     std::size_t outputIndex = layers.size() - 1;
-    layers[outputIndex]->E = loss;
+    layers[outputIndex]->e = loss;
     /* error Backpropagate */
     for (int i = layers.size() - 1; i > 0; i--) {
-        layers[i]->backward(layers[i - 1]->E);
+        layers[i]->backward(layers[i - 1]->e);
     }
     /* gradient */
     layers[0]->gradient(x, y);
     for (std::size_t j = 1; j < layers.size(); j++) {
-        layers[j]->gradient(layers[j - 1]->O, y);
+        layers[j]->gradient(layers[j - 1]->o, y);
     }
     return;
 }
@@ -157,11 +157,11 @@ void RL::BPNN::optimize(OptType optType, float learningRate, float decay)
 void RL::BPNN::clamp(float c0, float cn)
 {
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
-                Optimizer::clamp(layers[i]->W, c0, cn);
+        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
+                Optimize::clamp(layers[i]->w, c0, cn);
             }
-            Optimizer::clamp(layers[i]->B, c0, cn);
+            Optimize::clamp(layers[i]->b, c0, cn);
         }
     }
     return;
@@ -169,7 +169,7 @@ void RL::BPNN::clamp(float c0, float cn)
 
 void RL::BPNN::show()
 {
-    Mat &v = layers.back()->O;
+    Mat &v = layers.back()->o;
     for (std::size_t i = 0; i < v.size(); i++) {
         std::cout<<v[i]<<" ";
     }
@@ -182,11 +182,11 @@ void RL::BPNN::load(const std::string& fileName)
     std::ifstream file;
     file.open(fileName);
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
-                file >> layers[i]->W(j, k);
+        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
+                file >> layers[i]->w(j, k);
             }
-            file >> layers[i]->B[j];
+            file >> layers[i]->b[j];
         }
     }
     return;
@@ -197,11 +197,11 @@ void RL::BPNN::save(const std::string& fileName)
     std::ofstream file;
     file.open(fileName);
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->W.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->W.cols; k++) {
-                file << layers[i]->W(j, k);
+        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
+            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
+                file << layers[i]->w(j, k);
             }
-            file << layers[i]->B[j];
+            file << layers[i]->b[j];
             file << std::endl;
         }
     }

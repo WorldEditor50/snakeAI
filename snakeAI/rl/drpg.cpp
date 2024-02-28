@@ -15,7 +15,7 @@ RL::DRPG::DRPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDi
 RL::Mat &RL::DRPG::eGreedyAction(const Mat &state)
 {
     Mat& out = policyNet.forward(state);
-    return eGreedy(out, exploringRate);
+    return eGreedy(out, exploringRate, false);
 }
 
 RL::Mat &RL::DRPG::noiseAction(const RL::Mat &state)
@@ -27,7 +27,7 @@ RL::Mat &RL::DRPG::noiseAction(const RL::Mat &state)
 RL::Mat &RL::DRPG::gumbelMax(const RL::Mat &state)
 {
     Mat& out = policyNet.forward(state);
-    return gumbelSoftmax(out);
+    return gumbelSoftmax(out, exploringRate);
 }
 
 RL::Mat &RL::DRPG::action(const Mat &state)

@@ -35,7 +35,7 @@ void RL::QLSTM::perceive(Mat& state,
 RL::Mat& RL::QLSTM::eGreedyAction(const Mat &state)
 {
     Mat& out = QMainNet.forward(state);
-    return eGreedy(out, exploringRate);
+    return eGreedy(out, exploringRate, false);
 }
 
 RL::Mat &RL::QLSTM::output()

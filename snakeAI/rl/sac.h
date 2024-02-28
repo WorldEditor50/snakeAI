@@ -42,6 +42,7 @@ protected:
     int stateDim;
     int actionDim;
     float gamma;
+    float targetEntropy;
     float exploringRate;
     int learningSteps;
     std::deque<Transition> memories;

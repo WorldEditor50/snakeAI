@@ -127,7 +127,7 @@ void RL::DDPG::experienceReplay(Transition& x)
     Mat &critic = criticP.forward(sa);
     Mat adv(actor);
     for (std::size_t k = 0; k < actionDim; k++) {
-        adv[k] =  critic[k] - actor[k]*log(actor[k]/critic[k]);
+        adv[k] =  critic[k] - actor[k]*std::log(actor[k]/critic[k]);
     }
     actorP.gradient(x.state, adv, Loss::CrossEntropy);
     return;

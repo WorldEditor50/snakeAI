@@ -4,7 +4,7 @@
 #include <memory>
 #include <iostream>
 #include "util.h"
-#include "optimizer.h"
+#include "optimize.h"
 #include "activate.h"
 #include "loss.h"
 
@@ -27,26 +27,26 @@ class LayerParam : public iLayer
 public:
     std::size_t inputDim;
     std::size_t layerDim;
-    Mat W;
-    Mat B;
+    Mat w;
+    Mat b;
 public:
     LayerParam(){}
     LayerParam(std::size_t inputDim_, std::size_t layerDim_)
         :inputDim(inputDim_), layerDim(layerDim_)
     {
-        W = Mat(layerDim, inputDim);
-        B = Mat(layerDim, 1);
+        w = Mat(layerDim, inputDim);
+        b = Mat(layerDim, 1);
     }
     void zero()
     {
-        W.zero();
-        B.zero();
+        w.zero();
+        b.zero();
         return;
     }
     void random()
     {
-        uniformRand(W, -1, 1);
-        uniformRand(B, -1, 1);
+        uniformRand(w, -1, 1);
+        uniformRand(b, -1, 1);
         return;
     }
 
@@ -55,8 +55,8 @@ public:
 class LayerObject : public LayerParam
 {
 public:
-    Mat O;
-    Mat E;
+    Mat o;
+    Mat e;
     LayerParam s;
     LayerParam v;
     LayerParam d;
@@ -65,8 +65,8 @@ public:
     LayerObject(std::size_t inputDim, std::size_t layerDim, bool trainFlag)
         :LayerParam(inputDim, layerDim)
     {
-        O = Mat(layerDim, 1);
-        E = Mat(layerDim, 1);
+        o = Mat(layerDim, 1);
+        e = Mat(layerDim, 1);
         if (trainFlag == true) {
             s = LayerParam(inputDim, layerDim);
             v = LayerParam(inputDim, layerDim);
@@ -77,32 +77,32 @@ public:
 
     void backward(Mat &preE) override
     {
-        for (std::size_t i = 0; i < W.cols; i++) {
-            for (std::size_t j = 0; j < W.rows; j++) {
-                preE[i] +=  W(j, i) * E[j];
+        for (std::size_t i = 0; i < w.cols; i++) {
+            for (std::size_t j = 0; j < w.rows; j++) {
+                preE[i] +=  w(j, i) * e[j];
             }
         }
         return;
     }
     void SGD(float learningRate) override
     {
-        Optimizer::SGD(W, d.W, learningRate);
-        Optimizer::SGD(B, d.B, learningRate);
+        Optimize::SGD(w, d.w, learningRate);
+        Optimize::SGD(b, d.b, learningRate);
         d.zero();
         return;
     }
     void RMSProp(float rho, float learningRate, float decay) override
     {
-        Optimizer::RMSProp(W, s.W, d.W, learningRate, rho, decay);
-        Optimizer::RMSProp(B, s.B, d.B, learningRate, rho, decay);
+        Optimize::RMSProp(w, s.w, d.w, learningRate, rho, decay);
+        Optimize::RMSProp(b, s.b, d.b, learningRate, rho, decay);
         d.zero();
         return;
     }
     void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay)override
     {
-        Optimizer::Adam(W, s.W, v.W, d.W,
+        Optimize::Adam(w, s.w, v.w, d.w,
                         alpha_t, beta_t, learningRate, alpha, beta, decay);
-        Optimizer::Adam(B, s.B, v.B, d.B,
+        Optimize::Adam(b, s.b, v.b, d.b,
                         alpha_t, beta_t, learningRate, alpha, beta, decay);
         d.zero();
         return;
@@ -128,25 +128,25 @@ public:
 
     void feedForward(const Mat& x) override
     {
-        for (std::size_t i = 0; i < W.rows; i++) {
-            for (std::size_t j = 0; j < W.cols; j++) {
-                O[i] += W(i, j) * x[j];
+        for (std::size_t i = 0; i < w.rows; i++) {
+            for (std::size_t j = 0; j < w.cols; j++) {
+                o[i] += w(i, j) * x[j];
             }
-            O[i] = FnActive::f(O[i] +  B[i]);
+            o[i] = FnActive::f(o[i] +  b[i]);
         }
         return;
     }
 
     void gradient(const Mat& x, const Mat&) override
     {
-        for (std::size_t i = 0; i < d.W.rows; i++) {
-            float dy = FnActive::d(O[i]) * E[i];
-            for (std::size_t j = 0; j < d.W.cols; j++) {
-                d.W(i, j) += dy * x[j];
+        for (std::size_t i = 0; i < d.w.rows; i++) {
+            float dy = FnActive::d(o[i]) * e[i];
+            for (std::size_t j = 0; j < d.w.cols; j++) {
+                d.w(i, j) += dy * x[j];
             }
-            d.B[i] += dy;
-            E[i] = 0;
-            O[i] = 0;
+            d.b[i] += dy;
+            e[i] = 0;
+            o[i] = 0;
         }
         return;
     }
@@ -169,28 +169,28 @@ public:
     void feedForward(const RL::Mat &x) override
     {
         float s = 0;
-        for (std::size_t i = 0; i < W.rows; i++) {
-            for (std::size_t j = 0; j < W.cols; j++) {
-                O[i] += W(i, j) * x[j];
+        for (std::size_t i = 0; i < w.rows; i++) {
+            for (std::size_t j = 0; j < w.cols; j++) {
+                o[i] += w(i, j) * x[j];
             }
-            O[i] += B[i];
-            s += exp(O[i]);
+            o[i] += b[i];
+            s += std::exp(o[i]);
         }
-        for (std::size_t i = 0; i < O.size(); i++) {
-            O[i] = exp(O[i]) / s;
+        for (std::size_t i = 0; i < o.size(); i++) {
+            o[i] = std::exp(o[i]) / s;
         }
         return;
     }
 
     void gradient(const RL::Mat &x, const Mat &y) override
     {
-        for (std::size_t i = 0; i < d.W.rows; i++) {
-            float dy = O[i] - y[i];
-            for (std::size_t j = 0; j < d.W.cols; j++) {
-                d.W(i, j) += dy * x[j];
+        for (std::size_t i = 0; i < d.w.rows; i++) {
+            float dy = o[i] - y[i];
+            for (std::size_t j = 0; j < d.w.cols; j++) {
+                d.w(i, j) += dy * x[j];
             }
-            d.B[i] += dy;
-            O[i] = 0;
+            d.b[i] += dy;
+            o[i] = 0;
         }
         return;
     }
@@ -215,26 +215,26 @@ public:
     }
     void feedForward(const RL::Mat &x) override
     {
-        for (std::size_t i = 0; i < W.rows; i++) {
-            for (std::size_t j = 0; j < W.cols; j++) {
-                O0[i] += W(i, j) * x[j];
+        for (std::size_t i = 0; i < w.rows; i++) {
+            for (std::size_t j = 0; j < w.cols; j++) {
+                O0[i] += w(i, j) * x[j];
             }
-            O0[i] += B[i];
-            O[i] = Gelu::f(O0[i]);
+            O0[i] += b[i];
+            o[i] = Gelu::f(O0[i]);
         }
         return;
     }
 
     void gradient(const Mat& x, const Mat&) override
     {
-        for (std::size_t i = 0; i < d.W.rows; i++) {
-            float dy = Gelu::d(O0[i]) * E[i];
-            for (std::size_t j = 0; j < d.W.cols; j++) {
-                d.W(i, j) += dy * x[j];
+        for (std::size_t i = 0; i < d.w.rows; i++) {
+            float dy = Gelu::d(O0[i]) * e[i];
+            for (std::size_t j = 0; j < d.w.cols; j++) {
+                d.w(i, j) += dy * x[j];
             }
-            d.B[i] += dy;
-            E[i] = 0;
-            O[i] = 0;
+            d.b[i] += dy;
+            e[i] = 0;
+            o[i] = 0;
         }
         return;
     }
@@ -259,26 +259,26 @@ public:
     }
     void feedForward(const RL::Mat &x) override
     {
-        for (std::size_t i = 0; i < W.rows; i++) {
-            for (std::size_t j = 0; j < W.cols; j++) {
-                O0[i] += W(i, j) * x[j];
+        for (std::size_t i = 0; i < w.rows; i++) {
+            for (std::size_t j = 0; j < w.cols; j++) {
+                O0[i] += w(i, j) * x[j];
             }
-            O0[i] += B[i];
-            O[i] = Swish::f(O0[i]);
+            O0[i] += b[i];
+            o[i] = Swish::f(O0[i]);
         }
         return;
     }
 
     void gradient(const Mat& x, const Mat&) override
     {
-        for (std::size_t i = 0; i < d.W.rows; i++) {
-            float dy = Swish::d(O0[i]) * E[i];
-            for (std::size_t j = 0; j < d.W.cols; j++) {
-                d.W(i, j) += dy * x[j];
+        for (std::size_t i = 0; i < d.w.rows; i++) {
+            float dy = Swish::d(O0[i]) * e[i];
+            for (std::size_t j = 0; j < d.w.cols; j++) {
+                d.w(i, j) += dy * x[j];
             }
-            d.B[i] += dy;
-            E[i] = 0;
-            O[i] = 0;
+            d.b[i] += dy;
+            e[i] = 0;
+            o[i] = 0;
         }
         return;
     }
@@ -311,10 +311,10 @@ public:
         Layer<FnActive>::feedForward(x);
         if (trainFlag == true) {
             std::bernoulli_distribution bernoulli(p);
-            for (std::size_t i = 0; i < Layer<FnActive>::O.size(); i++) {
+            for (std::size_t i = 0; i < Layer<FnActive>::o.size(); i++) {
                 mask[i] = bernoulli(Rand::engine) / (1 - p);
             }
-            Layer<FnActive>::O *= mask;
+            Layer<FnActive>::o *= mask;
         }
         return;
     }
@@ -322,7 +322,7 @@ public:
     void backward(Mat& preE) override
     {
         if (trainFlag == true) {
-            Layer<FnActive>::E *= mask;
+            Layer<FnActive>::e *= mask;
         }
         Layer<FnActive>::backward(preE);
         return;
@@ -350,9 +350,9 @@ public:
     }
     void feedForward(const RL::Mat &x) override
     {
-        Mat &O = Layer<FnActive>::O;
-        Mat &W = Layer<FnActive>::W;
-        Mat &B = Layer<FnActive>::B;
+        Mat &O = Layer<FnActive>::o;
+        Mat &W = Layer<FnActive>::w;
+        Mat &B = Layer<FnActive>::b;
         for (std::size_t i = 0; i < W.rows; i++) {
             for (std::size_t j = 0; j < W.cols; j++) {
                 O[i] += W(i, j) * x[j];
@@ -369,7 +369,7 @@ public:
     }
     void backward(Mat &preE)
     {
-        Layer<FnActive>::E *= gamma_;
+        Layer<FnActive>::e *= gamma_;
         return Layer<FnActive>::backward(preE);
     }
 };
