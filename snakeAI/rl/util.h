@@ -13,6 +13,14 @@ struct Rand {
     static std::default_random_engine engine;
 };
 
+inline Mat& sqrt(Mat& x)
+{
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = std::sqrt(x[i]);
+    }
+    return x;
+}
+
 inline Mat& exp(Mat& x)
 {
     for (std::size_t i = 0; i < x.size(); i++) {
@@ -49,6 +57,15 @@ inline Mat& cos(Mat& x)
 {
     for (std::size_t i = 0; i < x.size(); i++) {
         x[i] = std::cos(x[i]);
+    }
+    return x;
+}
+
+inline Mat sqrt(const Mat& x)
+{
+    Mat y(x.rows, x.cols);
+    for (std::size_t i = 0; i < x.size(); i++) {
+        y[i] = std::sqrt(x[i]);
     }
     return x;
 }
@@ -194,7 +211,7 @@ inline Mat& gumbelSoftmax(Mat &x, float temperture)
     Mat epsilon(x);
     uniformRand(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
-        epsilon[i] = -std::log(-std::log(epsilon[i]) + 1e-8);
+        epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
     }
     x += epsilon;
     x /= temperture;
@@ -207,10 +224,10 @@ inline Mat& gumbelSoftmax(Mat &x, const Mat &temperture)
     Mat epsilon(x);
     uniformRand(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
-        epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8));
+        epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
     }
     x += epsilon;
-    x /= RL::exp(temperture);
+    x /= temperture;
     x = softmax(x);
     return x;
 }

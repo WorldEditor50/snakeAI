@@ -360,7 +360,7 @@ public:
         }
         float u = O.mean();
         float sigma = RL::variance(O, u);
-        gamma_ = gamma/sqrt(sigma + 1e-9);
+        gamma_ = gamma/std::sqrt(sigma + 1e-9);
         for (std::size_t i = 0; i < O.size(); i++) {
             O[i] = FnActive::f(gamma_*(O[i] - u) + B[i]);
         }

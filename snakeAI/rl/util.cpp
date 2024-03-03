@@ -39,7 +39,7 @@ float RL::variance(const Mat &x)
     for (std::size_t i = 0 ; i < x.size(); i++) {
         sigma += (x[i] - u) * (x[i] - u);
     }
-    return sqrt(sigma / x.size());
+    return std::sqrt(sigma / x.size());
 }
 
 float RL::variance(const Mat &x, float u)
@@ -49,7 +49,7 @@ float RL::variance(const Mat &x, float u)
     for (std::size_t i = 0 ; i < x.size(); i++) {
         sigma += (x[i] - u) * (x[i] - u);
     }
-    return sqrt(sigma / x.size());
+    return std::sqrt(sigma / x.size());
 }
 
 float RL::covariance(const Mat &x1, const Mat &x2)
