@@ -15,12 +15,8 @@ void RL::BPNN::copyTo(BPNN& dstNet)
         return;
     }
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
-                dstNet.layers[i]->w(j, k) = layers[i]->w(j, k);
-            }
-            dstNet.layers[i]->b[j] = layers[i]->b[j];
-        }
+        dstNet.layers[i]->w = layers[i]->w;
+        dstNet.layers[i]->b = layers[i]->b;
     }
     return;
 }
@@ -31,21 +27,17 @@ void RL::BPNN::softUpdateTo(BPNN &dstNet, float alpha)
         return;
     }
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
-                dstNet.layers[i]->w(j, k) = (1 - alpha) * dstNet.layers[i]->w(j, k) + alpha * layers[i]->w(j, k);
-            }
-            dstNet.layers[i]->b[j] = (1 - alpha) * dstNet.layers[i]->b[j] + alpha * layers[i]->b[j];
-        }
+        dstNet.layers[i]->w = dstNet.layers[i]->w*(1 - alpha) + layers[i]->w*alpha;
+        dstNet.layers[i]->b = dstNet.layers[i]->b*(1 - alpha) + layers[i]->b*alpha;
     }
     return;
 }
 
 RL::Mat &RL::BPNN::forward(const Mat& x)
 {
-    layers[0]->feedForward(x);
+    layers[0]->forward(x);
     for (std::size_t i = 1; i < layers.size(); i++) {
-        layers[i]->feedForward(layers[i - 1]->o);
+        layers[i]->forward(layers[i - 1]->o);
     }
     return layers.back()->o;
 }
@@ -157,12 +149,8 @@ void RL::BPNN::optimize(OptType optType, float learningRate, float decay)
 void RL::BPNN::clamp(float c0, float cn)
 {
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
-                Optimize::clamp(layers[i]->w, c0, cn);
-            }
-            Optimize::clamp(layers[i]->b, c0, cn);
-        }
+        Optimize::clamp(layers[i]->w, c0, cn);
+        Optimize::clamp(layers[i]->b, c0, cn);
     }
     return;
 }

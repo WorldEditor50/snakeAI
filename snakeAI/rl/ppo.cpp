@@ -12,15 +12,15 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
     actionDim = actionDim_;
 
     actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  PreNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  PreNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   SoftmaxLayer::_(hiddenDim, actionDim, true));
 
     actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
-                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                  PreNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                  PreNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                   SoftmaxLayer::_(hiddenDim, actionDim, false));
 
     critic = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),

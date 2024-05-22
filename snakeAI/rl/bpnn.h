@@ -26,7 +26,7 @@ class BPNN
 {
 public:
     using FnLoss = std::function<void(Mat&, const Mat&, const Mat&)>;
-    using Layers = std::vector<std::shared_ptr<LayerObject> >;
+    using Layers = std::vector<std::shared_ptr<iLayer> >;
 protected:
     float alpha1_t;
     float alpha2_t;

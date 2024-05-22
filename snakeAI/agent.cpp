@@ -19,11 +19,13 @@ Agent::Agent(Mat& map, Snake &s):
     drpg = DRPG(stateDim, 16, 4);
     state = Mat(stateDim, 1);
     nextState = Mat(stateDim, 1);
+#if 1
     dqn.load("./dqn");
     dpg.load("./dpg");
     ddpg.load("./ddpg_actor", "./ddpg_critic");
     bpnn.load("./bpnn");
     ppo.load("./ppo_actor", "./ppo_critic");
+#endif
 }
 
 Agent::~Agent()
@@ -295,7 +297,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        dpg.reinforce(OPT_RMSPROP, 1e-5, steps);
+        dpg.reinforce(OPT_RMSPROP, 1e-3, steps);
     }
     /* making decision */
     direct = dpg.action(state_);
@@ -318,7 +320,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
             int xi = xn;
             int yi = yn;
             /* move */
-            Mat &output = drpg.gumbelMax(state);
+            Mat &output = drpg.noiseAction(state);
             direct = output.argmax();
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);

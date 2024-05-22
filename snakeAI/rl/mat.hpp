@@ -13,19 +13,6 @@ namespace RL {
 class Mat
 {
 public:
-    using ValueType = float;
-    class Size
-    {
-    public:
-        std::size_t rows;
-        std::size_t cols;
-    public:
-        Size():rows(0),cols(0){}
-        explicit Size(std::size_t r, std::size_t c)
-            :rows(r),cols(c){}
-    };
-
-public:
     std::size_t rows;
     std::size_t cols;
     std::size_t totalSize;
@@ -36,8 +23,6 @@ public:
         :rows(rows_),cols(cols_),totalSize(rows_*cols_),val(rows_*cols_, 0){}
     explicit Mat(std::size_t rows_, std::size_t cols_, float value)
         :rows(rows_),cols(cols_),totalSize(rows_*cols_),val(rows_*cols_, value){}
-    explicit Mat(const Size &s)
-        :rows(s.rows),cols(s.cols),totalSize(s.rows*s.cols),val(s.rows*s.cols, 0){}
     explicit Mat(std::size_t rows_, std::size_t cols_, const std::vector<float> &data_)
         :rows(rows_),cols(cols_),totalSize(rows_*cols_),val(data_){}
     Mat(const Mat &r)
@@ -84,8 +69,8 @@ public:
     inline float operator()(std::size_t i, std::size_t j) const {return val[i*cols + j];}
     inline float &operator()(std::size_t i, std::size_t j) {return val[i*cols + j];}
     /* iterator */
-    inline std::vector<ValueType>::iterator begin() {return val.begin();}
-    inline std::vector<ValueType>::iterator end() {return val.end();}
+    inline std::vector<float>::iterator begin() {return val.begin();}
+    inline std::vector<float>::iterator end() {return val.end();}
     Mat &operator=(const Mat &r)
     {
         if (this == &r) {
@@ -96,9 +81,8 @@ public:
         totalSize = r.totalSize;
         if (val.empty()) {
             val = std::vector<float>(r.val);
-        } else {
-            val.assign(r.val.begin(), r.val.end());
         }
+        val.assign(r.val.begin(), r.val.end());
         return *this;
     }
 
@@ -421,14 +405,13 @@ public:
         return sum()/float(totalSize);
     }
 
-    float variance() const
+    float variance(float u) const
     {
-        float u = mean();
         float s = 0;
         for (std::size_t i = 0; i < totalSize; i++) {
             s += (val[i] - u)*(val[i] - u);
         }
-        return std::sqrt(s/float(totalSize));
+        return s/float(totalSize);
     }
 
     static Mat kronecker(const Mat &x1, const Mat &x2)
@@ -467,56 +450,56 @@ public:
         }
     };
     struct Mul {
-        static void ikkj(Mat &y, const Mat &x1, const Mat &x2)
+        static void ikkj(Mat &x, const Mat &x1, const Mat &x2)
         {
             /* no transpose */
-            for (std::size_t i = 0; i < y.rows; i++) {
-                for (std::size_t j = 0; j < y.cols; j++) {
+            for (std::size_t i = 0; i < x.rows; i++) {
+                for (std::size_t j = 0; j < x.cols; j++) {
                     for (std::size_t k = 0; k < x1.cols; k++) {
-                        /* (i, j) = (i, k) * (k, j) */
-                        y.val[i*y.cols + j] += x1.val[i*x1.cols + k]*x2.val[k*x2.cols + j];
+                       /* Xij = X1ik * X2kj */
+                        x.val[i*x.cols + j] += x1.val[i*x1.cols + k]*x2.val[k*x2.cols + j];
                     }
                 }
             }
             return;
         }
 
-        static void ikjk(Mat &y, const Mat &x1, const Mat &x2)
+        static void ikjk(Mat &x, const Mat &x1, const Mat &x2)
         {
             /* transpose x2 */
-            for (std::size_t i = 0; i < y.rows; i++) {
-                for (std::size_t j = 0; j < y.cols; j++) {
+            for (std::size_t i = 0; i < x.rows; i++) {
+                for (std::size_t j = 0; j < x.cols; j++) {
                     for (std::size_t k = 0; k < x1.cols; k++) {
-                        /* (i, j) = (i, k) * (j, k)^T */
-                        y.val[i*y.cols + j] += x1.val[i*x1.cols + k]*x2.val[j*x2.cols + k];
+                        /* Xij = X1ik * X2jk^T */
+                        x.val[i*x.cols + j] += x1.val[i*x1.cols + k]*x2.val[j*x2.cols + k];
                     }
                 }
             }
             return;
         }
 
-        static void kikj(Mat &y, const Mat &x1, const Mat &x2)
+        static void kikj(Mat &x, const Mat &x1, const Mat &x2)
         {
-            /* transpose x1 */
-            for (std::size_t i = 0; i < y.rows; i++) {
-                for (std::size_t j = 0; j < y.cols; j++) {
+            /* transpose x1,x2 */
+            for (std::size_t i = 0; i < x.rows; i++) {
+                for (std::size_t j = 0; j < x.cols; j++) {
                     for (std::size_t k = 0; k < x1.rows; k++) {
-                        /* (i, j) = (k, i)^T * (k, j)^T */
-                        y.val[i*y.cols + j] += x1.val[k*x1.cols + i]*x2.val[k*x2.cols + j];
+                        /* Xij = X1ki^T * X2kj */
+                        x.val[i*x.cols + j] += x1.val[k*x1.cols + i]*x2.val[k*x2.cols + j];
                     }
                 }
             }
             return;
         }
 
-        static void kijk(Mat &y, const Mat &x1, const Mat &x2)
+        static void kijk(Mat &x, const Mat &x1, const Mat &x2)
         {
             /* transpose x1, x2 */
-            for (std::size_t i = 0; i < y.rows; i++) {
-                for (std::size_t j = 0; j < y.cols; j++) {
+            for (std::size_t i = 0; i < x.rows; i++) {
+                for (std::size_t j = 0; j < x.cols; j++) {
                     for (std::size_t k = 0; k < x1.rows; k++) {
-                        /* (i, j) = (k, i)^T * (j, k)^T */
-                        y.val[i*y.cols + j] += x1.val[k*x1.cols + i] * x2.val[j*x2.cols + k];
+                        /* Xij = X1ki^T * X2jk^T */
+                        x.val[i*x.cols + j] += x1.val[k*x1.cols + i] * x2.val[j*x2.cols + k];
                     }
                 }
             }

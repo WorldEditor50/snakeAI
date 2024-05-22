@@ -5,9 +5,10 @@ std::default_random_engine RL::Rand::engine(std::random_device{}());
 void RL::zscore(Mat &x)
 {
     /* sigma */
-    float sigma = variance(x);
+    float u = x.mean();
+    float sigma = std::sqrt(x.variance(u) + 1e-9);
     for (std::size_t i = 0 ; i < x.size(); i++) {
-        x[i] /= sigma;
+        x[i] = (x[i] - u)/sigma;
     }
     return;
 }
@@ -30,18 +31,6 @@ void RL::normalize(Mat &x)
     return;
 }
 
-float RL::variance(const Mat &x)
-{
-    /* expectation */
-    float u = x.mean();
-    float sigma = 0;
-    /* sigma */
-    for (std::size_t i = 0 ; i < x.size(); i++) {
-        sigma += (x[i] - u) * (x[i] - u);
-    }
-    return std::sqrt(sigma / x.size());
-}
-
 float RL::variance(const Mat &x, float u)
 {
     float sigma = 0;
@@ -49,7 +38,8 @@ float RL::variance(const Mat &x, float u)
     for (std::size_t i = 0 ; i < x.size(); i++) {
         sigma += (x[i] - u) * (x[i] - u);
     }
-    return std::sqrt(sigma / x.size());
+    //return std::sqrt(sigma / x.size());
+    return sigma / float(x.size());
 }
 
 float RL::covariance(const Mat &x1, const Mat &x2)

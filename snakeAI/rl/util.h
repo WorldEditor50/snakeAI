@@ -127,11 +127,30 @@ float gaussian(float x, float u, float sigma);
 float clip(float x, float sup, float inf);
 float hmean(const Mat &x);
 float gmean(const Mat &x);
-float variance(const Mat &x);
 float variance(const Mat &x, float u);
 float covariance(const Mat& x1, const Mat& x2);
 void zscore(Mat &x);
 void normalize(Mat &x);
+
+inline float M3(const Mat &x, float u)
+{
+    float s = 0;
+    for (std::size_t i = 0; i < x.size(); i++) {
+        float d = x[i] - u;
+        s += d*d*d;
+    }
+    return s/float(x.size());
+}
+
+inline float M4(const Mat &x, float u)
+{
+    float s = 0;
+    for (std::size_t i = 0; i < x.size(); i++) {
+        float d = x[i] - u;
+        s += d*d*d*d;
+    }
+    return s/float(x.size());
+}
 
 inline void clamp(Mat &x, float x1, float x2)
 {
@@ -227,7 +246,7 @@ inline Mat& gumbelSoftmax(Mat &x, const Mat &temperture)
         epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
     }
     x += epsilon;
-    x /= temperture;
+    x /= RL::exp(temperture);
     x = softmax(x);
     return x;
 }
