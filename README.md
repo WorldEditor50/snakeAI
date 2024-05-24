@@ -1,52 +1,70 @@
 # snakeAI
-- A* agent: a method bases on greedy policy
-- random search agent: a method bases on reward and MCMC
-- bp agent: learn from A* agent
-- dqn agent: DQN
-- dpg agent: policy gradient 
-- ddpg agent:  todo
-- PPO agent: learn with adaptive KL-penalty and clipped objective
-- lstm + q-learning agent: generate sequence by sampling data from replay buffer with uniform distribution and backpropagate error through time with EMA
-- DRPG agent: lstm + policy gradient
 
-## 1. Markov Decision Process
+## 1. Features
 
-### definition:
-- **{St, At, P(St+1|St, At), R, St+1, γ}**
-- **St** --- state
-- **At** --- action
-- **P(St+1|St, At)** --- transition probability
-- **R** --- reward
-- **St+1** --- next state
-- **γ** --- discounted factor
+- A* agent
 
-### Process:
-  agent is in the state **St** , taking action **At** , then  transitioning into state **St+1** and getting reward **R** in the state **St+1**
-### Assumption of the Markov Property:
-  the effects of an action taken in a state depend only on that state and not on the prior history.
+  a method based on greedy policy
 
+- random search agent
 
+   a method based on reward and MCMC
 
-## 2. Value Function
+- DQN
 
-### 2.1 state value function
+- DPG
 
-**Gt = Rt+1 + γ * Rt+2 + γ^2 * Rt+3 + ... = ∑γ^k * Rt+k+1**
+- PPO
 
-**Gt = Rt+1 + γ * Gt+1**
+- SAC
 
-**Vπ(s) = Eπ[Rt+1 + γ * Vπ(St+1) | St = s]**
+- Tanh-Norm
 
-### 2.2 action value function
+  an approximation of RMS-Norm, with a *better* *robust* performance in off-policy learning
 
-**Qπ(s, a) = Eπ[Rt+1 + γ * Qπ(St+1, At+1) | St = s, At = a]**
+  
 
-## 3. Optimization: maximizing cumulative future reward
+## 2. Tricks 
 
-**θ = argmax E[∑R(St, At)]** 
+- initialize weight in uniform distribution U(-1, 1)
 
-## 4. sampling method
+- use RMSProp as optimizer
 
-### 4.1 MCMC
+- use layer-norm in on-policy methods
 
-### 4.2 TD
+- use weight-decay in on-policy methods
+
+- normalize gradient
+
+- the range of reward is symmetric and  the value falls between -1 and 1 
+
+  
+
+## 3. Reward
+
+- reward at position
+
+```c++
+float Agent::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    /* agent goes out of the map */
+    if (map(xn, yn) == 1) {
+        return -1;
+    }
+    /* agent reaches to the target's position */
+    if (xn == xt && yn == yt) {
+        return 1;
+    }
+    /* the distance from agent's previous position to the target's position */
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    /* the distance from agent's current position to the target's position */
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    return std::sqrt(d1) - std::sqrt(d2);
+}
+```
+
+-  cumulative reward per epoch
+
+    ![dqn-reward](https://github.com/WorldEditor50/snakeAI/raw/master/reward.png) 
+
+  the reward agent received will be decreased when agent gets closer to the target until it reaches to the target's position. Otherwise, the agent will tend to be overconfident.

@@ -31,8 +31,7 @@ public:
     Mat& gumbelMax(const Mat &state);
     Mat& action(const Mat &state);
     void experienceReplay(const Transition& x);
-    void learn(OptType optType = OPT_RMSPROP,
-               std::size_t maxMemorySize = 4096,
+    void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 32,
                float learningRate = 0.001);

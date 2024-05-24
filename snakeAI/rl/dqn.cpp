@@ -8,15 +8,15 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     stateDim = stateDim_;
     actionDim = actionDim_;
     QMainNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                    LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                     Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                    LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                     Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
     QTargetNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
-                      LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                       Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                      LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                       Layer<Sigmoid>::_(hiddenDim, actionDim, false));
 
     QMainNet.copyTo(QTargetNet);
@@ -76,8 +76,7 @@ void RL::DQN::experienceReplay(const Transition& x)
     return;
 }
 
-void RL::DQN::learn(OptType optType,
-                    std::size_t maxMemorySize,
+void RL::DQN::learn(std::size_t maxMemorySize,
                     std::size_t replaceTargetIter,
                     std::size_t batchSize,
                     float learningRate)
@@ -93,12 +92,12 @@ void RL::DQN::learn(OptType optType,
         learningSteps = 0;
     }
     /* experience replay */
-    std::uniform_int_distribution<int> distribution(0, memories.size() - 1);
+    std::uniform_int_distribution<int> uniform(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
-        int k = distribution(Rand::engine);
+        int k = uniform(Rand::engine);
         experienceReplay(memories[k]);
     }
-    QMainNet.optimize(optType, learningRate, 0);
+    QMainNet.optimize(OPT_NORMRMSPROP, learningRate, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 3;

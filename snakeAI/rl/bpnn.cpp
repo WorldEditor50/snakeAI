@@ -117,6 +117,14 @@ void RL::BPNN::RMSProp(float rho, float learningRate, float decay)
     return;
 }
 
+void RL::BPNN::NormRMSProp(float rho, float learningRate, float decay)
+{
+    for (std::size_t i = 0; i < layers.size(); i++) {
+        layers[i]->NormRMSProp(rho, learningRate, decay);
+    }
+    return;
+}
+
 void RL::BPNN::Adam(float alpha1, float alpha2, float learningRate, float decay)
 {
     alpha1_t *= alpha1;
@@ -135,6 +143,9 @@ void RL::BPNN::optimize(OptType optType, float learningRate, float decay)
             break;
         case OPT_RMSPROP:
             RMSProp(0.9, learningRate, decay);
+            break;
+        case OPT_NORMRMSPROP:
+            NormRMSProp(0.9, learningRate, decay);
             break;
         case OPT_ADAM:
             Adam(0.9, 0.99, learningRate, decay);

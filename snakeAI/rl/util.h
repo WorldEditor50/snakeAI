@@ -175,14 +175,14 @@ inline void uniformRand(T &x, float x1, float x2)
 
 inline Mat& eGreedy(Mat& x, float exploringRate, bool hard)
 {
-    std::uniform_real_distribution<float> distributionReal(0, 1);
-    float p = distributionReal(Rand::engine);
+    std::uniform_real_distribution<float> uniformReal(0, 1);
+    float p = uniformReal(Rand::engine);
     if (p < exploringRate) {
         if (hard) {
             x.zero();
         }
-        std::uniform_int_distribution<int> distribution(0, x.size() - 1);
-        int index = distribution(Rand::engine);
+        std::uniform_int_distribution<int> uniform(0, x.size() - 1);
+        int index = uniform(Rand::engine);
         x[index] = 1;
     }
     return x;
@@ -201,8 +201,8 @@ inline Mat& noise(Mat& x)
 
 inline Mat& noise(Mat& x, float exploringRate)
 {
-    std::uniform_real_distribution<float> distribution(0, 1);
-    float p = distribution(Rand::engine);
+    std::uniform_real_distribution<float> uniform(0, 1);
+    float p = uniform(Rand::engine);
     if (p < exploringRate) {
         Mat epsilon(x);
         uniformRand(epsilon, -1, 1);
@@ -225,7 +225,7 @@ inline Mat& softmax(Mat &x)
     return x;
 }
 
-inline Mat& gumbelSoftmax(Mat &x, float temperture)
+inline Mat& gumbelSoftmax(Mat &x, float tau)
 {
     Mat epsilon(x);
     uniformRand(epsilon, 0, 1);
@@ -233,12 +233,12 @@ inline Mat& gumbelSoftmax(Mat &x, float temperture)
         epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
     }
     x += epsilon;
-    x /= temperture;
+    x /= tau;
     x = softmax(x);
     return x;
 }
 
-inline Mat& gumbelSoftmax(Mat &x, const Mat &temperture)
+inline Mat& gumbelSoftmax(Mat &x, const Mat& tau)
 {
     Mat epsilon(x);
     uniformRand(epsilon, 0, 1);
@@ -246,7 +246,7 @@ inline Mat& gumbelSoftmax(Mat &x, const Mat &temperture)
         epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
     }
     x += epsilon;
-    x /= RL::exp(temperture);
+    x /= tau;
     x = softmax(x);
     return x;
 }

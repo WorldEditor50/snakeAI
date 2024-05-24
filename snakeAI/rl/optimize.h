@@ -7,7 +7,7 @@ namespace RL {
 
 namespace Optimize {
 
-inline void SGD(Mat &w, const Mat &dw, float learningRate)
+inline void SGD(Mat &w, Mat &dw, float learningRate)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         w[i] -= learningRate * dw[i];
@@ -15,7 +15,7 @@ inline void SGD(Mat &w, const Mat &dw, float learningRate)
     return;
 }
 
-inline void SGDM(Mat &w, Mat &m, const Mat &dw, float learningRate, float alpha, float decay=0)
+inline void SGDM(Mat &w, Mat &m, Mat &dw, float learningRate, float alpha, float decay=0)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         m[i] = (1 - decay)*m[i] - dw[i]*alpha;
@@ -24,7 +24,7 @@ inline void SGDM(Mat &w, Mat &m, const Mat &dw, float learningRate, float alpha,
     return;
 }
 
-inline void Adagrad(Mat &w, Mat &r, const Mat &dw, float learningRate)
+inline void Adagrad(Mat &w, Mat &r, Mat &dw, float learningRate)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         r[i] += dw[i]*dw[i];
@@ -33,7 +33,7 @@ inline void Adagrad(Mat &w, Mat &r, const Mat &dw, float learningRate)
     return;
 }
 
-inline void AdaDelta(Mat &w, Mat &v, Mat &delta, Mat &dwPrime, const Mat &dw, float learningRate, float rho)
+inline void AdaDelta(Mat &w, Mat &v, Mat &delta, Mat &dwPrime, Mat &dw, float learningRate, float rho)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         v[i] = rho * v[i] + (1 - rho) * dw[i] * dw[i];
@@ -44,7 +44,7 @@ inline void AdaDelta(Mat &w, Mat &v, Mat &delta, Mat &dwPrime, const Mat &dw, fl
     return;
 }
 
-inline void RMSProp(Mat &w, Mat &v, const Mat &dw, float learningRate, float rho, float decay = 0)
+inline void RMSProp(Mat &w, Mat &v, Mat &dw, float learningRate, float rho, float decay = 0)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         v[i] = rho * v[i] + (1 - rho) * dw[i] * dw[i];
@@ -53,7 +53,18 @@ inline void RMSProp(Mat &w, Mat &v, const Mat &dw, float learningRate, float rho
     return;
 }
 
-inline void Adam(Mat &w, Mat &v, Mat &m, const Mat &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
+inline void NormRMSProp(Mat &w, Mat &v, Mat &dw, float learningRate, float rho, float decay = 0)
+{
+    float scale = 1.0 / std::sqrt(dw.norm2Square() + 1e-5);
+    dw *= scale;
+    for (std::size_t i = 0; i < w.totalSize; i++) {
+        v[i] = rho * v[i] + (1 - rho)*dw[i]*dw[i];
+        w[i] = (1 - decay)*w[i] - learningRate*dw[i]/(std::sqrt(v[i]) + 1e-9);
+    }
+    return;
+}
+
+inline void Adam(Mat &w, Mat &v, Mat &m, Mat &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         m[i] = alpha * m[i] + (1 - alpha) * dw[i];

@@ -101,8 +101,8 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
     } else if (KLexpect <= delta / 1.5) {
         beta /= 2;
     }
-    actorP.optimize(OPT_RMSPROP, learningRate, 0.1);
-    critic.optimize(OPT_RMSPROP, 1e-3, 0.01);
+    actorP.optimize(OPT_NORMRMSPROP, learningRate, 0.1);
+    critic.optimize(OPT_NORMRMSPROP, 1e-3, 0.01);
     /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
@@ -154,9 +154,9 @@ void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &
         q[k] *= ratio * adv;
         actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
     }
-    actorP.optimize(OPT_RMSPROP, learningRate, 0.1);
+    actorP.optimize(OPT_NORMRMSPROP, learningRate, 0.1);
     actorP.clamp(-1, 1);
-    critic.optimize(OPT_RMSPROP, 1e-3, 0.01);
+    critic.optimize(OPT_NORMRMSPROP, 1e-3, 0.01);
 
     /* update step */
     exploringRate *= 0.99999;

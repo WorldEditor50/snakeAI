@@ -39,13 +39,17 @@ Agent::~Agent()
 
 float Agent::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
 {
+    /* agent goes out of the map */
     if (map(xn, yn) == 1) {
         return -1;
     }
+    /* agent reaches to the target's position */
     if (xn == xt && yn == yt) {
         return 1;
     }
+    /* the distance from agent's previous position to the target's position */
     float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    /* the distance from agent's current position to the target's position */
     float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
     return std::sqrt(d1) - std::sqrt(d2);
 }
@@ -95,7 +99,7 @@ float Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
     float d2 = std::sqrt((xn - xt) * (xn - xt) + (yn - yt) * (yn - yt));
     float r = (1 - 2*d2 + d2*d2)/(1 - d2 + d2*d2);
     if (d2 - d1 > 0) {
-        r = -1;
+        r *= -1;
     }
     return r;
 }
@@ -215,7 +219,7 @@ int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        dqn.learn(OPT_RMSPROP, 8192, 256, 64, 1e-3);
+        dqn.learn(8192, 256, 64, 1e-3);
     }
     /* making decision */
     return dqn.action(state0);
@@ -297,7 +301,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        dpg.reinforce(OPT_RMSPROP, 1e-3, steps);
+        dpg.reinforce(1e-3, steps);
     }
     /* making decision */
     direct = dpg.action(state_);
@@ -381,7 +385,7 @@ int Agent::ddpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        ddpg.learn(OPT_RMSPROP, 8192, 256, 32, 0.001, 0.001);
+        ddpg.learn(OPT_NORMRMSPROP, 8192, 256, 32, 0.001, 0.001);
     }
     return ddpg.action(state_);
 }
@@ -463,7 +467,7 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        sac.learn(OPT_RMSPROP, 8192, 256, 64, 1e-3);
+        sac.learn(8192, 256, 64, 1e-3);
     }
     /* making decision */
     Mat& a = sac.action(state_);

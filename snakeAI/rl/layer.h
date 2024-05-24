@@ -103,6 +103,14 @@ public:
         return;
     }
 
+    void NormRMSProp(float rho, float learningRate, float decay)
+    {
+        Optimize::NormRMSProp(w, v.w, g.w, learningRate, rho, decay);
+        Optimize::NormRMSProp(b, v.b, g.b, learningRate, rho, decay);
+        g.zero();
+        return;
+    }
+
     void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay)
     {
         Optimize::Adam(w, v.w, m.w, g.w,
@@ -354,7 +362,7 @@ public:
         float sigma = op.variance(u);
         gamma = 1.0/std::sqrt(sigma + 1e-9);
         for (std::size_t i = 0; i < o.size(); i++) {
-            o[i] = Fn::f(gamma*(op[i] - u) + b[i]);
+            o[i] = Fn::f((op[i] - u)*gamma + b[i]);
         }
         return o;
     }
@@ -370,13 +378,8 @@ public:
         Mat dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             float error = Fn::d(o[i])*e[i];
-#if 1
-            float gamma3 = gamma*gamma*gamma;
-            float delta = op[i] - u;
-            dy[i] = (1.0 - 1.0/float(outputDim))*(gamma - delta*delta*gamma3)*error;
-#else
-            dy[i] = gamma*Fn::d(o[i])*e[i];
-#endif
+            float d = (op[i] - u)*gamma;
+            dy[i] = (1.0 - 1.0/float(outputDim))*(1 - d*d)*gamma*error;
             g.b[i] += error;
         }
         Mat::Mul::ikjk(g.w, dy, x);
@@ -417,7 +420,7 @@ public:
         float sigma = x.variance(u);
         gamma = 1.0/std::sqrt(sigma + 1e-9);
         for (std::size_t i = 0; i < x.size(); i++) {
-            x_[i] = gamma*(x[i] - u);
+            x_[i] = (x[i] - u)*gamma;
         }
         Mat::Mul::ikkj(op, w, x_);
         for (std::size_t i = 0; i < o.size(); i++) {
@@ -440,8 +443,9 @@ public:
         }
         Mat dx(inputDim, 1);
         for (std::size_t i = 0; i < dx.totalSize; i++) {
-            float delta = (x[i] - u)*gamma;
-            dx[i] = (1 - 1.0/float(inputDim))*(1 - delta*delta)*gamma*x_[i];
+            //float d = (x[i] - u)*gamma;
+            float d = x_[i];
+            dx[i] = (1 - 1.0/float(inputDim))*(1 - d*d)*gamma*d;
         }
         Mat::Mul::ikjk(g.w, dy, dx);
         g.b += dy;
@@ -495,8 +499,8 @@ public:
         Mat dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             float error = Fn::d(o[i])*e[i];
-            float gamma3 = gamma*gamma*gamma;
-            dy[i] = (gamma - op[i]*op[i]*gamma3)*error;
+            float d = op[i]*gamma;
+            dy[i] = (1 - d*d)*gamma*error;
             g.b[i] += error;
         }
         Mat::Mul::ikjk(g.w, dy, x);
@@ -504,6 +508,62 @@ public:
         op.zero();
         return;
     }
+};
+
+
+template<typename Fn>
+class TanhNorm : public iLayer
+{
+public:
+    Mat o1;
+    Mat o2;
+public:
+    TanhNorm(){}
+    ~TanhNorm(){}
+    explicit TanhNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
+        :iLayer(inputDim, outputDim, trainFlag_)
+    {
+        o1 = Mat(outputDim, 1);
+        o2 = Mat(outputDim, 1);
+    }
+
+    static std::shared_ptr<TanhNorm> _(std::size_t inputDim,
+                                        std::size_t outputDim,
+                                        bool tarinFlag)
+    {
+        return std::make_shared<TanhNorm>(inputDim, outputDim, tarinFlag);
+    }
+    Mat& forward(const RL::Mat &x) override
+    {
+        Mat::Mul::ikkj(o1, w, x);
+        o2 = RL::tanh(o1);
+        for (std::size_t i = 0; i < o.size(); i++) {
+            o[i] = Fn::f(o2[i] + b[i]);
+        }
+        return o;
+    }
+
+    void backward(Mat &ei) override
+    {
+        Mat::Mul::kikj(ei, w, e);
+        return;
+    }
+
+    void gradient(const Mat& x, const Mat&) override
+    {
+        Mat dy(outputDim, 1);
+        for (std::size_t i = 0; i < dy.totalSize; i++) {
+            float error = Fn::d(o[i])*e[i];
+            float d = o2[i];
+            dy[i] = (1 - d*d)*error;
+            g.b[i] += error;
+        }
+        Mat::Mul::ikjk(g.w, dy, x);
+        e.zero();
+        o1.zero();
+        return;
+    }
+
 };
 
 }

@@ -37,7 +37,7 @@ int RL::DPG::action(const Mat &state)
     return a;
 }
 
-void RL::DPG::reinforce(OptType optType, float learningRate, std::vector<Step>& x)
+void RL::DPG::reinforce(float learningRate, std::vector<Step>& x)
 {
     float r = 0;
     Mat discountedReward(x.size(), 1);
@@ -52,7 +52,7 @@ void RL::DPG::reinforce(OptType optType, float learningRate, std::vector<Step>& 
         x[i].action[k] *= ri;
         policyNet.gradient(x[i].state, x[i].action, Loss::CrossEntropy);
     }
-    policyNet.optimize(optType, learningRate, 0.1);
+    policyNet.optimize(OPT_NORMRMSPROP, learningRate, 0.1);
     policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;

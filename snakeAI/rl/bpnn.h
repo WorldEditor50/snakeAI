@@ -19,6 +19,7 @@ enum OptType {
     NONE = 0,
     OPT_SGD,
     OPT_RMSPROP,
+    OPT_NORMRMSPROP,
     OPT_ADAM
 };
 
@@ -51,6 +52,7 @@ public:
     void gradient(const Mat &x, const RL::Mat &y, const Mat &loss);
     void SGD(float learningRate = 0.001);
     void RMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0);
+    void NormRMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0);
     void Adam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001, float decay = 0);
     void optimize(OptType optType = OPT_RMSPROP, float learningRate = 0.001, float decay = 0);
     void clamp(float c0, float cn);

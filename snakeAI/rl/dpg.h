@@ -23,7 +23,7 @@ public:
     Mat &gumbelMax(const RL::Mat &state);
     Mat &output(){return policyNet.output();}
     int action(const Mat &state);
-    void reinforce(OptType optType, float learningRate, std::vector<Step>& x);
+    void reinforce(float learningRate, std::vector<Step>& x);
     void save(const std::string& fileName);
     void load(const std::string& fileName);
 protected:

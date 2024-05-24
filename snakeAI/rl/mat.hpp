@@ -413,7 +413,14 @@ public:
         }
         return s/float(totalSize);
     }
-
+    float norm2Square() const
+    {
+        float s = 0;
+        for (std::size_t i = 0; i < totalSize; i++) {
+            s += val[i]*val[i];
+        }
+        return s;
+    }
     static Mat kronecker(const Mat &x1, const Mat &x2)
     {
         Mat y(x1.rows * x2.rows, x1.cols * x2.cols);

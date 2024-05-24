@@ -20,7 +20,10 @@ public:
     inline float& operator[](int index) {return val.val[index];}
     void RMSProp(float rho, float learningRate, float decay)
     {
-        Optimize::RMSProp(val, v, g, learningRate, rho, decay);
+        Optimize::NormRMSProp(val, v, g, learningRate, rho, decay);
+        for (std::size_t i = 0; i < val.totalSize; i++) {
+            val[i] = val[i] < 1e-3 ? 1e-3 : val[i];
+        }
         g.zero();
         return;
     }

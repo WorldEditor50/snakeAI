@@ -12,7 +12,7 @@ MainWindow::MainWindow(QWidget *parent)
     palette.setColor(QPalette::WindowText, Qt::white);
     setPalette(palette);
     /* info */
-    ui->agentComboBox->addItems(QStringList{ "dpg", "ppo", "dqn",  "sac", "qlstm",
+    ui->agentComboBox->addItems(QStringList{"dqn", "sac", "dpg", "ppo", "qlstm",
                                             "drpg", "astar", "rand"});
     /* game */
     connect(ui->agentComboBox, &QComboBox::currentTextChanged,
@@ -28,10 +28,10 @@ MainWindow::MainWindow(QWidget *parent)
             ui->gamewidget, &GameWidget::setTrainAgent);
     /* show reward */
     statisticalWidget = new AxisWidget;
-    statisticalWidget->setWindowTitle("Total reward per epoch");
+    statisticalWidget->setWindowTitle("Total reward/epoch");
     connect(ui->gamewidget, &GameWidget::sendTotalReward,
             statisticalWidget, &AxisWidget::addPoint, Qt::QueuedConnection);
-    statisticalWidget->move(1000, 0);
+    statisticalWidget->move(x() + width(), y());
     statisticalWidget->show();
     ui->gamewidget->start();
 }
