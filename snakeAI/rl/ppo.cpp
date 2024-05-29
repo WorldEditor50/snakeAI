@@ -6,27 +6,31 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
     beta = 0.5;
     delta = 0.01;
     epsilon = 0.2;
-    exploringRate = 10;
+    exploringRate = 1;
     learningSteps = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
 
+    alpha = GradValue(actionDim, 1);
+    alpha.val.fill(1);
+    entropy0 = -0.12*std::log(0.12);//0.25
+
     actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                  PreNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                  PreNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                  SoftmaxLayer::_(hiddenDim, actionDim, true));
+                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
+                  Softmax::_(hiddenDim, actionDim, true));
 
     actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
-                  PreNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                  PreNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                  SoftmaxLayer::_(hiddenDim, actionDim, false));
+                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
+                  Softmax::_(hiddenDim, actionDim, false));
 
     critic = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
-                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  LayerNorm<Sigmoid, LN::Def>::_(hiddenDim, hiddenDim, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                  LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                  LayerNorm<Sigmoid, LN::Def>::_(hiddenDim, hiddenDim, true),
                   Layer<Linear>::_(hiddenDim, actionDim, true));
 
 }
@@ -46,7 +50,7 @@ RL::Mat &RL::PPO::noiseAction(const RL::Mat &state)
 RL::Mat &RL::PPO::gumbelMax(const RL::Mat &state)
 {
     Mat& out = actorQ.forward(state);
-    return gumbelSoftmax(out, exploringRate);
+    return gumbelSoftmax(out, alpha.val);
 }
 
 RL::Mat &RL::PPO::action(const Mat &state)
@@ -56,6 +60,10 @@ RL::Mat &RL::PPO::action(const Mat &state)
 
 void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &trajectory)
 {
+    if (learningSteps % 16 == 0) {
+        actorP.softUpdateTo(actorQ, 0.01);
+        learningSteps = 0;
+    }
     /* reward */
     int end = trajectory.size() - 1;
     Mat criticState(stateDim + actionDim, 1);
@@ -67,13 +75,9 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
         r = trajectory[i].reward + gamma * r;
         trajectory[i].reward = r;
     }
-    if (learningSteps % 16 == 0) {
-        actorP.softUpdateTo(actorQ, 0.01);
-        //actorP.copyTo(actorQ);
-        learningSteps = 0;
-    }
+
     float KLexpect = 0;
-    for (std::size_t t = 0; t < trajectory.size(); t++) {
+    for (int t = end; t >= 0; t--) {
         int k = trajectory[t].action.argmax();
         /* advangtage */
         Mat::concat(0, criticState,
@@ -82,8 +86,16 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
         Mat& v = critic.forward(criticState);
         float advantage = trajectory[t].reward - v[k];
         /* critic */
-        Mat r(actionDim, 1);
-        r[k] = trajectory[t].reward;
+        Mat r = v;
+        if (t == end) {
+            r[k] = trajectory[t].reward;
+        } else {
+            Mat::concat(0, criticState,
+                        trajectory[t + 1].state,
+                        trajectory[t + 1].action);
+            v = critic.forward(criticState);
+            r[k] = trajectory[t].reward + 0.99*v[k];
+        }
         critic.gradient(criticState, r, Loss::MSE);
         /* actor */
         Mat& q = trajectory[t].action;
@@ -105,7 +117,7 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
     critic.optimize(OPT_NORMRMSPROP, 1e-3, 0.01);
     /* update step */
     exploringRate *= 0.99999;
-    exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
+    exploringRate = exploringRate < 0.01 ? 0.01 : exploringRate;
     learningSteps++;
     return;
 }
@@ -146,8 +158,10 @@ void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &
             r[k] = trajectory[t].reward + 0.99*v[k];
         }
         critic.gradient(criticState, r, Loss::MSE);
-        /* actor */
+        /* temperture parameter */
         Mat& q = trajectory[t].action;
+        alpha.g[k] += -q[k]*std::log(q[k] + 1e-8) - entropy0;
+        /* actor */
         Mat& p = actorP.forward(trajectory[t].state);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
@@ -158,9 +172,18 @@ void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &
     actorP.clamp(-1, 1);
     critic.optimize(OPT_NORMRMSPROP, 1e-3, 0.01);
 
+    alpha.RMSProp(0.9, 1e-4, 0);
+    alpha.clamp(0.1, 1.25);
+#if 1
+    std::cout<<"alpha:";
+    for (int i = 0; i < actionDim; i++) {
+        std::cout<<alpha[i]<<" ";
+    }
+    std::cout<<std::endl;
+#endif
     /* update step */
     exploringRate *= 0.99999;
-    exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
+    exploringRate = exploringRate < 0.01 ? 0.01 : exploringRate;
     learningSteps++;
     return;
 }

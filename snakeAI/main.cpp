@@ -13,9 +13,8 @@ int main(int argc, char *argv[])
     w.show();
     return a.exec();
 #else
-    BPNN::test();
+    //BPNN::test();
     //Conv2D::test();
-    //LSTM::test();
     //matrix::test();
     //Tensor::test();
     return 0;

@@ -81,8 +81,9 @@ public:
         totalSize = r.totalSize;
         if (val.empty()) {
             val = std::vector<float>(r.val);
+        } else {
+            val.assign(r.val.begin(), r.val.end());
         }
-        val.assign(r.val.begin(), r.val.end());
         return *this;
     }
 

@@ -13,52 +13,58 @@ class LSTMParam
 {
 public:
     /* input gate */
-    Mat Wi;
-    Mat Ui;
-    Mat Bi;
+    Mat wi;
+    Mat ui;
+    Mat bi;
     /* generate */
-    Mat Wg;
-    Mat Ug;
-    Mat Bg;
+    Mat wg;
+    Mat ug;
+    Mat bg;
     /* forget gate */
-    Mat Wf;
-    Mat Uf;
-    Mat Bf;
+    Mat wf;
+    Mat uf;
+    Mat bf;
     /* output gate */
-    Mat Wo;
-    Mat Uo;
-    Mat Bo;
+    Mat wo;
+    Mat uo;
+    Mat bo;
     /* predict */
-    Mat W;
-    Mat B;
+    Mat w;
+    Mat b;
 public:
     LSTMParam(){}
+    LSTMParam(const LSTMParam &r)
+        :wi(r.wi), ui(r.ui), bi(r.bi),
+         wg(r.wg), ug(r.ug), bg(r.bg),
+         wf(r.wf), uf(r.uf), bf(r.bf),
+         wo(r.wo), uo(r.uo), bo(r.bo),
+         w(r.w), b(r.b){}
     LSTMParam(std::size_t inputDim, std::size_t hiddenDim, std::size_t outputDim)
     {
-        Wi = Mat(hiddenDim, inputDim);
-        Wg = Mat(hiddenDim, inputDim);
-        Wf = Mat(hiddenDim, inputDim);
-        Wo = Mat(hiddenDim, inputDim);
+        wi = Mat(hiddenDim, inputDim);
+        wg = Mat(hiddenDim, inputDim);
+        wf = Mat(hiddenDim, inputDim);
+        wo = Mat(hiddenDim, inputDim);
 
-        Ui = Mat(hiddenDim, hiddenDim);
-        Ug = Mat(hiddenDim, hiddenDim);
-        Uf = Mat(hiddenDim, hiddenDim);
-        Uo = Mat(hiddenDim, hiddenDim);
+        ui = Mat(hiddenDim, hiddenDim);
+        ug = Mat(hiddenDim, hiddenDim);
+        uf = Mat(hiddenDim, hiddenDim);
+        uo = Mat(hiddenDim, hiddenDim);
 
-        Bi = Mat(hiddenDim, 1);
-        Bg = Mat(hiddenDim, 1);
-        Bf = Mat(hiddenDim, 1);
-        Bo = Mat(hiddenDim, 1);
+        bi = Mat(hiddenDim, 1);
+        bg = Mat(hiddenDim, 1);
+        bf = Mat(hiddenDim, 1);
+        bo = Mat(hiddenDim, 1);
 
-        W = Mat(outputDim, hiddenDim);
-        B = Mat(outputDim, 1);
+        w = Mat(outputDim, hiddenDim);
+        b = Mat(outputDim, 1);
     }
     void zero()
     {
-        std::vector<Mat*> weights = {&Wi, &Wg, &Wf, &Wo,
-                                     &Ui, &Ug, &Uf, &Uo,
-                                     &Bi, &Bg, &Bf, &Bo,
-                                     &W, &B};
+        std::vector<Mat*> weights = {&wi, &wg, &wf, &wo,
+                                     &ui, &ug, &uf, &uo,
+                                     &bi, &bg, &bf, &bo,
+                                     &w, &b};
         for (std::size_t i = 0; i < weights.size(); i++) {
             weights[i]->zero();
         }
@@ -66,10 +72,10 @@ public:
     }
     void random()
     {
-        std::vector<Mat*> weights = {&Wi, &Wg, &Wf, &Wo,
-                                     &Ui, &Ug, &Uf, &Uo,
-                                     &Bi, &Bg, &Bf, &Bo,
-                                     &W, &B};
+        std::vector<Mat*> weights = {&wi, &wg, &wf, &wo,
+                                     &ui, &ug, &uf, &uo,
+                                     &bi, &bg, &bf, &bo,
+                                     &w, &b};
         for (std::size_t i = 0; i < weights.size(); i++) {
             RL::uniformRand(*weights[i], -1, 1);
         }
@@ -80,12 +86,6 @@ public:
 class LSTM : public LSTMParam
 {
 public:
-    struct Gamma {
-        float i;
-        float f;
-        float g;
-        float o;
-    };
     class State
     {
     public:
@@ -98,6 +98,9 @@ public:
         Mat y;
     public:
         State(){}
+        State(const State &r)
+            :i(r.i),f(r.f), g(r.g),
+             o(r.o),c(r.c),h(r.h), y(r.y){}
         State(std::size_t hiddenDim, std::size_t outputDim):
             i(Mat(hiddenDim, 1)),f(Mat(hiddenDim, 1)),g(Mat(hiddenDim, 1)),
             o(Mat(hiddenDim, 1)),c(Mat(hiddenDim, 1)),h(Mat(hiddenDim, 1)),
@@ -116,8 +119,6 @@ public:
     };
 
 public:
-    bool ema;
-    float gamma;
     std::size_t inputDim;
     std::size_t hiddenDim;
     std::size_t outputDim;
@@ -134,6 +135,10 @@ protected:
     LSTMParam s;
 public:
     LSTM(){}
+    LSTM(const LSTM &r)
+        :inputDim(r.inputDim),hiddenDim(r.hiddenDim),outputDim(r.outputDim),
+    h(r.h),c(r.c),y(r.y),states(r.states),alpha_t(r.alpha_t),beta_t(r.beta_t),
+    d(r.d),v(r.v),s(r.s){}
     LSTM(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
     static std::shared_ptr<LSTM> _(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag)
     {
@@ -163,108 +168,5 @@ public:
     static void test();
 };
 
-class LstmAttention
-{
-public:
-    std::size_t hiddenDim;
-    std::size_t attentionDim;
-    Mat w;
-    Mat u;
-    Mat y;
-public:
-    explicit LstmAttention(std::size_t hiddenDim_, std::size_t attentionDim_)
-        :hiddenDim(hiddenDim_), attentionDim(attentionDim_)
-    {
-        w = Mat(hiddenDim, attentionDim);
-        u = Mat(attentionDim, 1);
-        y = Mat(hiddenDim, 1);
-        uniformRand(w, -1, 1);
-        uniformRand(u, -1, 1);
-
-    }
-    void forward(const std::vector<Mat> &o)
-    {
-        /* yi = softmax(tanh(o*w)*u) ⊙ o*/
-
-        std::size_t sequenceLen = o.size();
-        /*
-            o1 = tanh(o*w)
-            o:[sequence length, hiddenDim]
-            w:[hiddenDim, attentionDim]
-            o1:[sequence length, attentionDim]
-        */
-        Mat o1(sequenceLen, attentionDim);
-        for (std::size_t i = 0; i < sequenceLen; i++) {
-            for (std::size_t j = 0; j < attentionDim; j++) {
-                for (std::size_t k = 0; k < hiddenDim; k++) {
-                    o1(i, j) += o[i][k]*w(k, j);
-                }
-            }
-        }
-        for (std::size_t i = 0; i < sequenceLen; i++) {
-            for (std::size_t j = 0; j < attentionDim; j++) {
-                o1(i, j) = std::tanh(o1(i, j));
-            }
-        }
-        /*
-            o2 = o1*u
-            o1:[sequence length, attentionDim]
-            u:[attentionDim, 1]
-            o2:[sequence length, 1]
-        */
-        Mat o2(sequenceLen, 1);
-        for (std::size_t i = 0; i < sequenceLen; i++) {
-            for (std::size_t j = 0; j < attentionDim; j++) {
-                o2[i] += o1(i, j)*u[j];
-            }
-        }
-        /*
-            alpha = softmax(o2)
-            alpha:[sequence length, 1]
-        */
-        float s = 0;
-        for (std::size_t i = 0; i < sequenceLen; i++) {
-             s += std::exp(o2[i]);
-        }
-        Mat alpha(sequenceLen, 1);
-        for (std::size_t i = 0; i < sequenceLen; i++) {
-             alpha[i] = std::exp(o2[i])/s;
-        }
-        /*
-             o3 = o ⊙ alpha
-             o:[sequence length, hiddenDim]
-             alpha:[sequence length, 1]
-             o3:[sequence length, hiddenDim]
-        */
-        Mat o3(sequenceLen, hiddenDim);
-        for (std::size_t i = 0; i < sequenceLen; i++) {
-            for (std::size_t j = 0; j < hiddenDim; j++) {
-                o3(i, j) = o[i][j]*alpha[i];
-            }
-        }
-        /*
-            y = sum(o3)
-            o3:[sequence length, hiddenDim]
-            y:[hiddenDim, 1]
-        */
-        for (std::size_t i = 0; i < hiddenDim; i++) {
-            for (std::size_t j = 0; j < sequenceLen; j++) {
-                y[i] += o3(j, i);
-            }
-        }
-        return;
-    }
-    void backward(const std::vector<Mat> &o, const std::vector<Mat> &E)
-    {
-        /*
-             yi = softmax(tanh(o*w)*u) ⊙ o
-             dyi/dw = dyi/dalpha ⊙ o
-             dyi/dalpha = exp(o2)/s * do2/do1
-             do2/do1 = u * do1/dw
-             do1/dw = (1 - o1^2)*o
-             do2/du = tanh(o*w)
-        */
-    }
-};
 }
 #endif // LSTM_H

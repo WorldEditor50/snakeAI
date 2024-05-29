@@ -11,6 +11,8 @@
 #include <cstdlib>
 #include "bpnn.h"
 #include "rl_basic.h"
+#include  "parameter.hpp"
+
 namespace RL {
 
 class PPO
@@ -37,6 +39,8 @@ protected:
     float epsilon;
     float exploringRate;
     int learningSteps;
+    float entropy0;
+    GradValue alpha;
     BPNN actorP;
     BPNN actorQ;
     BPNN critic;

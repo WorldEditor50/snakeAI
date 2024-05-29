@@ -217,6 +217,8 @@ inline Mat& noise(Mat& x, float exploringRate)
 inline Mat& softmax(Mat &x)
 {
     float s = 0;
+    float maxValue = x.max();
+    x -= maxValue;
     for (std::size_t i = 0; i < x.size(); i++) {
         x[i] = std::exp(x[i]);
         s += x[i];

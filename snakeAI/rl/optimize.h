@@ -76,6 +76,20 @@ inline void Adam(Mat &w, Mat &v, Mat &m, Mat &dw, float alpha_, float beta_, flo
     return;
 }
 
+inline void NormAdam(Mat &w, Mat &v, Mat &m, Mat &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
+{
+    float scale = 1.0 / std::sqrt(dw.norm2Square() + 1e-5);
+    dw *= scale;
+    for (std::size_t i = 0; i < w.totalSize; i++) {
+        m[i] = alpha * m[i] + (1 - alpha) * dw[i];
+        v[i] = beta * v[i] + (1 - beta) * dw[i] * dw[i];
+        float m_ = m[i] / (1 - alpha_);
+        float v_ = v[i] / (1 - beta_);
+        w[i] = (1 - decay)*w[i] - learningRate * m_ / (std::sqrt(v_) + 1e-9);
+    }
+    return;
+}
+
 inline void clamp(Mat &w, float c0, float cn)
 {
     std::uniform_real_distribution<float> uniform(c0, cn);

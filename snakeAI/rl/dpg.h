@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include "bpnn.h"
 #include "rl_basic.h"
+#include "parameter.hpp"
+
 namespace RL {
 
 class DPG
@@ -32,6 +34,8 @@ protected:
     float gamma;
     float exploringRate;
     float learningRate;
+    float entropy0;
+    GradValue alpha;
     BPNN policyNet;
 };
 }

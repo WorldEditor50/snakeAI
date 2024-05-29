@@ -19,7 +19,7 @@ Agent::Agent(Mat& map, Snake &s):
     drpg = DRPG(stateDim, 16, 4);
     state = Mat(stateDim, 1);
     nextState = Mat(stateDim, 1);
-#if 1
+#if 0
     dqn.load("./dqn");
     dpg.load("./dpg");
     ddpg.load("./ddpg_actor", "./ddpg_critic");

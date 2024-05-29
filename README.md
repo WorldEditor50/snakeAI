@@ -65,6 +65,8 @@ float Agent::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
 
 -  cumulative reward per epoch
 
-    ![dqn-reward](https://github.com/WorldEditor50/snakeAI/raw/master/reward.png) 
+    DQN reward
 
+  ![dqn-reward](https://github.com/WorldEditor50/snakeAI/raw/master/reward.png) 
+  
   the reward agent received will be decreased when agent gets closer to the target until it reaches to the target's position. Otherwise, the agent will tend to be overconfident.

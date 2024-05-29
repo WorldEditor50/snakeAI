@@ -21,13 +21,17 @@ public:
     void RMSProp(float rho, float learningRate, float decay)
     {
         Optimize::NormRMSProp(val, v, g, learningRate, rho, decay);
-        for (std::size_t i = 0; i < val.totalSize; i++) {
-            val[i] = val[i] < 1e-3 ? 1e-3 : val[i];
-        }
         g.zero();
         return;
     }
-
+    void clamp(float c0, float cn)
+    {
+        for (std::size_t i = 0; i < val.totalSize; i++) {
+            val[i] = val[i] < c0 ? c0 : val[i];
+            val[i] = val[i] > cn ? cn : val[i];
+        }
+        return;
+    }
 };
 
 

@@ -163,31 +163,28 @@ public:
     }
 };
 
-class SoftmaxLayer : public iLayer
+class Softmax : public iLayer
 {
 public:
-    SoftmaxLayer(){}
-    ~SoftmaxLayer(){}
-    explicit SoftmaxLayer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
-        :iLayer(inputDim, outputDim, trainFlag){}
+    Softmax() {}
+    ~Softmax(){}
+    explicit Softmax(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
+        :iLayer(inputDim, outputDim, trainFlag)
+    {
 
-    static std::shared_ptr<SoftmaxLayer> _(std::size_t inputDim,
+    }
+
+    static std::shared_ptr<Softmax> _(std::size_t inputDim,
                                            std::size_t outputDim,
                                            bool tarinFlag)
     {
-        return std::make_shared<SoftmaxLayer>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<Softmax>(inputDim, outputDim, tarinFlag);
     }
     Mat& forward(const RL::Mat &x) override
     {
         Mat::Mul::ikkj(o, w, x);
         o += b;
-        float s = 0;
-        for (std::size_t i = 0; i < o.totalSize; i++) {
-            s += std::exp(o[i]);
-        }
-        for (std::size_t i = 0; i < o.size(); i++) {
-            o[i] = std::exp(o[i]) / s;
-        }
+        RL::softmax(o);
         return o;
     }
 
@@ -332,9 +329,16 @@ public:
     }
 };
 
+namespace LN {
+struct Def{};
+struct Pre{};
+struct Post{};
+};
+template<typename Fn, typename Type=LN::Def>
+class LayerNorm{};
 
 template<typename Fn>
-class LayerNorm : public iLayer
+class LayerNorm<Fn, LN::Def> : public iLayer
 {
 public:
     float gamma;
@@ -391,7 +395,7 @@ public:
 };
 
 template<typename Fn>
-class PreNorm : public iLayer
+class LayerNorm<Fn, LN::Pre> : public iLayer
 {
 public:
     float gamma;
@@ -399,20 +403,20 @@ public:
     Mat x_;
     Mat op;
 public:
-    PreNorm(){}
-    ~PreNorm(){}
-    explicit PreNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
+    LayerNorm(){}
+    ~LayerNorm(){}
+    explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
         :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
     {
         x_ = Mat(inputDim, 1);
         op = Mat(outputDim, 1);
     }
 
-    static std::shared_ptr<PreNorm> _(std::size_t inputDim,
+    static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
                                         std::size_t outputDim,
                                         bool tarinFlag)
     {
-        return std::make_shared<PreNorm>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
     }
     Mat& forward(const RL::Mat &x) override
     {
@@ -455,6 +459,68 @@ public:
     }
 
 };
+
+template<typename Fn>
+class LayerNorm<Fn, LN::Post> : public iLayer
+{
+public:
+    float gamma;
+    float u;
+    Mat o1;
+    Mat o2;
+public:
+    LayerNorm(){}
+    ~LayerNorm(){}
+    explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
+        :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
+    {
+        o1 = Mat(outputDim, 1);
+        o2 = Mat(outputDim, 1);
+    }
+
+    static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
+                                        std::size_t outputDim,
+                                        bool tarinFlag)
+    {
+        return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
+    }
+    Mat& forward(const RL::Mat &x) override
+    {
+        Mat::Mul::ikkj(o1, w, x);
+        for (std::size_t i = 0; i < o.size(); i++) {
+            o2[i] = Fn::f(o1[i] + b[i]);
+        }
+        u = o2.mean();
+        float sigma = o2.variance(u);
+        gamma = 1.0/std::sqrt(sigma + 1e-9);
+        for (std::size_t i = 0; i < o.size(); i++) {
+            o[i] = (o2[i] - u)*gamma;
+        }
+        return o;
+    }
+
+    void backward(Mat &ei) override
+    {
+        Mat::Mul::kikj(ei, w, e*gamma);
+        return;
+    }
+
+    void gradient(const Mat& x, const Mat&) override
+    {
+        Mat dy(outputDim, 1);
+        for (std::size_t i = 0; i < dy.totalSize; i++) {
+            float d = o2[i];//(o2[i] - u)*gamma;
+            dy[i] = (1 - d*d)*(1 - 1.0/float(outputDim))*Fn::d(o2[i])*gamma*e[i];
+        }
+        Mat::Mul::ikjk(g.w, dy, x);
+        g.b += dy;
+        e.zero();
+        o1.zero();
+        return;
+    }
+
+};
+
 
 template<typename Fn>
 class RMSNorm : public iLayer
