@@ -5,7 +5,7 @@
 #include <cmath>
 #include <string>
 #include <map>
-#include "mat.hpp"
+#include "rl/mat.hpp"
 #include "snake.h"
 #include "agent.h"
 #include "common.h"

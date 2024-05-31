@@ -25,14 +25,11 @@ public:
                   const Mat& nextState,
                   float reward,
                   bool done);
-    void setSA(const Mat& state, const Mat& action);
     Mat &noiseAction(const Mat &state);
-    int randomAction();
     Mat& eGreedyAction(const Mat &state);
     int action(const Mat& state);
-    void experienceReplay(Transition& x);
-    void learn(OptType optType  = OPT_RMSPROP,
-               std::size_t maxMemorySize = 4096,
+    void experienceReplay(const Transition& x);
+    void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 64,
                float actorLearningRate = 0.0001,
@@ -46,7 +43,6 @@ protected:
     float beta;
     float exploringRate;
     int learningSteps;
-    Mat sa;
     BPNN actorP;
     BPNN actorQ;
     BPNN criticP;

@@ -13,24 +13,24 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
 
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = -0.12*std::log(0.12);//0.25
+    entropy0 = -0.04*std::log(0.04);
 
     actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   Softmax::_(hiddenDim, actionDim, true));
 
     actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                   Softmax::_(hiddenDim, actionDim, false));
 
     critic = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
-                  LayerNorm<Sigmoid, LN::Def>::_(hiddenDim, hiddenDim, true),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                  LayerNorm<Sigmoid, LN::Def>::_(hiddenDim, hiddenDim, true),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   Layer<Linear>::_(hiddenDim, actionDim, true));
 
 }
@@ -58,7 +58,7 @@ RL::Mat &RL::PPO::action(const Mat &state)
     return actorP.forward(state);
 }
 
-void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &trajectory)
+void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learningRate)
 {
     if (learningSteps % 16 == 0) {
         actorP.softUpdateTo(actorQ, 0.01);
@@ -122,7 +122,7 @@ void RL::PPO::learnWithKLpenalty(float learningRate, std::vector<RL::Step> &traj
     return;
 }
 
-void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &trajectory)
+void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float learningRate)
 {
     if (learningSteps % 16 == 0) {
         actorP.softUpdateTo(actorQ, 0.01);
@@ -173,13 +173,10 @@ void RL::PPO::learnWithClipObjective(float learningRate, std::vector<RL::Step> &
     critic.optimize(OPT_NORMRMSPROP, 1e-3, 0.01);
 
     alpha.RMSProp(0.9, 1e-4, 0);
-    alpha.clamp(0.1, 1.25);
+    alpha.clamp(0.2, 1.25);
 #if 1
     std::cout<<"alpha:";
-    for (int i = 0; i < actionDim; i++) {
-        std::cout<<alpha[i]<<" ";
-    }
-    std::cout<<std::endl;
+    alpha.val.show();
 #endif
     /* update step */
     exploringRate *= 0.99999;

@@ -18,7 +18,6 @@ public:
                   float reward,
                   bool done);
     Mat& eGreedyAction(const Mat& state);
-    Mat& output();
     Mat &action(const Mat &state);
     void reset();
     void experienceReplay(const Transition& x, std::vector<Mat> &y);

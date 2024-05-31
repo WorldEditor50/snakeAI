@@ -1,6 +1,5 @@
 #ifndef LOSS_H
 #define LOSS_H
-#include "util.h"
 #include <iostream>
 
 namespace RL {

@@ -1,38 +1,37 @@
 #ifndef AGENT_H
 #define AGENT_H
 #include <vector>
-#include "dqn.h"
-#include "dpg.h"
-#include "ddpg.h"
-#include "ppo.h"
-#include "qlstm.h"
-#include "drpg.h"
+#include "rl/dqn.h"
+#include "rl/dpg.h"
+#include "rl/ddpg.h"
+#include "rl/ppo.h"
+#include "rl/qlstm.h"
+#include "rl/drpg.h"
+#include "rl/mat.hpp"
+#include "rl/sac.h"
 #include "common.h"
 #include "snake.h"
-#include "mat.hpp"
-#include "sac.h"
 
-using namespace RL;
 class Agent
 {
 private:
-    Mat& map;
+    RL::Mat& map;
     Snake &snake;
-    Mat state;
-    Mat nextState;
-    DQN dqn;
-    BPNN bpnn;
-    DPG dpg;
-    DDPG ddpg;
-    PPO ppo;
-    SAC sac;
-    QLSTM qlstm;
-    DRPG drpg;
+    RL::Mat state;
+    RL::Mat nextState;
+    RL::DQN dqn;
+    RL::BPNN bpnn;
+    RL::DPG dpg;
+    RL::DDPG ddpg;
+    RL::PPO ppo;
+    RL::SAC sac;
+    RL::QLSTM qlstm;
+    RL::DRPG drpg;
     bool trainFlag;
 public:
-    explicit Agent(Mat& map, Snake& s);
+    explicit Agent(RL::Mat& map, Snake& s);
     ~Agent();
-    void observe(Mat& statex, int x, int y, int xt, int yt);
+    void observe(RL::Mat& statex, int x, int y, int xt, int yt);
     int astarAction(int x, int y, int xt, int yt, float &totalReward);
     int randAction(int x, int y, int xt, int yt, float &totalReward);
     int dqnAction(int x, int y, int xt, int yt, float &totalReward);

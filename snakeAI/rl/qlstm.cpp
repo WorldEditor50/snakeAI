@@ -32,11 +32,6 @@ RL::Mat& RL::QLSTM::eGreedyAction(const Mat &state)
     return eGreedy(out, exploringRate, false);
 }
 
-RL::Mat &RL::QLSTM::output()
-{
-    return QMainNet.output();
-}
-
 RL::Mat &RL::QLSTM::action(const Mat &state)
 {
     return QMainNet.forward(state);
@@ -86,7 +81,7 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
     std::vector<Mat> y;
     std::uniform_int_distribution<int> uniform(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
-        int k = uniform(Rand::engine);
+        int k = uniform(Random::engine);
         x.push_back(memories[k].state);
         experienceReplay(memories[k], y);
     }

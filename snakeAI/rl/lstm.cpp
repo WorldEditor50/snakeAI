@@ -8,7 +8,7 @@ RL::LSTM::LSTM(std::size_t inputDim_,
     inputDim(inputDim_), hiddenDim(hiddenDim_), outputDim(outputDim_)
 {
     if (trainFlag == true) {
-        d = LSTMParam(inputDim_, hiddenDim_, outputDim_);
+        g = LSTMParam(inputDim_, hiddenDim_, outputDim_);
         v = LSTMParam(inputDim_, hiddenDim_, outputDim_);
         s = LSTMParam(inputDim_, hiddenDim_, outputDim_);
     }
@@ -80,6 +80,8 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Mat &x, const RL::Mat &_h, const
         state.c[i] = state.f[i] * _c[i] + state.i[i]*state.g[i];
         state.h[i] = state.o[i] * Tanh::f(state.c[i]);
     }
+    //Mat::Mul::ikkj(state.y, w, state.h);
+    //state.y += b;
     for (std::size_t i = 0; i < w.rows; i++) {
         for (std::size_t j = 0; j < w.cols; j++) {
             state.y[i] += w(i, j) * state.h[j];
@@ -151,32 +153,32 @@ void RL::LSTM::backwardAtTime(int t,
     /* gradient */
     for (std::size_t i = 0; i < w.rows; i++) {
         for (std::size_t j = 0; j < w.cols; j++) {
-            d.w(i, j) += E[i] * Linear::d(states[t].y[i]) * states[t].h[j];
+            g.w(i, j) += E[i] * Linear::d(states[t].y[i]) * states[t].h[j];
         }
-        d.b[i] += E[i] * Linear::d(states[t].y[i]);
+        g.b[i] += E[i] * Linear::d(states[t].y[i]);
     }
     for (std::size_t i = 0; i < wi.rows; i++) {
         for (std::size_t j = 0; j < wi.cols; j++) {
-            d.wi(i, j) += delta.i[i] * x[j];
-            d.wf(i, j) += delta.f[i] * x[j];
-            d.wg(i, j) += delta.g[i] * x[j];
-            d.wo(i, j) += delta.o[i] * x[j];
+            g.wi(i, j) += delta.i[i] * x[j];
+            g.wf(i, j) += delta.f[i] * x[j];
+            g.wg(i, j) += delta.g[i] * x[j];
+            g.wo(i, j) += delta.o[i] * x[j];
         }
     }
     Mat _h = t > 0 ? states[t - 1].h : Mat(hiddenDim, 1);
     for (std::size_t i = 0; i < ui.rows; i++) {
         for (std::size_t j = 0; j < ui.cols; j++) {
-            d.ui(i, j) += delta.i[i] * _h[j];
-            d.uf(i, j) += delta.f[i] * _h[j];
-            d.ug(i, j) += delta.g[i] * _h[j];
-            d.uo(i, j) += delta.o[i] * _h[j];
+            g.ui(i, j) += delta.i[i] * _h[j];
+            g.uf(i, j) += delta.f[i] * _h[j];
+            g.ug(i, j) += delta.g[i] * _h[j];
+            g.uo(i, j) += delta.o[i] * _h[j];
         }
     }
     for (std::size_t i = 0; i < bi.size(); i++) {
-        d.bi[i] += delta.i[i];
-        d.bf[i] += delta.f[i];
-        d.bg[i] += delta.g[i];
-        d.bo[i] += delta.o[i];
+        g.bi[i] += delta.i[i];
+        g.bf[i] += delta.f[i];
+        g.bg[i] += delta.g[i];
+        g.bo[i] += delta.o[i];
     }
     /* next */
     delta_ = delta;
@@ -224,48 +226,48 @@ void RL::LSTM::gradient(const std::vector<RL::Mat> &x, const RL::Mat &yt)
 
 void RL::LSTM::SGD(float learningRate)
 {   
-    Optimize::SGD(w, d.w, learningRate);
-    Optimize::SGD(b, d.b, learningRate);
+    Optimize::SGD(w, g.w, learningRate);
+    Optimize::SGD(b, g.b, learningRate);
 
-    Optimize::SGD(wi, d.wi, learningRate);
-    Optimize::SGD(wg, d.wg, learningRate);
-    Optimize::SGD(wf, d.wf, learningRate);
-    Optimize::SGD(wo, d.wo, learningRate);
+    Optimize::SGD(wi, g.wi, learningRate);
+    Optimize::SGD(wg, g.wg, learningRate);
+    Optimize::SGD(wf, g.wf, learningRate);
+    Optimize::SGD(wo, g.wo, learningRate);
 
-    Optimize::SGD(ui, d.ui, learningRate);
-    Optimize::SGD(ug, d.ug, learningRate);
-    Optimize::SGD(uf, d.uf, learningRate);
-    Optimize::SGD(uo, d.uo, learningRate);
+    Optimize::SGD(ui, g.ui, learningRate);
+    Optimize::SGD(ug, g.ug, learningRate);
+    Optimize::SGD(uf, g.uf, learningRate);
+    Optimize::SGD(uo, g.uo, learningRate);
 
-    Optimize::SGD(bi, d.bi, learningRate);
-    Optimize::SGD(bg, d.bg, learningRate);
-    Optimize::SGD(bf, d.bf, learningRate);
-    Optimize::SGD(bo, d.bo, learningRate);
-    d.zero();
+    Optimize::SGD(bi, g.bi, learningRate);
+    Optimize::SGD(bg, g.bg, learningRate);
+    Optimize::SGD(bf, g.bf, learningRate);
+    Optimize::SGD(bo, g.bo, learningRate);
+    g.zero();
     return;
 }
 
 void RL::LSTM::RMSProp(float learningRate, float rho, float decay)
 {
-    Optimize::RMSProp(w, s.w, d.w, learningRate, rho, decay);
-    Optimize::RMSProp(b, s.b, d.b, learningRate, rho, decay);
+    Optimize::RMSProp(w, s.w, g.w, learningRate, rho, decay);
+    Optimize::RMSProp(b, s.b, g.b, learningRate, rho, decay);
 
-    Optimize::RMSProp(wi, s.wi, d.wi, learningRate, rho, decay);
-    Optimize::RMSProp(wg, s.wg, d.wg, learningRate, rho, decay);
-    Optimize::RMSProp(wf, s.wf, d.wf, learningRate, rho, decay);
-    Optimize::RMSProp(wo, s.wo, d.wo, learningRate, rho, decay);
+    Optimize::RMSProp(wi, s.wi, g.wi, learningRate, rho, decay);
+    Optimize::RMSProp(wg, s.wg, g.wg, learningRate, rho, decay);
+    Optimize::RMSProp(wf, s.wf, g.wf, learningRate, rho, decay);
+    Optimize::RMSProp(wo, s.wo, g.wo, learningRate, rho, decay);
 
-    Optimize::RMSProp(ui, s.ui, d.ui, learningRate, rho, decay);
-    Optimize::RMSProp(ug, s.ug, d.ug, learningRate, rho, decay);
-    Optimize::RMSProp(uf, s.uf, d.uf, learningRate, rho, decay);
-    Optimize::RMSProp(uo, s.uo, d.uo, learningRate, rho, decay);
+    Optimize::RMSProp(ui, s.ui, g.ui, learningRate, rho, decay);
+    Optimize::RMSProp(ug, s.ug, g.ug, learningRate, rho, decay);
+    Optimize::RMSProp(uf, s.uf, g.uf, learningRate, rho, decay);
+    Optimize::RMSProp(uo, s.uo, g.uo, learningRate, rho, decay);
 
-    Optimize::RMSProp(bi, s.bi, d.bi, learningRate, rho, decay);
-    Optimize::RMSProp(bg, s.bg, d.bg, learningRate, rho, decay);
-    Optimize::RMSProp(bf, s.bf, d.bf, learningRate, rho, decay);
-    Optimize::RMSProp(bo, s.bo, d.bo, learningRate, rho, decay);
+    Optimize::RMSProp(bi, s.bi, g.bi, learningRate, rho, decay);
+    Optimize::RMSProp(bg, s.bg, g.bg, learningRate, rho, decay);
+    Optimize::RMSProp(bf, s.bf, g.bf, learningRate, rho, decay);
+    Optimize::RMSProp(bo, s.bo, g.bo, learningRate, rho, decay);
 
-    d.zero();
+    g.zero();
     return;
 }
 
@@ -273,24 +275,24 @@ void RL::LSTM::Adam(float learningRate,  float alpha, float beta, float decay)
 {
     alpha_t *= alpha;
     beta_t *= beta;
-    Optimize::Adam(w, s.w, v.w, d.w, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(b, s.b, v.b, d.b, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(w, s.w, v.w, g.w, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(b, s.b, v.b, g.b, alpha_t, beta_t, learningRate, alpha, beta, decay);
 
-    Optimize::Adam(wi, s.wi, v.wi, d.wi, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(wg, s.wg, v.wg, d.wg, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(wf, s.wf, v.wf, d.wf, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(wo, s.wo, v.wo, d.wo, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(wi, s.wi, v.wi, g.wi, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(wg, s.wg, v.wg, g.wg, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(wf, s.wf, v.wf, g.wf, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(wo, s.wo, v.wo, g.wo, alpha_t, beta_t, learningRate, alpha, beta, decay);
 
-    Optimize::Adam(ui, s.ui, v.ui, d.ui, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(ug, s.ug, v.ug, d.ug, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(uf, s.uf, v.uf, d.uf, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(uo, s.uo, v.uo, d.uo, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(ui, s.ui, v.ui, g.ui, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(ug, s.ug, v.ug, g.ug, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(uf, s.uf, v.uf, g.uf, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(uo, s.uo, v.uo, g.uo, alpha_t, beta_t, learningRate, alpha, beta, decay);
 
-    Optimize::Adam(bi, s.bi, v.bi, d.bi, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(bg, s.bg, v.bg, d.bg, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(bf, s.bf, v.bf, d.bf, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(bo, s.bo, v.bo, d.bo, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    d.zero();
+    Optimize::Adam(bi, s.bi, v.bi, g.bi, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(bg, s.bg, v.bg, g.bg, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(bf, s.bf, v.bf, g.bf, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(bo, s.bo, v.bo, g.bo, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    g.zero();
     return;
 }
 
@@ -381,9 +383,9 @@ void RL::LSTM::test()
     std::uniform_int_distribution<int> selectIndex(0, data.size() - 1);
     auto sample = [&](std::vector<Mat> &batchData,
             std::vector<Mat> &batchTarget, int batchSize){
-        int k = selectIndex(Rand::engine);
+        int k = selectIndex(Random::engine);
         while (k > data.size() - batchSize) {
-            k = selectIndex(Rand::engine);
+            k = selectIndex(Random::engine);
         }
         for (int i = 0; i < batchSize; i++) {
             batchData.push_back(data[k + i]);

@@ -2,7 +2,7 @@
 #define LSTM_H
 #include <iostream>
 #include <memory>
-#include "util.h"
+#include "util.hpp"
 #include "activate.h"
 #include "optimize.h"
 #include "loss.h"
@@ -39,7 +39,7 @@ public:
          wf(r.wf), uf(r.uf), bf(r.bf),
          wo(r.wo), uo(r.uo), bo(r.bo),
          w(r.w), b(r.b){}
-    LSTMParam(std::size_t inputDim, std::size_t hiddenDim, std::size_t outputDim)
+    explicit LSTMParam(std::size_t inputDim, std::size_t hiddenDim, std::size_t outputDim)
     {
         wi = Mat(hiddenDim, inputDim);
         wg = Mat(hiddenDim, inputDim);
@@ -101,10 +101,11 @@ public:
         State(const State &r)
             :i(r.i),f(r.f), g(r.g),
              o(r.o),c(r.c),h(r.h), y(r.y){}
-        State(std::size_t hiddenDim, std::size_t outputDim):
+        explicit State(std::size_t hiddenDim, std::size_t outputDim):
             i(Mat(hiddenDim, 1)),f(Mat(hiddenDim, 1)),g(Mat(hiddenDim, 1)),
             o(Mat(hiddenDim, 1)),c(Mat(hiddenDim, 1)),h(Mat(hiddenDim, 1)),
             y(Mat(outputDim, 1)){}
+
         void zero()
         {
             for (std::size_t k = 0; k < i.size(); k++) {
@@ -130,16 +131,16 @@ public:
 protected:
     float alpha_t;
     float beta_t;
-    LSTMParam d;
+    LSTMParam g;
     LSTMParam v;
     LSTMParam s;
 public:
     LSTM(){}
     LSTM(const LSTM &r)
-        :inputDim(r.inputDim),hiddenDim(r.hiddenDim),outputDim(r.outputDim),
+        :LSTMParam(r),inputDim(r.inputDim),hiddenDim(r.hiddenDim),outputDim(r.outputDim),
     h(r.h),c(r.c),y(r.y),states(r.states),alpha_t(r.alpha_t),beta_t(r.beta_t),
-    d(r.d),v(r.v),s(r.s){}
-    LSTM(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
+    g(r.g),v(r.v),s(r.s){}
+    explicit LSTM(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
     static std::shared_ptr<LSTM> _(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag)
     {
         return std::make_shared<LSTM>(inputDim_, hiddenDim_, outputDim_, trainFlag);

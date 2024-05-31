@@ -1,7 +1,7 @@
 #ifndef GRU_H
 #define GRU_H
 #include <iostream>
-#include "util.h"
+#include "util.hpp"
 #include "activate.h"
 #include "optimize.h"
 #include "loss.h"

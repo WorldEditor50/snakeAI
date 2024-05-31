@@ -44,16 +44,9 @@ RL::Mat& RL::DQN::noiseAction(const Mat &state)
     return noise(out, exploringRate);
 }
 
-RL::Mat &RL::DQN::output()
+RL::Mat &RL::DQN::action(const Mat &state)
 {
-    return QMainNet.output();
-}
-
-int RL::DQN::action(const Mat &state)
-{
-    int a = QMainNet.forward(state).argmax();
-    QMainNet.show();
-    return a;
+    return QMainNet.forward(state);
 }
 
 void RL::DQN::experienceReplay(const Transition& x)
@@ -94,7 +87,7 @@ void RL::DQN::learn(std::size_t maxMemorySize,
     /* experience replay */
     std::uniform_int_distribution<int> uniform(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
-        int k = uniform(Rand::engine);
+        int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
     QMainNet.optimize(OPT_NORMRMSPROP, learningRate, 0);

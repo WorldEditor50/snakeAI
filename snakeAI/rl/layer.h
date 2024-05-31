@@ -3,7 +3,7 @@
 #include <functional>
 #include <memory>
 #include <iostream>
-#include "util.h"
+#include "util.hpp"
 #include "optimize.h"
 #include "activate.h"
 #include "loss.h"
@@ -312,7 +312,7 @@ public:
         if (trainFlag == true) {
             std::bernoulli_distribution bernoulli(p);
             for (std::size_t i = 0; i < Layer<Fn>::o.size(); i++) {
-                mask[i] = bernoulli(Rand::engine) / (1 - p);
+                mask[i] = bernoulli(Random::engine) / (1 - p);
             }
             Layer<Fn>::o *= mask;
         }

@@ -5,10 +5,9 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
-
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = -0.12*std::log(0.12);//0.25
+    entropy0 = -0.05*std::log(0.05);
     policyNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                      LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
                      Layer<Tanh>::_(hiddenDim, hiddenDim, true),
@@ -34,14 +33,12 @@ RL::Mat &RL::DPG::gumbelMax(const RL::Mat &state)
     return gumbelSoftmax(out, alpha.val);
 }
 
-int RL::DPG::action(const Mat &state)
+RL::Mat &RL::DPG::action(const Mat &state)
 {
-    int a = policyNet.forward(state).argmax();
-    policyNet.show();
-    return a;
+    return policyNet.forward(state);
 }
 
-void RL::DPG::reinforce(float learningRate, std::vector<Step>& x)
+void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
 {
     float r = 0;
     Mat discountedReward(x.size(), 1);
@@ -51,21 +48,17 @@ void RL::DPG::reinforce(float learningRate, std::vector<Step>& x)
     }
     float u = discountedReward.mean();
     for (std::size_t i = 0; i < x.size(); i++) {
-        const Mat &p = x[i].action;   
+        const Mat &prob = x[i].action;
         int k = x[i].action.argmax();
-        alpha.g[k] += -p[k]*std::log(p[k] + 1e-8) - entropy0;
-        float ri = discountedReward[i] - u;
-        x[i].action[k] *= ri;
+        alpha.g[k] += -prob[k]*std::log(prob[k] + 1e-8) - entropy0;
+        x[i].action[k] = prob[k]*(discountedReward[i] - u);
         policyNet.gradient(x[i].state, x[i].action, Loss::CrossEntropy);
     }
     alpha.RMSProp(0.9, 1e-4, 0);
     alpha.clamp(0.1, 1.25);
-#if 1
+#if 0
     std::cout<<"alpha:";
-    for (std::size_t i = 0; i < actionDim; i++) {
-        std::cout<<alpha[i]<<" ";
-    }
-    std::cout<<std::endl;
+    alpha.val.show();
 #endif
 
     policyNet.optimize(OPT_NORMRMSPROP, learningRate, 0.1);

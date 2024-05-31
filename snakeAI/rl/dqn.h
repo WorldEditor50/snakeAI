@@ -28,9 +28,7 @@ public:
                   bool done);
     Mat& eGreedyAction(const Mat& state);
     Mat& noiseAction(const Mat& state);
-    Mat& output();
-    int action(const Mat &state);
-    void annealing(float r);
+    Mat& action(const Mat &state);
     void experienceReplay(const Transition& x);
     void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,

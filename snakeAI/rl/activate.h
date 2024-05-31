@@ -1,7 +1,6 @@
 #ifndef ACTIVATE_H
 #define ACTIVATE_H
 #include <cmath>
-#include "util.h"
 
 namespace RL {
 
@@ -14,7 +13,10 @@ struct Tanh {
     inline static float f(float x) {return std::tanh(x);}
     inline static float d(float y) {return 1 - y*y;}
 };
-
+struct Softplus {
+    inline static float f(float x) {return std::log(1 + std::exp(x));}
+    inline static float d(float y) {return 1 - std::exp(-y);}
+};
 struct Relu {
     inline static float f(float x) {return x > 0 ? x : 0;}
     inline static float d(float y) {return y > 0 ? 1 : 0;}

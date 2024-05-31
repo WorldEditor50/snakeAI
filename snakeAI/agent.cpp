@@ -1,24 +1,24 @@
 #include "agent.h"
 #include <QDebug>
-Agent::Agent(Mat& map, Snake &s):
+Agent::Agent(RL::Mat& map, Snake &s):
     map(map),
     snake(s),
     trainFlag(true)
 {
     int stateDim = 4;
-    dqn = DQN(stateDim, 16, 4);
-    dpg = DPG(stateDim, 16, 4);
-    ddpg = DDPG(stateDim, 16, 4);
-    ppo = PPO(stateDim, 16, 4);
-    sac = SAC(stateDim, 16, 4);
-    bpnn = BPNN(Layer<Sigmoid>::_(stateDim, 16, true),
-                Layer<Sigmoid>::_(16, 16, true),
-                Layer<Sigmoid>::_(16, 16, true),
-                Layer<Sigmoid>::_(16, 4, true));
-    qlstm = QLSTM(stateDim, 16, 4);
-    drpg = DRPG(stateDim, 16, 4);
-    state = Mat(stateDim, 1);
-    nextState = Mat(stateDim, 1);
+    dqn = RL::DQN(stateDim, 16, 4);
+    dpg = RL::DPG(stateDim, 16, 4);
+    ddpg = RL::DDPG(stateDim, 16, 4);
+    ppo = RL::PPO(stateDim, 16, 4);
+    sac = RL::SAC(stateDim, 16, 4);
+    bpnn = RL::BPNN(RL::Layer<RL::Sigmoid>::_(stateDim, 16, true),
+                    RL::Layer<RL::Sigmoid>::_(16, 16, true),
+                    RL::Layer<RL::Sigmoid>::_(16, 16, true),
+                    RL::Layer<RL::Sigmoid>::_(16, 4, true));
+    qlstm = RL::QLSTM(stateDim, 16, 4);
+    drpg = RL::DRPG(stateDim, 16, 4);
+    state = RL::Mat(stateDim, 1);
+    nextState = RL::Mat(stateDim, 1);
 #if 0
     dqn.load("./dqn");
     dpg.load("./dpg");
@@ -112,12 +112,10 @@ float Agent::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
     if (xn == xt && yn == yt) {
         return 1;
     }
-    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    return std::tanh(1/(d1 - d2));
+    return 0.01;
 }
 
-void Agent::observe(Mat& statex, int x, int y, int xt, int yt)
+void Agent::observe(RL::Mat& statex, int x, int y, int xt, int yt)
 {
     float xc = float(map.rows) / 2;
     float yc = float(map.cols) / 2;
@@ -158,7 +156,7 @@ int Agent::randAction(int x, int y, int xt, int yt, float &totalReward)
     int direct = 0;
     float gamma = 0.9f;
     float T = 10000;
-    Mat act(4, 1);
+    RL::Mat a(4, 1);
     while (T > 0.001) {
         /* do experiment */
         while (T > 0.01) {
@@ -166,7 +164,7 @@ int Agent::randAction(int x, int y, int xt, int yt, float &totalReward)
             int xi = xn;
             int yi = yn;
             simulateMove(xn, yn, direct);
-            act[direct] = gamma * act[direct] + reward0(xi, yi, xn, yn, xt, yt);
+            a[direct] = gamma * a[direct] + reward0(xi, yi, xn, yn, xt, yt);
             if ((map(xn, yn) == 1) || (xn == xt && yn == yt)) {
                 break;
             }
@@ -174,14 +172,13 @@ int Agent::randAction(int x, int y, int xt, int yt, float &totalReward)
         xn = x;
         yn = y;
         /* select optimal Action */
-        direct = act.argmax();
+        direct = a.argmax();
         simulateMove(xn, yn, direct);
         if (map(xn, yn) != 1) {
             break;
         }
-        /* punishment */
-        act[direct] *= -2;
-        T = 0.98 * T;
+        a[direct] *= -2;
+        T *= 0.98;
     }
     return direct;
 }
@@ -192,28 +189,27 @@ int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
     int xn = x;
     int yn = y;
     observe(state, x, y, xt, yt);
-    Mat state0 = state;
+    RL::Mat state0 = state;
     if (trainFlag == true) {
-        int i = 0;
         float total = 0;
-        for (i = 0; i < 128; i++) {
+        for (int i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
-            Mat& action = dqn.noiseAction(state);
-            int k = action.argmax();
+            RL::Mat& a = dqn.noiseAction(state);
+            int k = a.argmax();
             simulateMove(xn, yn, k);
             float r = reward0(xi, yi, xn, yn, xt, yt);
             observe(nextState, xn, yn, xt, yt);
             total += r;
             if (map(xn, yn) == 1) {
-                dqn.perceive(state, action, nextState, r, true);
+                dqn.perceive(state, a, nextState, r, true);
                 break;
             }
             if (xn == xt && yn == yt) {
-                dqn.perceive(state, action, nextState, r, true);
+                dqn.perceive(state, a, nextState, r, true);
                 break;
             } else {
-                dqn.perceive(state, action, nextState, r, false);
+                dqn.perceive(state, a, nextState, r, false);
             }
             state = nextState; 
         }
@@ -222,36 +218,37 @@ int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
         dqn.learn(8192, 256, 64, 1e-3);
     }
     /* making decision */
-    return dqn.action(state0);
+    RL::Mat& a = dqn.action(state0);
+    a.show();
+    return a.argmax();
 }
 
 int Agent::qlstmAction(int x, int y, int xt, int yt, float &totalReward)
 {
     int xn = x;
     int yn = y;
-    float r = 0;
-    float total = 0;
     observe(state, x, y, xt, yt);
-    Mat state_ = state;
+    RL::Mat state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 256; j++) {
+        float total = 0;
+        for (std::size_t i = 0; i < 256; i++) {
             int xi = xn;
             int yi = yn;
-            Mat& action = qlstm.eGreedyAction(state);
-            int k = action.argmax();
+            RL::Mat& a = qlstm.eGreedyAction(state);
+            int k = a.argmax();
             simulateMove(xn, yn, k);
-            r = reward0(xi, yi, xn, yn, xt, yt);
+            float r = reward0(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (map(xn, yn) == 1) {
-                qlstm.perceive(state, action, nextState, r, true);
+                qlstm.perceive(state, a, nextState, r, true);
                 break;
             }
             if (xn == xt && yn == yt) {
-                qlstm.perceive(state, action, nextState, r, true);
+                qlstm.perceive(state, a, nextState, r, true);
                 break;
             } else {
-                qlstm.perceive(state, action, nextState, r, false);
+                qlstm.perceive(state, a, nextState, r, false);
             }
             state = nextState;
         }
@@ -260,40 +257,33 @@ int Agent::qlstmAction(int x, int y, int xt, int yt, float &totalReward)
         qlstm.learn(8192, 256, 16, 1e-3);
     }
     /* making decision */
-    Mat &action = qlstm.action(state_);
-    for (std::size_t i = 0; i < action.size(); i++) {
-        std::cout<<action[i]<<" ";
-    }
-    std::cout<<std::endl;
-    return action.argmax();
+    RL::Mat &a = qlstm.action(state_);
+    a.show();
+    return a.argmax();
 }
 
 int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
 {
 
-    int direct = 0;
-    /* exploring environment */
-    std::vector<Step> steps;
     int xn = x;
     int yn = y;
     float total = 0;
     observe(state, x, y, xt, yt);
-    Mat state_ = state;
+    RL::Mat state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 16; j++) {
+        /* exploring environment */
+        std::vector<RL::Step> steps;
+        for (std::size_t i = 0; i < 16; i++) {
             int xi = xn;
             int yi = yn;
             /* sample */
-            Mat &output = dpg.gumbelMax(state);
-            direct = output.argmax();
-            simulateMove(xn, yn, direct);
+            RL::Mat &a = dpg.gumbelMax(state);
+            int k = a.argmax();
+            simulateMove(xn, yn, k);
             observe(nextState, xn, yn, xt, yt);
-            Step s;
-            s.state = state;
-            s.action  = output;
-            s.reward  = reward0(xi, yi, xn, yn, xt, yt);
-            total += s.reward;
-            steps.push_back(s);
+            float r = reward0(xi, yi, xn, yn, xt, yt);
+            total += r;
+            steps.push_back(RL::Step(state, a, r));
             if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
                 break;
             }
@@ -301,37 +291,38 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        dpg.reinforce(1e-3, steps);
+        dpg.reinforce(steps, 1e-3);
     }
     /* making decision */
-    direct = dpg.action(state_);
-    return direct;
+    RL::Mat& a = dpg.action(state_);
+    a.show();
+    return a.argmax();
 }
 
 int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
 {
     int direct = 0;
-    std::vector<Mat> states;
-    std::vector<Mat> actions;
+    std::vector<RL::Mat> states;
+    std::vector<RL::Mat> actions;
     std::vector<float> rewards;
     int xn = x;
     int yn = y;
     float total = 0;
     observe(state, x, y, xt, yt);
-    Mat state_ = state;
+    RL::Mat state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 16; j++) {
+        for (std::size_t i = 0; i < 16; i++) {
             int xi = xn;
             int yi = yn;
             /* move */
-            Mat &output = drpg.noiseAction(state);
-            direct = output.argmax();
+            RL::Mat &a = drpg.noiseAction(state);
+            direct = a.argmax();
             simulateMove(xn, yn, direct);
             observe(nextState, xn, yn, xt, yt);
             float r = reward0(xi, yi, xn, yn, xt, yt);
             /* sample */
             states.push_back(state);
-            actions.push_back(output);
+            actions.push_back(a);
             rewards.push_back(r);
             total += r;
             if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
@@ -344,11 +335,8 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
         drpg.reinforce(states, actions, rewards, 1e-3);
     }
     /* making decision */
-    Mat &a = drpg.action(state_);
-    for (std::size_t i = 0; i < a.size(); i++) {
-        std::cout<<a[i]<<" ";
-    }
-    std::cout<<std::endl;
+    RL::Mat &a = drpg.action(state_);
+    a.show();
     return a.argmax();
 }
 
@@ -360,32 +348,32 @@ int Agent::ddpgAction(int x, int y, int xt, int yt, float &totalReward)
     float r = 0;
     float total = 0;
     observe(state, x, y, xt, yt);
-    Mat state_ = state;
+    RL::Mat state_ = state;
     if (trainFlag == true) {
-        for (std::size_t j = 0; j < 16; j++) {
+        for (std::size_t i = 0; i < 16; i++) {
             int xi = xn;
             int yi = yn;
-            Mat & action = ddpg.noiseAction(state);
-            int k = action.argmax();
+            RL::Mat & a = ddpg.noiseAction(state);
+            int k = a.argmax();
             simulateMove(xn, yn, k);
             r = reward1(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (map(xn, yn) == 1) {
-                ddpg.perceive(state, action, nextState, r, true);
+                ddpg.perceive(state, a, nextState, r, true);
                 break;
             }
             if (xn == xt && yn == yt) {
-                ddpg.perceive(state, action, nextState, r, true);
+                ddpg.perceive(state, a, nextState, r, true);
                 break;
             } else {
-                ddpg.perceive(state, action, nextState, r, false);
+                ddpg.perceive(state, a, nextState, r, false);
             }
             state = nextState;
         }
         totalReward = total;
         /* training */
-        ddpg.learn(OPT_NORMRMSPROP, 8192, 256, 32, 0.001, 0.001);
+        ddpg.learn(8192, 256, 32, 0.001, 0.001);
     }
     return ddpg.action(state_);
 }
@@ -395,22 +383,22 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
     /* exploring environment */
     int xn = x;
     int yn = y;
-    float total = 0;
     observe(state, x, y, xt, yt);
-    Mat state_ = state;
+    RL::Mat state_ = state;
     if (trainFlag == true) {
-        std::vector<Step> trajectories;
-        for (std::size_t j = 0; j < 32; j++) {
+        float total = 0;
+        std::vector<RL::Step> trajectory;
+        for (std::size_t i = 0; i < 32; i++) {
             int xi = xn;
             int yi = yn;
             /* sample */
-            Mat &output = ppo.gumbelMax(state);
-            int direct = output.argmax();
+            RL::Mat &a = ppo.gumbelMax(state);
+            int k = a.argmax();
             /* move */
-            simulateMove(xn, yn, direct);
+            simulateMove(xn, yn, k);
             observe(nextState, xn, yn, xt, yt);
             float r = reward0(xi, yi, xn, yn, xt, yt);
-            trajectories.push_back(Step(state, output, r));
+            trajectory.push_back(RL::Step(state, a, r));
             total += r;
             if (map(xn, yn) == 1 || (xn == xt && yn == yt)) {
                 break;
@@ -420,17 +408,14 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
         totalReward = total;
         /* training */
 #if 1
-        ppo.learnWithClipObjective(1e-3, trajectories);
+        ppo.learnWithClipObjective(trajectory, 1e-3);
 #else
-        ppo.learnWithKLpenalty(1e-3, trajectories);
+        ppo.learnWithKLpenalty(trajectory, 1e-3);
 #endif
     }
     /* making decision */
-    Mat &a = ppo.action(state_);
-    for (std::size_t i = 0; i < a.size(); i++) {
-        std::cout<<a[i]<<" ";
-    }
-    std::cout<<std::endl;
+    RL::Mat &a = ppo.action(state_);
+    a.show();
     return a.argmax();
 }
 
@@ -438,30 +423,29 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
 {
     int xn = x;
     int yn = y;
-    float r = 0;
-    float total = 0;
     observe(state, x, y, xt, yt);
-    Mat state_ = state;
-    int i = 0;
+    RL::Mat state_ = state;
     if (trainFlag == true) {
-        for (i = 0; i < 128; i++) {
+        float total = 0;
+        for (int i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
-            Mat& action = sac.gumbelMax(state);
-            int k = action.argmax();
+            RL::Mat& a = sac.gumbelMax(state);
+            //int k = a.argmax();
+            int k = RL::Random::categorical(a);
             simulateMove(xn, yn, k);
-            r = reward0(xi, yi, xn, yn, xt, yt);
+            float r = reward0(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (map(xn, yn) == 1) {
-                sac.perceive(state, action, nextState, r, true);
+                sac.perceive(state, a, nextState, r, true);
                 break;
             }
             if (xn == xt && yn == yt) {
-                sac.perceive(state, action, nextState, r, true);
+                sac.perceive(state, a, nextState, r, true);
                 break;
             } else {
-                sac.perceive(state, action, nextState, r, false);
+                sac.perceive(state, a, nextState, r, false);
             }
             state = nextState;
         }
@@ -470,13 +454,8 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
         sac.learn(8192, 256, 64, 1e-3);
     }
     /* making decision */
-    Mat& a = sac.action(state_);
-#if 1
-    for (std::size_t i = 0; i < a.size(); i++) {
-        std::cout<<a[i]<<" ";
-    }
-    std::cout<<std::endl;
-#endif
+    RL::Mat& a = sac.action(state_);
+    a.show();
     return a.argmax();
 }
 
@@ -487,7 +466,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
     int xn = x;
     int yn = y;
     float m = 0;
-    Mat& action = bpnn.output();
+    RL::Mat& action = bpnn.output();
     if (trainFlag == true) {
         observe(state, xn, yn, xt, yt);
         for (std::size_t i = 0; i < 128; i++) {
@@ -495,9 +474,9 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
             direct1 = action.argmax();
             direct2 = astarAction(xn, yn, xt, yt, totalReward);
             if (direct1 != direct2) {
-                Mat target(4, 1);
+                RL::Mat target(4, 1);
                 target[direct2] = 1;
-                bpnn.gradient(state, target, Loss::MSE);
+                bpnn.gradient(state, target, RL::Loss::MSE);
                 m++;
             }
             if ((xn == xt) && (yn == yt)) {
@@ -509,7 +488,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
             observe(state, xn, yn, xt, yt);
         }
         if (m > 0) {
-            bpnn.optimize(OPT_RMSPROP, 0.01);
+            bpnn.optimize(RL::OPT_RMSPROP, 0.01);
         }
     }
     observe(state, x, y, xt, yt);

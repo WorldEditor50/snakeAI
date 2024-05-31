@@ -1,15 +1,15 @@
 #include "drpg.h"
 
-RL::DRPG::DRPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim)
+RL::DRPG::DRPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
-    this->gamma = 0.9;
-    this->exploringRate = 1;
-    this->stateDim = stateDim;
-    this->actionDim = actionDim;
-    this->policyNet = LstmNet(LSTM(stateDim, hiddenDim, hiddenDim, true),
-                              Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                              LayerNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                              Softmax::_(hiddenDim, actionDim, true));
+    gamma = 0.9;
+    exploringRate = 1;
+    stateDim = stateDim_;
+    actionDim = actionDim_;
+    policyNet = LstmNet(LSTM(stateDim, hiddenDim, hiddenDim, true),
+                        Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                        LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
+                        Softmax::_(hiddenDim, actionDim, true));
 }
 
 RL::Mat &RL::DRPG::eGreedyAction(const Mat &state)
@@ -55,6 +55,6 @@ void RL::DRPG::reinforce(const std::vector<Mat> &x, std::vector<Mat> &y, std::ve
     policyNet.optimize(learningRate, 0.1);
     policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
-    exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
+    exploringRate = exploringRate < 0.25 ? 0.25 : exploringRate;
     return;
 }

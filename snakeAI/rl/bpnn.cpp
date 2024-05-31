@@ -237,8 +237,8 @@ void RL::BPNN::test()
     for (int i = 0; i < 200; i++) {
         for (int j = 0; j < 200; j++) {
             Mat p(2, 1);
-            float x = uniform(Rand::engine);
-            float y = uniform(Rand::engine);
+            float x = uniform(Random::engine);
+            float y = uniform(Random::engine);
             float z = zeta(x, y);
             p[0] = x;
             p[1] = y;
@@ -251,7 +251,7 @@ void RL::BPNN::test()
     std::uniform_int_distribution<int> selectIndex(0, data.size() - 1);
     for (int i = 0; i < 10000; i++) {
         for (int j = 0; j < 128; j++) {
-            int k = selectIndex(Rand::engine);
+            int k = selectIndex(Random::engine);
             net.forward(data[k]);
             net.gradient(data[k], target[k], Loss::MSE);
         }
@@ -260,8 +260,8 @@ void RL::BPNN::test()
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
             Mat x(2, 1);
-            float x1 = uniform(Rand::engine);
-            float x2 = uniform(Rand::engine);
+            float x1 = uniform(Random::engine);
+            float x2 = uniform(Random::engine);
             float z = zeta(x1, x2);
             x[0] = x1;
             x[1] = x2;

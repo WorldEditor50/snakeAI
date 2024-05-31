@@ -300,8 +300,8 @@ void RL::GRU::test()
     for (int i = 0; i < 200; i++) {
         for (int j = 0; j < 200; j++) {
             Mat p(2, 1);
-            float x = uniform(Rand::engine);
-            float y = uniform(Rand::engine);
+            float x = uniform(Random::engine);
+            float y = uniform(Random::engine);
             float z = zeta(x, y);
             p[0] = x;
             p[1] = y;
@@ -315,7 +315,7 @@ void RL::GRU::test()
     auto sample = [&](std::vector<Mat> &batchData,
             std::vector<Mat> &batchTarget, int batchSize){
         for (int i = 0; i < batchSize; i++) {
-            int k = selectIndex(Rand::engine);
+            int k = selectIndex(Random::engine);
             batchData.push_back(data[k]);
             batchTarget.push_back(target[k]);
         }
@@ -333,8 +333,8 @@ void RL::GRU::test()
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
             Mat p(2, 1);
-            float x = uniform(Rand::engine);
-            float y = uniform(Rand::engine);
+            float x = uniform(Random::engine);
+            float y = uniform(Random::engine);
             float z = zeta(x, y);
             p[0] = x;
             p[1] = y;

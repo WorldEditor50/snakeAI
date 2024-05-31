@@ -1,5 +1,5 @@
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef UTIL_HPP
+#define UTIL_HPP
 #include <vector>
 #include <random>
 #include <ctime>
@@ -9,9 +9,82 @@ namespace RL {
 
 constexpr static float pi = 3.1415926535898;
 
-struct Rand {
+struct Random {
     static std::default_random_engine engine;
+    static std::random_device device;
+    static std::mt19937 generator;
+
+    inline static int categorical(const Mat& p)
+    {
+        std::discrete_distribution<int> distribution(p.begin(), p.end());
+        return distribution(Random::generator);
+    }
+    inline static void uniform(Mat &x, float x1, float x2)
+    {
+        std::uniform_real_distribution<float> distribution(x1, x2);
+        for (std::size_t i = 0; i < x.size(); i++) {
+            x[i] = distribution(Random::engine);
+        }
+        return;
+    }
+    inline static void bernoulli(Mat &x, float p)
+    {
+        std::bernoulli_distribution distribution(p);
+        for (std::size_t i = 0; i <x.size(); i++) {
+            x[i] = distribution(Random::engine) / (1 - p);
+        }
+        return;
+    }
+    inline static void normal(Mat &x, float u, float sigma)
+    {
+        std::normal_distribution<float> distribution(u, sigma);
+        for (std::size_t i = 0; i <x.size(); i++) {
+            x[i] = distribution(Random::generator);
+        }
+        return;
+    }
 };
+
+namespace Norm {
+    inline float l1(const Mat &x1, const Mat& x2)
+    {
+        float s = 0;
+        for (std::size_t i = 0; i < x1.size(); i++) {
+            float d = std::abs(x1[i] - x2[i]);
+            s += d;
+        }
+        return s;
+    }
+    inline float l2(const Mat &x1, const Mat& x2)
+    {
+        float s = 0;
+        for (std::size_t i = 0; i < x1.size(); i++) {
+            float d = x1[i] - x2[i];
+            s += d*d;
+        }
+        return std::sqrt(s);
+    }
+    inline float lp(const Mat &x1, const Mat& x2, float p)
+    {
+        float s = 0;
+        for (std::size_t i = 0; i < x1.size(); i++) {
+            float d = x1[i] - x2[i];
+            s += std::pow(d, p);
+        }
+        return std::pow(s, 1.0/p);
+    }
+    inline float l8(const Mat &x1, const Mat& x2)
+    {
+        float s = x1[0] - x2[0];
+        for (std::size_t i = 1; i < x1.size(); i++) {
+            float d = x1[i] - x2[i];
+            if (d > s) {
+                s = d;
+            }
+        }
+        return s;
+    }
+}
 
 inline Mat& sqrt(Mat& x)
 {
@@ -132,6 +205,7 @@ float covariance(const Mat& x1, const Mat& x2);
 void zscore(Mat &x);
 void normalize(Mat &x);
 
+
 inline float M3(const Mat &x, float u)
 {
     float s = 0;
@@ -168,7 +242,7 @@ inline void uniformRand(T &x, float x1, float x2)
 {
     std::uniform_real_distribution<float> uniform(x1, x2);
     for (std::size_t i = 0; i < x.size(); i++) {
-        x[i] = uniform(Rand::engine);
+        x[i] = uniform(Random::engine);
     }
     return;
 }
@@ -176,13 +250,13 @@ inline void uniformRand(T &x, float x1, float x2)
 inline Mat& eGreedy(Mat& x, float exploringRate, bool hard)
 {
     std::uniform_real_distribution<float> uniformReal(0, 1);
-    float p = uniformReal(Rand::engine);
+    float p = uniformReal(Random::engine);
     if (p < exploringRate) {
         if (hard) {
             x.zero();
         }
         std::uniform_int_distribution<int> uniform(0, x.size() - 1);
-        int index = uniform(Rand::engine);
+        int index = uniform(Random::engine);
         x[index] = 1;
     }
     return x;
@@ -202,7 +276,7 @@ inline Mat& noise(Mat& x)
 inline Mat& noise(Mat& x, float exploringRate)
 {
     std::uniform_real_distribution<float> uniform(0, 1);
-    float p = uniform(Rand::engine);
+    float p = uniform(Random::engine);
     if (p < exploringRate) {
         Mat epsilon(x);
         uniformRand(epsilon, -1, 1);
@@ -230,7 +304,7 @@ inline Mat& softmax(Mat &x)
 inline Mat& gumbelSoftmax(Mat &x, float tau)
 {
     Mat epsilon(x);
-    uniformRand(epsilon, 0, 1);
+    Random::uniform(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
         epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
     }
@@ -243,7 +317,7 @@ inline Mat& gumbelSoftmax(Mat &x, float tau)
 inline Mat& gumbelSoftmax(Mat &x, const Mat& tau)
 {
     Mat epsilon(x);
-    uniformRand(epsilon, 0, 1);
+    Random::uniform(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
         epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
     }
@@ -255,4 +329,4 @@ inline Mat& gumbelSoftmax(Mat &x, const Mat& tau)
 
 
 }
-#endif // UTIL_H
+#endif // UTIL_HPP

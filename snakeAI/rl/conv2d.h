@@ -2,7 +2,7 @@
 #define CONV2D_HPP
 #include "tensor.hpp"
 #include "activate.h"
-#include "util.h"
+#include "util.hpp"
 
 inline void conv2d(Tensor &y, const Tensor &kernels, const Tensor &x, int stride=1, int padding=0)
 {

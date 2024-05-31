@@ -1,6 +1,5 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
-#include "util.h"
 #include "mat.hpp"
 
 namespace RL {
@@ -95,7 +94,7 @@ inline void clamp(Mat &w, float c0, float cn)
     std::uniform_real_distribution<float> uniform(c0, cn);
     for (std::size_t i = 0; i < w.totalSize; i++) {
         if (w[i] > cn || w[i] < c0) {
-            w[i] = uniform(RL::Rand::engine);
+            w[i] = uniform(RL::Random::engine);
         }
     }
     return;

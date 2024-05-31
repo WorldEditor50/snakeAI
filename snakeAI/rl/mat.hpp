@@ -71,6 +71,8 @@ public:
     /* iterator */
     inline std::vector<float>::iterator begin() {return val.begin();}
     inline std::vector<float>::iterator end() {return val.end();}
+    inline std::vector<float>::const_iterator begin() const noexcept {return val.begin();}
+    inline std::vector<float>::const_iterator end() const noexcept {return val.end();}
     Mat &operator=(const Mat &r)
     {
         if (this == &r) {
@@ -331,19 +333,6 @@ public:
         return;
     }
 
-    void show() const
-    {
-        //std::cout<<"row:"<<rows<<", cols:"<<cols<<std::endl;
-        for (std::size_t i = 0; i < rows; i++) {
-            for (std::size_t j = 0; j < cols; j++) {
-                std::size_t index = i*cols + j;
-                std::cout<<val[index]<<" ";
-            }
-            std::cout<<std::endl;
-        }
-        return;
-    }
-
     size_t argmax() const
     {
         float maxValue = val[0];
@@ -572,7 +561,27 @@ public:
         }
         return;
     }
+    void print() const
+    {
+        //std::cout<<"row:"<<rows<<", cols:"<<cols<<std::endl;
+        for (std::size_t i = 0; i < rows; i++) {
+            for (std::size_t j = 0; j < cols; j++) {
+                std::size_t index = i*cols + j;
+                std::cout<<val[index]<<" ";
+            }
+            std::cout<<std::endl;
+        }
+        return;
+    }
 
+    void show() const
+    {
+        for (std::size_t i = 0; i < totalSize; i++) {
+            std::cout<<val[i]<<" ";
+        }
+        std::cout<<std::endl;
+        return;
+    }
 };
 
 }

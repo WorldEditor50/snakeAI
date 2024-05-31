@@ -1,9 +1,10 @@
 #include "mainwindow.h"
 #include <QApplication>
-#include "lstm.h"
-#include "gru.h"
-#include "mat.hpp"
-#include "conv2d.h"
+#include "rl/lstm.h"
+#include "rl/gru.h"
+#include "rl/mat.hpp"
+#include "rl/conv2d.h"
+#include "rl/util.hpp"
 
 int main(int argc, char *argv[])
 {

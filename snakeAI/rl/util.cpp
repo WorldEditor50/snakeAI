@@ -1,6 +1,8 @@
-#include "util.h"
+#include "util.hpp"
 
-std::default_random_engine RL::Rand::engine(std::random_device{}());
+std::default_random_engine RL::Random::engine(std::random_device{}());
+std::random_device RL::Random::device;
+std::mt19937 RL::Random::generator(RL::Random::device());
 
 void RL::zscore(Mat &x)
 {
@@ -38,7 +40,6 @@ float RL::variance(const Mat &x, float u)
     for (std::size_t i = 0 ; i < x.size(); i++) {
         sigma += (x[i] - u) * (x[i] - u);
     }
-    //return std::sqrt(sigma / x.size());
     return sigma / float(x.size());
 }
 

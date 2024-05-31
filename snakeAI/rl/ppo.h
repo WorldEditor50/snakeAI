@@ -26,8 +26,8 @@ public:
     RL::Mat &gumbelMax(const RL::Mat &state);
     Mat &action(const Mat &state);
     Mat& output(){return actorP.output();}
-    void learnWithKLpenalty(float learningRate, std::vector<Step>& trajectory);
-    void learnWithClipObjective(float learningRate, std::vector<Step>& x);
+    void learnWithKLpenalty(std::vector<Step>& trajectory, float learningRate);
+    void learnWithClipObjective(std::vector<Step>& x, float learningRate);
     void save(const std::string &actorPara, const std::string &criticPara);
     void load(const std::string &actorPara, const std::string &criticPara);
 protected:

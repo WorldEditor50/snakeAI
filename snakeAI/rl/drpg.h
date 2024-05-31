@@ -14,7 +14,6 @@ public:
     Mat &eGreedyAction(const Mat &state);
     RL::Mat &noiseAction(const RL::Mat &state);
     RL::Mat &gumbelMax(const RL::Mat &state);
-    Mat &output(){return policyNet.output();}
     Mat &action(const Mat &state);
     void reinforce(const std::vector<Mat> &x,
                    std::vector<Mat> &y,

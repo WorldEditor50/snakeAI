@@ -23,9 +23,8 @@ public:
     Mat &eGreedyAction(const Mat &state);
     Mat &noiseAction(const Mat &state);
     Mat &gumbelMax(const RL::Mat &state);
-    Mat &output(){return policyNet.output();}
-    int action(const Mat &state);
-    void reinforce(float learningRate, std::vector<Step>& x);
+    Mat &action(const Mat &state);
+    void reinforce(std::vector<Step>& x, float learningRate);
     void save(const std::string& fileName);
     void load(const std::string& fileName);
 protected:

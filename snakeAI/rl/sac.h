@@ -27,6 +27,7 @@ public:
                   const Mat& nextState,
                   float reward,
                   bool done);
+    void perceive(const std::vector<Transition>& x);
     Mat& eGreedyAction(const Mat& state);
     Mat& gumbelMax(const Mat &state);
     Mat& action(const Mat &state);
