@@ -31,7 +31,7 @@ MainWindow::MainWindow(QWidget *parent)
     statisticalWidget->setWindowTitle("Total reward/epoch");
     connect(ui->gamewidget, &GameWidget::sendTotalReward,
             statisticalWidget, &AxisWidget::addPoint, Qt::QueuedConnection);
-    statisticalWidget->move(x() + width(), y());
+    statisticalWidget->move(QPoint(x() + width(), y()));
     statisticalWidget->show();
     ui->gamewidget->start();
 }

@@ -41,8 +41,7 @@ public:
         LSTM::State delta_(lstm.hiddenDim, lstm.outputDim);
         for (int t = yt.size() - 1; t >= 0; t--) {
             /* loss */
-            Mat loss(outputDim, 1);
-            Loss(loss, y[t], yt[t]);
+            Mat loss = Loss(y[t], yt[t]);
             /* backward */
             bpnet.backward(loss, E);
             /* gradient */
@@ -139,8 +138,7 @@ public:
         std::vector<LSTM::State> deltas(lstms.size(), LSTM::State(lstm->hiddenDim, lstm->outputDim));
         for (std::size_t t = 0; t < yt.size(); t++) {
             /* loss */
-            Mat loss(outputDim, 1);
-            Loss(loss, y[t], yt[t]);
+            Mat loss = Loss(y[t], yt[t]);
             /* backward */
             bpnet.backward(loss, E[t]);
             /* gradient */

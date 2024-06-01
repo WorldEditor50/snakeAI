@@ -83,7 +83,7 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
         Mat::concat(0, criticState,
                     trajectory[t].state,
                     trajectory[t].action);
-        Mat& v = critic.forward(criticState);
+        Mat v = critic.forward(criticState);
         float advantage = trajectory[t].reward - v[k];
         /* critic */
         Mat r = v;
@@ -93,18 +93,20 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
             Mat::concat(0, criticState,
                         trajectory[t + 1].state,
                         trajectory[t + 1].action);
-            v = critic.forward(criticState);
-            r[k] = trajectory[t].reward + 0.99*v[k];
+            Mat &v1 = critic.forward(criticState);
+            r[k] = trajectory[t].reward + 0.99*v1[k];
         }
-        critic.gradient(criticState, r, Loss::MSE);
+        critic.backward(Loss::MSE(v, r));
+        critic.gradient(criticState, r);
         /* actor */
         Mat& q = trajectory[t].action;
-        Mat& p = actorP.forward(trajectory[t].state);
+        const Mat& p = actorP.forward(trajectory[t].state);
         float kl = p[k] * std::log(p[k]/q[k] + 1e-9);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         q[k] *= ratio*advantage - beta*kl;
         KLexpect += kl;
-        actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
+        actorP.backward(Loss::CrossEntropy(p, q));
+        actorP.gradient(trajectory[t].state, q);
     }
     /* KL-Penalty */
     KLexpect /= float(trajectory.size());
@@ -144,7 +146,7 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
                     trajectory[t].state,
                     trajectory[t].action);
         /* advangtage */
-        Mat& v = critic.forward(criticState);
+        Mat v = critic.forward(criticState);
         float adv = trajectory[t].reward - v[k];
         /* critic */
         Mat r = v;
@@ -154,26 +156,27 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
             Mat::concat(0, criticState,
                         trajectory[t + 1].state,
                         trajectory[t + 1].action);
-            v = critic.forward(criticState);
-            r[k] = trajectory[t].reward + 0.99*v[k];
+            Mat &v1 = critic.forward(criticState);
+            r[k] = trajectory[t].reward + 0.99*v1[k];
         }
-        critic.gradient(criticState, r, Loss::MSE);
+        critic.backward(Loss::MSE(v, r));
+        critic.gradient(criticState, r);
         /* temperture parameter */
         Mat& q = trajectory[t].action;
         alpha.g[k] += -q[k]*std::log(q[k] + 1e-8) - entropy0;
         /* actor */
-        Mat& p = actorP.forward(trajectory[t].state);
+        const Mat& p = actorP.forward(trajectory[t].state);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
         q[k] *= ratio * adv;
-        actorP.gradient(trajectory[t].state, q, Loss::CrossEntropy);
+        actorP.backward(Loss::CrossEntropy(p, q));
+        actorP.gradient(trajectory[t].state, q);
     }
     actorP.optimize(OPT_NORMRMSPROP, learningRate, 0.1);
     actorP.clamp(-1, 1);
     critic.optimize(OPT_NORMRMSPROP, 1e-3, 0.01);
 
     alpha.RMSProp(0.9, 1e-4, 0);
-    alpha.clamp(0.2, 1.25);
 #if 1
     std::cout<<"alpha:";
     alpha.val.show();

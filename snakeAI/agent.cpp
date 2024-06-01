@@ -264,15 +264,14 @@ int Agent::qlstmAction(int x, int y, int xt, int yt, float &totalReward)
 
 int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
 {
-
     int xn = x;
     int yn = y;
-    float total = 0;
     observe(state, x, y, xt, yt);
     RL::Mat state_ = state;
     if (trainFlag == true) {
         /* exploring environment */
         std::vector<RL::Step> steps;
+        float total = 0;
         for (std::size_t i = 0; i < 16; i++) {
             int xi = xn;
             int yi = yn;
@@ -301,23 +300,22 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
 
 int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
 {
-    int direct = 0;
-    std::vector<RL::Mat> states;
-    std::vector<RL::Mat> actions;
-    std::vector<float> rewards;
     int xn = x;
-    int yn = y;
-    float total = 0;
+    int yn = y;  
     observe(state, x, y, xt, yt);
     RL::Mat state_ = state;
     if (trainFlag == true) {
+        std::vector<RL::Mat> states;
+        std::vector<RL::Mat> actions;
+        std::vector<float> rewards;
+        float total = 0;
         for (std::size_t i = 0; i < 16; i++) {
             int xi = xn;
             int yi = yn;
             /* move */
             RL::Mat &a = drpg.noiseAction(state);
-            direct = a.argmax();
-            simulateMove(xn, yn, direct);
+            int k = a.argmax();
+            simulateMove(xn, yn, k);
             observe(nextState, xn, yn, xt, yt);
             float r = reward0(xi, yi, xn, yn, xt, yt);
             /* sample */
@@ -470,13 +468,14 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
     if (trainFlag == true) {
         observe(state, xn, yn, xt, yt);
         for (std::size_t i = 0; i < 128; i++) {
-            bpnn.forward(state);
+            const RL::Mat &out = bpnn.forward(state);
             direct1 = action.argmax();
             direct2 = astarAction(xn, yn, xt, yt, totalReward);
             if (direct1 != direct2) {
                 RL::Mat target(4, 1);
                 target[direct2] = 1;
-                bpnn.gradient(state, target, RL::Loss::MSE);
+                bpnn.backward(RL::Loss::MSE(out, target));
+                bpnn.gradient(state, target);
                 m++;
             }
             if ((xn == xt) && (yn == yt)) {

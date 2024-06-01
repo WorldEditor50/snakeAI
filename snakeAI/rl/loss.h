@@ -1,36 +1,36 @@
 #ifndef LOSS_H
 #define LOSS_H
 #include <iostream>
+#include "mat.hpp"
 
 namespace RL {
 
 /* loss type */
 namespace Loss {
 
-inline void MSE(Mat& E, const Mat& O, const Mat& y)
+inline Mat MSE(const Mat& yo, const Mat& yt)
 {
-    for (std::size_t i = 0; i < O.size(); i++) {
-         E[i] = 2*(O[i] - y[i]);
+    Mat loss(yo.totalSize, 1);
+    for (std::size_t i = 0; i < yo.size(); i++) {
+         loss[i] = 2*(yo[i] - yt[i]);
     }
-    return;
+    return loss;
 }
-inline void CrossEntropy(Mat& E, const Mat& O, const Mat& y)
+inline Mat CrossEntropy(const Mat& yo, const Mat& yt)
 {
-    for (std::size_t i = 0; i < O.size(); i++) {
-        if (O[i] > 0) {
-            E[i] = -y[i] * std::log(O[i] + 1e-9);
-        } else {
-            E[i] = 0;
-        }
+    Mat loss(yo.totalSize, 1);
+    for (std::size_t i = 0; i < yo.size(); i++) {
+        loss[i] = -yt[i]*std::log(yo[i] + 1e-9);
     }
-    return;
+    return loss;
 }
-inline void BCE(Mat& E, const Mat& O, const Mat& y)
+inline Mat BCE(const Mat& yo, const Mat& yt)
 {
-    for (std::size_t i = 0; i < O.size(); i++) {
-        E[i] = -(y[i] * std::log(O[i]) + (1 - y[i]) * std::log(1 - O[i]));
+    Mat loss(yo.totalSize, 1);
+    for (std::size_t i = 0; i < yo.size(); i++) {
+        loss[i] = -(yt[i]*std::log(yo[i]) + (1 - yt[i])*std::log(1 - yo[i]));
     }
-    return;
+    return loss;
 }
 
 };

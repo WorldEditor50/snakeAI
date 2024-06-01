@@ -27,7 +27,7 @@ enum OptType {
 class BPNN
 {
 public:
-    using FnLoss = std::function<void(Mat&, const Mat&, const Mat&)>;
+    using FnLoss = std::function<Mat(const Mat&, const Mat&)>;
     using Layers = std::vector<std::shared_ptr<iLayer> >;
 protected:
     float alpha1_t;
@@ -48,9 +48,8 @@ public:
     inline Mat& operator()(const Mat &x) {return forward(x);}
     Mat &output();
     void backward(const Mat &loss, Mat& E);
+    void backward(const Mat &loss);
     void gradient(const Mat &x, const Mat &y);
-    void gradient(const Mat &x, const Mat &y, const FnLoss &loss);
-    void gradient(const Mat &x, const RL::Mat &y, const Mat &loss);
     void SGD(float learningRate = 0.001);
     void RMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0);
     void NormRMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0);

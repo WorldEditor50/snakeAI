@@ -174,9 +174,7 @@ public:
 
     }
 
-    static std::shared_ptr<Softmax> _(std::size_t inputDim,
-                                           std::size_t outputDim,
-                                           bool tarinFlag)
+    static std::shared_ptr<Softmax> _(std::size_t inputDim, std::size_t outputDim, bool tarinFlag)
     {
         return std::make_shared<Softmax>(inputDim, outputDim, tarinFlag);
     }
@@ -184,16 +182,12 @@ public:
     {
         Mat::Mul::ikkj(o, w, x);
         o += b;
-        RL::softmax(o);
-        return o;
+        return RL::softmax(o);
     }
 
     void gradient(const RL::Mat &x, const Mat &y) override
     {
-        Mat dy(outputDim, 1);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = o[i] - y[i];
-        }
+        Mat dy = o - y;
         Mat::Mul::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();

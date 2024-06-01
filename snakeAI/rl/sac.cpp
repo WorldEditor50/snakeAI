@@ -7,7 +7,7 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     stateDim = stateDim_;
     actionDim = actionDim_;
     alpha = GradValue(actionDim, 1);
-    alpha.val.fill(1);
+    alpha.val.fill(1.0);
     entropy0 = -0.04*std::log(0.04);
     actor = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
@@ -81,7 +81,7 @@ RL::Mat& RL::SAC::action(const RL::Mat &state)
 
 void RL::SAC::experienceReplay(const RL::Transition &x)
 {
-    std::size_t i = x.action.argmax();
+     std::size_t i = x.action.argmax();
     /* train critic net */
     {
         /* select action */
@@ -101,22 +101,26 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         }
         Mat qTarget1 = critic1Net.forward(x.state);
         qTarget1[i] = qTarget;
-        critic1Net.gradient(x.state, qTarget1, Loss::MSE);
+        critic1Net.backward(Loss::MSE(critic1Net.output(), qTarget1));
+        critic1Net.gradient(x.state, qTarget1);
         Mat qTarget2 = critic2Net.forward(x.state);
         qTarget2[i] = qTarget;
-        critic2Net.gradient(x.state, qTarget2, Loss::MSE);
+        critic2Net.backward(Loss::MSE(critic2Net.output(), qTarget2));
+        critic2Net.gradient(x.state, qTarget2);
     }
     /* train policy net */
     {
-        const Mat& prob = x.action;
         Mat& q1 = critic1Net.forward(x.state);
         Mat& q2 = critic2Net.forward(x.state);
-        Mat target = prob;
         float q = std::min(q1[i], q2[i]);
-        target[i] = prob[i]*(q - alpha[i]*std::log(prob[i] + 1e-8));
+        const Mat& prob = x.action;
+        Mat p = prob;
+        p[i] = prob[i]*(q - alpha[i]*std::log(prob[i] + 1e-8));
+        Mat &po = actor.forward(x.state);
+        actor.backward(Loss::CrossEntropy(po, p));
+        actor.gradient(x.state, p);
         /* alpha -> 0 */
         alpha.g[i] += -prob[i]*std::log(prob[i] + 1e-8) - entropy0;
-        actor.gradient(x.state, target, Loss::CrossEntropy);
     }
     return;
 }

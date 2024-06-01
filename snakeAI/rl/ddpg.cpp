@@ -104,16 +104,20 @@ void RL::DDPG::experienceReplay(const Transition& x)
     }
     /* update criticMainNet */
     Mat::concat(0, sa, x.state, p);
-    criticP.gradient(sa, cTarget, Loss::MSE);
+    Mat &critic = criticP.forward(sa);
+    criticP.backward(Loss::MSE(critic, cTarget));
+    criticP.gradient(sa, cTarget);
     /* update actorMainNet */
     Mat &actor = actorP.forward(x.state);
     Mat::concat(0, sa, x.state, actor);
-    Mat &critic = criticP.forward(sa);
+    criticP.forward(sa);
     Mat adv(actor);
     for (std::size_t k = 0; k < actionDim; k++) {
         adv[k] =  critic[k] - actor[k]*std::log(actor[k]/critic[k]);
     }
-    actorP.gradient(x.state, adv, Loss::CrossEntropy);
+    Mat& actorOut = actorP.forward(x.state);
+    actorP.backward(Loss::CrossEntropy(actorOut, adv));
+    actorP.gradient(x.state, adv);
     return;
 }
 

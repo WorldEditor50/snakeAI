@@ -47,52 +47,30 @@ RL::Mat &RL::BPNN::output()
     return layers.back()->o;
 }
 
-void RL::BPNN::backward(const RL::Mat &loss, Mat& E)
+void RL::BPNN::backward(const RL::Mat &loss, Mat& e)
 {
     std::size_t outputIndex = layers.size() - 1;
     layers[outputIndex]->e = loss;
     for (int i = layers.size() - 1; i > 0; i--) {
         layers[i]->backward(layers[i - 1]->e);
     }
-    layers[0]->backward(E);
+    layers[0]->backward(e);
+    return;
+}
+
+void RL::BPNN::backward(const RL::Mat &loss)
+{
+    std::size_t outputIndex = layers.size() - 1;
+    layers[outputIndex]->e = loss;
+    /* error Backpropagate */
+    for (int i = layers.size() - 1; i > 0; i--) {
+        layers[i]->backward(layers[i - 1]->e);
+    }
     return;
 }
 
 void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y)
 {
-    layers[0]->gradient(x, y);
-    for (std::size_t j = 1; j < layers.size(); j++) {
-        layers[j]->gradient(layers[j - 1]->o, y);
-    }
-    return;
-}
-
-void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, const RL::BPNN::FnLoss &loss)
-{
-    forward(x);
-    std::size_t outputIndex = layers.size() - 1;
-    loss(layers[outputIndex]->e, layers[outputIndex]->o, y);
-    /* error Backpropagate */
-    for (int i = layers.size() - 1; i > 0; i--) {
-        layers[i]->backward(layers[i - 1]->e);
-    }
-    /* gradient */
-    layers[0]->gradient(x, y);
-    for (std::size_t j = 1; j < layers.size(); j++) {
-        layers[j]->gradient(layers[j - 1]->o, y);
-    }
-    return;
-}
-
-void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y, const RL::Mat &loss)
-{
-    std::size_t outputIndex = layers.size() - 1;
-    layers[outputIndex]->e = loss;
-    /* error Backpropagate */
-    for (int i = layers.size() - 1; i > 0; i--) {
-        layers[i]->backward(layers[i - 1]->e);
-    }
-    /* gradient */
     layers[0]->gradient(x, y);
     for (std::size_t j = 1; j < layers.size(); j++) {
         layers[j]->gradient(layers[j - 1]->o, y);
@@ -252,8 +230,9 @@ void RL::BPNN::test()
     for (int i = 0; i < 10000; i++) {
         for (int j = 0; j < 128; j++) {
             int k = selectIndex(Random::engine);
-            net.forward(data[k]);
-            net.gradient(data[k], target[k], Loss::MSE);
+            Mat& out = net.forward(data[k]);
+            net.backward(Loss::MSE(out, target[k]));
+            net.gradient(data[k], target[k]);
         }
         net.Adam();
     }

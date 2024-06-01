@@ -52,15 +52,16 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
         int k = x[i].action.argmax();
         alpha.g[k] += -prob[k]*std::log(prob[k] + 1e-8) - entropy0;
         x[i].action[k] = prob[k]*(discountedReward[i] - u);
-        policyNet.gradient(x[i].state, x[i].action, Loss::CrossEntropy);
+        Mat &out = policyNet.forward(x[i].state);
+        policyNet.backward(Loss::CrossEntropy(out, x[i].action));
+        policyNet.gradient(x[i].state, x[i].action);
     }
     alpha.RMSProp(0.9, 1e-4, 0);
-    alpha.clamp(0.1, 1.25);
-#if 0
+#if 1
     std::cout<<"alpha:";
     alpha.val.show();
 #endif
-
+    //policyNet.optimize(OPT_NORMRMSPROP, 1e-2);
     policyNet.optimize(OPT_NORMRMSPROP, learningRate, 0.1);
     policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
