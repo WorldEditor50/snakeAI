@@ -7,8 +7,8 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     stateDim = stateDim_;
     actionDim = actionDim_;
     alpha = GradValue(actionDim, 1);
-    alpha.val.fill(1.0);
-    entropy0 = -0.04*std::log(0.04);
+    alpha.val.fill(1);
+    entropy0 = -0.01*std::log(0.01);
     actor = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
@@ -81,7 +81,7 @@ RL::Mat& RL::SAC::action(const RL::Mat &state)
 
 void RL::SAC::experienceReplay(const RL::Transition &x)
 {
-     std::size_t i = x.action.argmax();
+    std::size_t i = x.action.argmax();
     /* train critic net */
     {
         /* select action */
@@ -113,13 +113,15 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         Mat& q1 = critic1Net.forward(x.state);
         Mat& q2 = critic2Net.forward(x.state);
         float q = std::min(q1[i], q2[i]);
-        const Mat& prob = x.action;
-        Mat p = prob;
+        const Mat& prob = actor.forward(x.state);
+        Mat p(actionDim, 1);
         p[i] = prob[i]*(q - alpha[i]*std::log(prob[i] + 1e-8));
-        Mat &po = actor.forward(x.state);
-        actor.backward(Loss::CrossEntropy(po, p));
+        actor.backward(Loss::CrossEntropy(prob, p));
         actor.gradient(x.state, p);
-        /* alpha -> 0 */
+    }
+    /* alpha */
+    {
+        const Mat& prob = x.action;
         alpha.g[i] += -prob[i]*std::log(prob[i] + 1e-8) - entropy0;
     }
     return;
@@ -147,7 +149,7 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
     //actor.optimize(OPT_NORMRMSPROP, 1e-2);
     actor.optimize(OPT_NORMRMSPROP, 1e-3, 0.1);
     actor.clamp(-1, 1);
-    alpha.RMSProp(0.9, 1e-4, 0);
+    alpha.RMSProp(0.9, 1e-5, 0);
     //alpha.clamp(0.1, 1.2);
 #if 1
     std::cout<<"alpha:";

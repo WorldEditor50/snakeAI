@@ -327,6 +327,20 @@ inline Mat& gumbelSoftmax(Mat &x, const Mat& tau)
     return x;
 }
 
+inline Mat& gaussianResample(Mat &z, float u, float sigma)
+{
+    /*
+        z = u + std*eps
+        eps ~ N(0, 1)
+    */
+    float std = std::sqrt(sigma);
+    Mat eps(z.rows, z.cols);
+    Random::normal(eps, u, std);
+    for (std::size_t i = 0; i < z.totalSize; i++) {
+        z[i] = u + std*eps[i];
+    }
+    return z;
+}
 
 }
 #endif // UTIL_HPP

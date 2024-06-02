@@ -25,15 +25,12 @@ public:
                   const Mat& nextState,
                   float reward,
                   bool done);
-    Mat &noiseAction(const Mat &state);
-    Mat& eGreedyAction(const Mat &state);
-    int action(const Mat& state);
+    Mat& noiseAction(const Mat &state);
+    Mat& action(const Mat& state);
     void experienceReplay(const Transition& x);
     void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
-               std::size_t batchSize = 64,
-               float actorLearningRate = 0.0001,
-               float criticLearningRate = 0.001);
+               std::size_t batchSize = 64);
     void save(const std::string& actorPara, const std::string& criticPara);
     void load(const std::string& actorPara, const std::string& criticPara);
 protected:

@@ -78,13 +78,7 @@ float Agent::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
     }
     float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
     float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    float r = 0;
-    if (d1 > d2) {
-        r = 0.8f;
-    } else {
-        r = -0.8f;
-    }
-    return r;
+    return std::tanh(d1 - d2);
 }
 
 float Agent::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
@@ -348,13 +342,13 @@ int Agent::ddpgAction(int x, int y, int xt, int yt, float &totalReward)
     observe(state, x, y, xt, yt);
     RL::Mat state_ = state;
     if (trainFlag == true) {
-        for (std::size_t i = 0; i < 16; i++) {
+        for (std::size_t i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
             RL::Mat & a = ddpg.noiseAction(state);
             int k = a.argmax();
             simulateMove(xn, yn, k);
-            r = reward1(xi, yi, xn, yn, xt, yt);
+            r = reward0(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (map(xn, yn) == 1) {
@@ -371,9 +365,12 @@ int Agent::ddpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        ddpg.learn(8192, 256, 32, 0.001, 0.001);
+        ddpg.learn(8192, 256, 32);
     }
-    return ddpg.action(state_);
+
+    RL::Mat &a = ddpg.action(state_);
+    a.show();
+    return a.argmax();
 }
 
 int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
@@ -429,8 +426,8 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
             int xi = xn;
             int yi = yn;
             RL::Mat& a = sac.gumbelMax(state);
-            //int k = a.argmax();
-            int k = RL::Random::categorical(a);
+            int k = a.argmax();
+            //int k = RL::Random::categorical(a);
             simulateMove(xn, yn, k);
             float r = reward0(xi, yi, xn, yn, xt, yt);
             total += r;
