@@ -1,12 +1,12 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
-#include "mat.hpp"
+#include "tensor.hpp"
 
 namespace RL {
 
 namespace Optimize {
 
-inline void SGD(Mat &w, Mat &dw, float learningRate)
+inline void SGD(Tensor &w, Tensor &dw, float learningRate)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         w[i] -= learningRate * dw[i];
@@ -14,7 +14,7 @@ inline void SGD(Mat &w, Mat &dw, float learningRate)
     return;
 }
 
-inline void SGDM(Mat &w, Mat &m, Mat &dw, float learningRate, float alpha, float decay=0)
+inline void SGDM(Tensor &w, Tensor &m, Tensor &dw, float learningRate, float alpha, float decay=0)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         m[i] = (1 - decay)*m[i] - dw[i]*alpha;
@@ -23,7 +23,7 @@ inline void SGDM(Mat &w, Mat &m, Mat &dw, float learningRate, float alpha, float
     return;
 }
 
-inline void Adagrad(Mat &w, Mat &r, Mat &dw, float learningRate)
+inline void Adagrad(Tensor &w, Tensor &r, Tensor &dw, float learningRate)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         r[i] += dw[i]*dw[i];
@@ -32,7 +32,7 @@ inline void Adagrad(Mat &w, Mat &r, Mat &dw, float learningRate)
     return;
 }
 
-inline void AdaDelta(Mat &w, Mat &v, Mat &delta, Mat &dwPrime, Mat &dw, float learningRate, float rho)
+inline void AdaDelta(Tensor &w, Tensor &v, Tensor &delta, Tensor &dwPrime, Tensor &dw, float learningRate, float rho)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         v[i] = rho * v[i] + (1 - rho) * dw[i] * dw[i];
@@ -43,7 +43,7 @@ inline void AdaDelta(Mat &w, Mat &v, Mat &delta, Mat &dwPrime, Mat &dw, float le
     return;
 }
 
-inline void RMSProp(Mat &w, Mat &v, Mat &dw, float learningRate, float rho, float decay = 0)
+inline void RMSProp(Tensor &w, Tensor &v, Tensor &dw, float learningRate, float rho, float decay = 0)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         v[i] = rho * v[i] + (1 - rho) * dw[i] * dw[i];
@@ -52,9 +52,9 @@ inline void RMSProp(Mat &w, Mat &v, Mat &dw, float learningRate, float rho, floa
     return;
 }
 
-inline void NormRMSProp(Mat &w, Mat &v, Mat &dw, float learningRate, float rho, float decay = 0)
+inline void NormRMSProp(Tensor &w, Tensor &v, Tensor &dw, float learningRate, float rho, float decay = 0)
 {
-    float scale = 1.0 / std::sqrt(dw.norm2Square() + 1e-5);
+    float scale = 1.0 / dw.norm2();
     dw *= scale;
     for (std::size_t i = 0; i < w.totalSize; i++) {
         v[i] = rho * v[i] + (1 - rho)*dw[i]*dw[i];
@@ -63,7 +63,7 @@ inline void NormRMSProp(Mat &w, Mat &v, Mat &dw, float learningRate, float rho, 
     return;
 }
 
-inline void Adam(Mat &w, Mat &v, Mat &m, Mat &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
+inline void Adam(Tensor &w, Tensor &v, Tensor &m, Tensor &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
 {
     for (std::size_t i = 0; i < w.totalSize; i++) {
         m[i] = alpha * m[i] + (1 - alpha) * dw[i];
@@ -75,9 +75,9 @@ inline void Adam(Mat &w, Mat &v, Mat &m, Mat &dw, float alpha_, float beta_, flo
     return;
 }
 
-inline void NormAdam(Mat &w, Mat &v, Mat &m, Mat &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
+inline void NormAdam(Tensor &w, Tensor &v, Tensor &m, Tensor &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
 {
-    float scale = 1.0 / std::sqrt(dw.norm2Square() + 1e-5);
+    float scale = 1.0 / dw.norm2();
     dw *= scale;
     for (std::size_t i = 0; i < w.totalSize; i++) {
         m[i] = alpha * m[i] + (1 - alpha) * dw[i];
@@ -89,7 +89,7 @@ inline void NormAdam(Mat &w, Mat &v, Mat &m, Mat &dw, float alpha_, float beta_,
     return;
 }
 
-inline void clamp(Mat &w, float c0, float cn)
+inline void clamp(Tensor &w, float c0, float cn)
 {
     std::uniform_real_distribution<float> uniform(c0, cn);
     for (std::size_t i = 0; i < w.totalSize; i++) {

@@ -2,8 +2,8 @@
 #include <QApplication>
 #include "rl/lstm.h"
 #include "rl/gru.h"
-#include "rl/mat.hpp"
-#include "rl/conv2d.h"
+#include "rl/tensor.hpp"
+#include "rl/conv2d.hpp"
 #include "rl/util.hpp"
 
 int main(int argc, char *argv[])
@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 #else
     //BPNN::test();
     //Conv2D::test();
-    //matrix::test();
+    //Tensorrix::test();
     //Tensor::test();
     return 0;
 #endif

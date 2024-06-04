@@ -12,9 +12,9 @@ RL::LSTM::LSTM(std::size_t inputDim_,
         v = LSTMParam(inputDim_, hiddenDim_, outputDim_);
         s = LSTMParam(inputDim_, hiddenDim_, outputDim_);
     }
-    h = Mat(hiddenDim, 1);
-    c = Mat(hiddenDim, 1);
-    y = Mat(outputDim, 1);
+    h = Tensor(hiddenDim, 1);
+    c = Tensor(hiddenDim, 1);
+    y = Tensor(outputDim, 1);
     alpha_t = 1;
     beta_t = 1;
     LSTMParam::random();
@@ -27,7 +27,7 @@ void RL::LSTM::reset()
     return;
 }
 
-RL::LSTM::State RL::LSTM::feedForward(const RL::Mat &x, const RL::Mat &_h, const RL::Mat &_c)
+RL::LSTM::State RL::LSTM::feedForward(const RL::Tensor &x, const RL::Tensor &_h, const RL::Tensor &_c)
 {
     /*
                                                          y
@@ -56,16 +56,16 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Mat &x, const RL::Mat &_h, const
         yt = linear(W*ht + b)
     */
     State state(hiddenDim, outputDim);
-    for (std::size_t i = 0; i < wi.rows; i++) {
-        for (std::size_t j = 0; j < wi.cols; j++) {
+    for (std::size_t i = 0; i < wi.shape[0]; i++) {
+        for (std::size_t j = 0; j < wi.shape[1]; j++) {
             state.f[i] += wf(i, j) * x[j];
             state.i[i] += wi(i, j) * x[j];
             state.g[i] += wg(i, j) * x[j];
             state.o[i] += wo(i, j) * x[j];
         }
     }
-    for (std::size_t i = 0; i < ui.rows; i++) {
-        for (std::size_t j = 0; j < ui.cols; j++) {
+    for (std::size_t i = 0; i < ui.shape[0]; i++) {
+        for (std::size_t j = 0; j < ui.shape[1]; j++) {
             state.f[i] += uf(i, j) * _h[j];
             state.i[i] += ui(i, j) * _h[j];
             state.g[i] += ug(i, j) * _h[j];
@@ -80,10 +80,10 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Mat &x, const RL::Mat &_h, const
         state.c[i] = state.f[i] * _c[i] + state.i[i]*state.g[i];
         state.h[i] = state.o[i] * Tanh::f(state.c[i]);
     }
-    //Mat::Mul::ikkj(state.y, w, state.h);
+    //Tensor::Mul::ikkj(state.y, w, state.h);
     //state.y += b;
-    for (std::size_t i = 0; i < w.rows; i++) {
-        for (std::size_t j = 0; j < w.cols; j++) {
+    for (std::size_t i = 0; i < w.shape[0]; i++) {
+        for (std::size_t j = 0; j < w.shape[1]; j++) {
             state.y[i] += w(i, j) * state.h[j];
         }
         state.y[i] = Linear::f(state.y[i] + b[i]);
@@ -91,7 +91,7 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Mat &x, const RL::Mat &_h, const
     return state;
 }
 
-void RL::LSTM::forward(const std::vector<RL::Mat> &sequence)
+void RL::LSTM::forward(const std::vector<RL::Tensor> &sequence)
 {
     h.zero();
     c.zero();
@@ -104,7 +104,7 @@ void RL::LSTM::forward(const std::vector<RL::Mat> &sequence)
     return;
 }
 
-RL::Mat &RL::LSTM::forward(const RL::Mat &x)
+RL::Tensor &RL::LSTM::forward(const RL::Tensor &x)
 {
     State state = feedForward(x, h, c);
     h = state.h;
@@ -114,18 +114,18 @@ RL::Mat &RL::LSTM::forward(const RL::Mat &x)
 }
 
 void RL::LSTM::backwardAtTime(int t,
-                         const RL::Mat &x,
-                         const RL::Mat &E,
+                         const RL::Tensor &x,
+                         const RL::Tensor &E,
                          State &delta_)
 {
     State delta(hiddenDim, outputDim);
-    for (std::size_t i = 0; i < w.rows; i++) {
-        for (std::size_t j = 0; j < w.cols; j++) {
+    for (std::size_t i = 0; i < w.shape[0]; i++) {
+        for (std::size_t j = 0; j < w.shape[1]; j++) {
             delta.h[j] += w(i, j) * E[i];
         }
     }
-    for (std::size_t i = 0; i < ui.rows; i++) {
-        for (std::size_t j = 0; j < ui.cols; j++) {
+    for (std::size_t i = 0; i < ui.shape[0]; i++) {
+        for (std::size_t j = 0; j < ui.shape[1]; j++) {
             delta.h[j] += ui(i, j) * delta_.i[i];
             delta.h[j] += uf(i, j) * delta_.f[i];
             delta.h[j] += ug(i, j) * delta_.g[i];
@@ -141,8 +141,8 @@ void RL::LSTM::backwardAtTime(int t,
         δit = δct ⊙ gt ⊙ dsigmoid(it)
         δft = δct ⊙ ct-1 ⊙ dsigmoid(ft)
     */
-    Mat f_ = t < states.size() - 1 ? states[t + 1].f : Mat(hiddenDim, 1);
-    Mat _c = t > 0 ? states[t - 1].c : Mat(hiddenDim, 1);
+    Tensor f_ = t < states.size() - 1 ? states[t + 1].f : Tensor(hiddenDim, 1);
+    Tensor _c = t > 0 ? states[t - 1].c : Tensor(hiddenDim, 1);
     for (std::size_t i = 0; i < delta.o.size(); i++) {
         delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::d(states[t].c[i]) + delta_.c[i] * f_[i];
         delta.o[i] = delta.h[i] * Tanh::f(states[t].c[i]) * Sigmoid::d(states[t].o[i]);
@@ -151,23 +151,23 @@ void RL::LSTM::backwardAtTime(int t,
         delta.f[i] = delta.c[i] * _c[i] * Sigmoid::d(states[t].f[i]);
     }
     /* gradient */
-    for (std::size_t i = 0; i < w.rows; i++) {
-        for (std::size_t j = 0; j < w.cols; j++) {
+    for (std::size_t i = 0; i < w.shape[0]; i++) {
+        for (std::size_t j = 0; j < w.shape[1]; j++) {
             g.w(i, j) += E[i] * Linear::d(states[t].y[i]) * states[t].h[j];
         }
         g.b[i] += E[i] * Linear::d(states[t].y[i]);
     }
-    for (std::size_t i = 0; i < wi.rows; i++) {
-        for (std::size_t j = 0; j < wi.cols; j++) {
+    for (std::size_t i = 0; i < wi.shape[0]; i++) {
+        for (std::size_t j = 0; j < wi.shape[1]; j++) {
             g.wi(i, j) += delta.i[i] * x[j];
             g.wf(i, j) += delta.f[i] * x[j];
             g.wg(i, j) += delta.g[i] * x[j];
             g.wo(i, j) += delta.o[i] * x[j];
         }
     }
-    Mat _h = t > 0 ? states[t - 1].h : Mat(hiddenDim, 1);
-    for (std::size_t i = 0; i < ui.rows; i++) {
-        for (std::size_t j = 0; j < ui.cols; j++) {
+    Tensor _h = t > 0 ? states[t - 1].h : Tensor(hiddenDim, 1);
+    for (std::size_t i = 0; i < ui.shape[0]; i++) {
+        for (std::size_t j = 0; j < ui.shape[1]; j++) {
             g.ui(i, j) += delta.i[i] * _h[j];
             g.uf(i, j) += delta.f[i] * _h[j];
             g.ug(i, j) += delta.g[i] * _h[j];
@@ -185,7 +185,7 @@ void RL::LSTM::backwardAtTime(int t,
     return;
 }
 
-void RL::LSTM::backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat> &E)
+void RL::LSTM::backward(const std::vector<RL::Tensor> &x, const std::vector<RL::Tensor> &E)
 {
     State delta_(hiddenDim, outputDim);
     /* backward through time */
@@ -196,11 +196,11 @@ void RL::LSTM::backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat
     return;
 }
 
-void RL::LSTM::gradient(const std::vector<RL::Mat> &x,
-                        const std::vector<RL::Mat> &yt)
+void RL::LSTM::gradient(const std::vector<RL::Tensor> &x,
+                        const std::vector<RL::Tensor> &yt)
 {
     /* loss */
-    std::vector<RL::Mat> E(states.size(), Mat(outputDim, 1));
+    std::vector<RL::Tensor> E(states.size(), Tensor(outputDim, 1));
     for (int t = states.size() - 1; t >= 0; t--) {
         for (std::size_t i = 0; i < outputDim; i++) {
             E[t][i] = 2* (states[t].y[i] - yt[t][i]);
@@ -211,10 +211,10 @@ void RL::LSTM::gradient(const std::vector<RL::Mat> &x,
     return;
 }
 
-void RL::LSTM::gradient(const std::vector<RL::Mat> &x, const RL::Mat &yt)
+void RL::LSTM::gradient(const std::vector<RL::Tensor> &x, const RL::Tensor &yt)
 {
     /* loss */
-    std::vector<RL::Mat> E(states.size(), Mat(outputDim, 1));
+    std::vector<RL::Tensor> E(states.size(), Tensor(outputDim, 1));
     int t = states.size() - 1;
     for (std::size_t i = 0; i < outputDim; i++) {
         E[t][i] = 2 * (states[t].y[i] - yt[i]);
@@ -342,20 +342,20 @@ void RL::LSTM::copyTo(LSTM &dst)
 
 void RL::LSTM::softUpdateTo(LSTM &dst, float rho)
 {
-    RL::EMA(dst.wi, wi, rho);
-    RL::EMA(dst.wg, wg, rho);
-    RL::EMA(dst.wf, wf, rho);
-    RL::EMA(dst.wo, wo, rho);
-    RL::EMA(dst.ui, ui, rho);
-    RL::EMA(dst.ug, ug, rho);
-    RL::EMA(dst.uf, uf, rho);
-    RL::EMA(dst.uo, uo, rho);
-    RL::EMA(dst.bi, bi, rho);
-    RL::EMA(dst.bg, bg, rho);
-    RL::EMA(dst.bf, bf, rho);
-    RL::EMA(dst.bo, bo, rho);
-    RL::EMA(dst.w, w, rho);
-    RL::EMA(dst.b, b, rho);
+    RL::lerp(dst.wi, wi, rho);
+    RL::lerp(dst.wg, wg, rho);
+    RL::lerp(dst.wf, wf, rho);
+    RL::lerp(dst.wo, wo, rho);
+    RL::lerp(dst.ui, ui, rho);
+    RL::lerp(dst.ug, ug, rho);
+    RL::lerp(dst.uf, uf, rho);
+    RL::lerp(dst.uo, uo, rho);
+    RL::lerp(dst.bi, bi, rho);
+    RL::lerp(dst.bg, bg, rho);
+    RL::lerp(dst.bf, bf, rho);
+    RL::lerp(dst.bo, bo, rho);
+    RL::lerp(dst.w, w, rho);
+    RL::lerp(dst.b, b, rho);
     return;
 }
 
@@ -366,23 +366,23 @@ void RL::LSTM::test()
         return std::sin(x*x + y*y);
     };
     std::uniform_real_distribution<float> uniform(-1, 1);
-    std::vector<Mat> data;
-    std::vector<Mat> target;
+    std::vector<Tensor> data;
+    std::vector<Tensor> target;
     for (int i = 0; i < 200; i++) {
         for (int j = 0; j < 200; j++) {
-            Mat p(2, 1);
+            Tensor p(2, 1);
             float z = zeta(i, j);
             p[0] = i;
             p[1] = j;
-            Mat q(1, 1);
+            Tensor q(1, 1);
             q[0] = z;
             data.push_back(p);
             target.push_back(q);
         }
     }
     std::uniform_int_distribution<int> selectIndex(0, data.size() - 1);
-    auto sample = [&](std::vector<Mat> &batchData,
-            std::vector<Mat> &batchTarget, int batchSize){
+    auto sample = [&](std::vector<Tensor> &batchData,
+            std::vector<Tensor> &batchTarget, int batchSize){
         int k = selectIndex(Random::engine);
         while (k > data.size() - batchSize) {
             k = selectIndex(Random::engine);
@@ -393,8 +393,8 @@ void RL::LSTM::test()
         }
     };
     for (int i = 0; i < 10000; i++) {
-        std::vector<Mat> batchData;
-        std::vector<Mat> batchTarget;
+        std::vector<Tensor> batchData;
+        std::vector<Tensor> batchTarget;
         sample(batchData, batchTarget, 32);
         lstm.forward(batchData);
         lstm.gradient(batchData, batchTarget);
@@ -404,7 +404,7 @@ void RL::LSTM::test()
     lstm.reset();
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            Mat p(2, 1);
+            Tensor p(2, 1);
             float z = zeta(i, j);
             p[0] = i;
             p[1] = j;

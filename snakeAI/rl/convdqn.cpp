@@ -1,28 +1,34 @@
-#include "dqn.h"
+#include "convdqn.h"
+#include "layer.h"
+#include "conv2d.hpp"
 
-RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
+RL::ConvDQN::ConvDQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
     gamma = 0.99;
     exploringRate = 1;
     totalReward = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    QMainNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                    Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                    Layer<Sigmoid>::_(hiddenDim, actionDim, true));
+    QMainNet = Net(Conv2d<Tanh>::_(1, 118, 118, 2, 5, 5, 1, true, true),
+                   MaxPooling2d::_(2, 24, 24, 2, 2),
+                   Conv2d<Sigmoid>::_(2, 12, 12, 4, 3, 1, 1, true, true),
+                   MaxPooling2d::_(4, 12, 12, 2, 2),
+                   Layer<Tanh>::_(4*6*6, hiddenDim, true),
+                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                   Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    QTargetNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
-                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                      Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                      Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+    QTargetNet = Net(Conv2d<Tanh>::_(1, 118, 118, 2, 5, 5, 1, true, false),
+                     MaxPooling2d::_(2, 24, 24, 2, 2),
+                     Conv2d<Sigmoid>::_(2, 12, 12, 4, 3, 1, 1, true, false),
+                     MaxPooling2d::_(4, 12, 12, 2, 2),
+                     Layer<Tanh>::_(4*6*6, hiddenDim, false),
+                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                     Layer<Sigmoid>::_(hiddenDim, actionDim, false));
 
     QMainNet.copyTo(QTargetNet);
 }
 
-void RL::DQN::perceive(const Tensor& state,
+void RL::ConvDQN::perceive(const Tensor& state,
                        const Tensor& action,
                        const Tensor& nextState,
                        float reward,
@@ -32,24 +38,24 @@ void RL::DQN::perceive(const Tensor& state,
     return;
 }
 
-RL::Tensor& RL::DQN::eGreedyAction(const Tensor &state)
+RL::Tensor& RL::ConvDQN::eGreedyAction(const Tensor &state)
 {
     Tensor& out = QMainNet.forward(state);
     return eGreedy(out, exploringRate, false);
 }
 
-RL::Tensor& RL::DQN::noiseAction(const Tensor &state)
+RL::Tensor& RL::ConvDQN::noiseAction(const Tensor &state)
 {
     Tensor& out = QMainNet.forward(state);
     return noise(out, exploringRate);
 }
 
-RL::Tensor &RL::DQN::action(const Tensor &state)
+RL::Tensor &RL::ConvDQN::action(const Tensor &state)
 {
     return QMainNet.forward(state);
 }
 
-void RL::DQN::experienceReplay(const Transition& x)
+void RL::ConvDQN::experienceReplay(const Transition& x)
 {
     /* estiTensore q-target: Q-Regression */
     /* select Action to estiTensore q-value */
@@ -71,7 +77,7 @@ void RL::DQN::experienceReplay(const Transition& x)
     return;
 }
 
-void RL::DQN::learn(std::size_t maxMemorySize,
+void RL::ConvDQN::learn(std::size_t maxMemorySize,
                     std::size_t replaceTargetIter,
                     std::size_t batchSize,
                     float learningRate)
@@ -92,10 +98,10 @@ void RL::DQN::learn(std::size_t maxMemorySize,
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    QMainNet.optimize(OPT_NORMRMSPROP, learningRate, 0);
+    QMainNet.NormRMSProp(0.9, learningRate, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
-        std::size_t k = memories.size() / 3;
+        std::size_t k = memories.size() / 4;
         for (std::size_t i = 0; i < k; i++) {
             memories.pop_front();
         }
@@ -103,18 +109,5 @@ void RL::DQN::learn(std::size_t maxMemorySize,
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     learningSteps++;
-    return;
-}
-
-void RL::DQN::save(const std::string &fileName)
-{
-    QMainNet.save(fileName);
-    return;
-}
-
-void RL::DQN::load(const std::string &fileName)
-{
-    QMainNet.load(fileName);
-    QMainNet.copyTo(QTargetNet);
     return;
 }

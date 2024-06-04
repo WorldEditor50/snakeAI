@@ -1,6 +1,6 @@
 #ifndef PARAMETER_HPP
 #define PARAMETER_HPP
-#include "mat.hpp"
+#include "tensor.hpp"
 #include "optimize.h"
 
 namespace RL {
@@ -8,9 +8,9 @@ namespace RL {
 class GradValue
 {
 public:
-    Mat val;
-    Mat g;
-    Mat v;
+    Tensor val;
+    Tensor g;
+    Tensor v;
 public:
     GradValue(){}
     explicit GradValue(int rows, int cols)

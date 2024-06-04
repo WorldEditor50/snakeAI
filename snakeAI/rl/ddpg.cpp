@@ -35,9 +35,9 @@ RL::DDPG::DDPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
     criticP.copyTo(criticQ);
 }
 
-void RL::DDPG::perceive(const Mat& state,
-                        const Mat &action,
-                        const Mat& nextState,
+void RL::DDPG::perceive(const Tensor& state,
+                        const Tensor &action,
+                        const Tensor& nextState,
                         float reward,
                         bool done)
 {
@@ -45,13 +45,13 @@ void RL::DDPG::perceive(const Mat& state,
     return;
 }
 
-RL::Mat& RL::DDPG::noiseAction(const Mat &state)
+RL::Tensor& RL::DDPG::noiseAction(const Tensor &state)
 {
-    Mat& out = actorP.forward(state);
+    Tensor& out = actorP.forward(state);
     return noise(out);
 }
 
-RL::Mat& RL::DDPG::action(const Mat &state)
+RL::Tensor& RL::DDPG::action(const Tensor &state)
 {
     return actorP.forward(state);
 }
@@ -61,32 +61,32 @@ void RL::DDPG::experienceReplay(const Transition& x)
     /* train critic */
     std::size_t i = x.action.argmax();
     {
-        Mat &ap = actorP.forward(x.state);
-        Mat sa(stateDim + actionDim, 1);
-        Mat::concat(0, sa, x.state, ap);
-        Mat ct = criticP.forward(sa);
+        Tensor &ap = actorP.forward(x.state);
+        Tensor sa(stateDim + actionDim, 1);
+        Tensor::concat(0, sa, x.state, ap);
+        Tensor ct = criticP.forward(sa);
         if (x.done == true) {
             ct[i] = x.reward;
         } else {
-            Mat &aq = actorQ.forward(x.nextState);
+            Tensor &aq = actorQ.forward(x.nextState);
             int k = aq.argmax();
-            Mat::concat(0, sa, x.nextState, aq);
-            Mat &cq = criticQ.forward(sa);
+            Tensor::concat(0, sa, x.nextState, aq);
+            Tensor &cq = criticQ.forward(sa);
             ct[k] = x.reward + gamma*cq[k];
         }
-        Mat::concat(0, sa, x.state, ap);
-        Mat &cp = criticP.forward(sa);
+        Tensor::concat(0, sa, x.state, ap);
+        Tensor &cp = criticP.forward(sa);
         criticP.backward(Loss::MSE(cp, ct));
         criticP.gradient(sa, ct);
     }
 
     /* train actor */
     {
-        Mat &ap = actorP.forward(x.state);
-        Mat sa(stateDim + actionDim, 1);
-        Mat::concat(0, sa, x.state, ap);
-        Mat& q = criticP.forward(sa);
-        Mat at(actionDim, 1);
+        Tensor &ap = actorP.forward(x.state);
+        Tensor sa(stateDim + actionDim, 1);
+        Tensor::concat(0, sa, x.state, ap);
+        Tensor& q = criticP.forward(sa);
+        Tensor at(actionDim, 1);
         at[i] = ap[i]*q[i];
         actorP.backward(Loss::CrossEntropy(ap, at));
         actorP.gradient(x.state, at);

@@ -27,13 +27,13 @@ void RL::BPNN::softUpdateTo(BPNN &dstNet, float alpha)
         return;
     }
     for (std::size_t i = 0; i < layers.size(); i++) {
-        dstNet.layers[i]->w = dstNet.layers[i]->w*(1 - alpha) + layers[i]->w*alpha;
-        dstNet.layers[i]->b = dstNet.layers[i]->b*(1 - alpha) + layers[i]->b*alpha;
+        lerp(dstNet.layers[i]->w, layers[i]->w, alpha);
+        lerp(dstNet.layers[i]->b, layers[i]->b, alpha);
     }
     return;
 }
 
-RL::Mat &RL::BPNN::forward(const Mat& x)
+RL::Tensor &RL::BPNN::forward(const Tensor& x)
 {
     layers[0]->forward(x);
     for (std::size_t i = 1; i < layers.size(); i++) {
@@ -42,12 +42,12 @@ RL::Mat &RL::BPNN::forward(const Mat& x)
     return layers.back()->o;
 }
 
-RL::Mat &RL::BPNN::output()
+RL::Tensor &RL::BPNN::output()
 {
     return layers.back()->o;
 }
 
-void RL::BPNN::backward(const RL::Mat &loss, Mat& e)
+void RL::BPNN::backward(const RL::Tensor &loss, Tensor& e)
 {
     std::size_t outputIndex = layers.size() - 1;
     layers[outputIndex]->e = loss;
@@ -58,7 +58,7 @@ void RL::BPNN::backward(const RL::Mat &loss, Mat& e)
     return;
 }
 
-void RL::BPNN::backward(const RL::Mat &loss)
+void RL::BPNN::backward(const RL::Tensor &loss)
 {
     std::size_t outputIndex = layers.size() - 1;
     layers[outputIndex]->e = loss;
@@ -69,7 +69,7 @@ void RL::BPNN::backward(const RL::Mat &loss)
     return;
 }
 
-void RL::BPNN::gradient(const RL::Mat &x, const RL::Mat &y)
+void RL::BPNN::gradient(const RL::Tensor &x, const RL::Tensor &y)
 {
     layers[0]->gradient(x, y);
     for (std::size_t j = 1; j < layers.size(); j++) {
@@ -159,7 +159,7 @@ void RL::BPNN::clamp(float c0, float cn)
 
 void RL::BPNN::show()
 {
-    Mat &v = layers.back()->o;
+    Tensor &v = layers.back()->o;
     for (std::size_t i = 0; i < v.size(); i++) {
         std::cout<<v[i]<<" ";
     }
@@ -172,8 +172,8 @@ void RL::BPNN::load(const std::string& fileName)
     std::ifstream file;
     file.open(fileName);
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
+        for (int j = 0; j < layers[i]->w.shape[0]; j++) {
+            for (int k = 0; k < layers[i]->w.shape[1]; k++) {
                 file >> layers[i]->w(j, k);
             }
             file >> layers[i]->b[j];
@@ -187,8 +187,8 @@ void RL::BPNN::save(const std::string& fileName)
     std::ofstream file;
     file.open(fileName);
     for (std::size_t i = 0; i < layers.size(); i++) {
-        for (std::size_t j = 0; j < layers[i]->w.rows; j++) {
-            for (std::size_t k = 0; k < layers[i]->w.cols; k++) {
+        for (int j = 0; j < layers[i]->w.shape[0]; j++) {
+            for (int k = 0; k < layers[i]->w.shape[1]; k++) {
                 file << layers[i]->w(j, k);
             }
             file << layers[i]->b[j];
@@ -210,17 +210,17 @@ void RL::BPNN::test()
         return x*x + y*y + x*y;
     };
     std::uniform_real_distribution<float> uniform(-1, 1);
-    std::vector<Mat> data;
-    std::vector<Mat> target;
+    std::vector<Tensor> data;
+    std::vector<Tensor> target;
     for (int i = 0; i < 200; i++) {
         for (int j = 0; j < 200; j++) {
-            Mat p(2, 1);
+            Tensor p(2, 1);
             float x = uniform(Random::engine);
             float y = uniform(Random::engine);
             float z = zeta(x, y);
             p[0] = x;
             p[1] = y;
-            Mat q(1, 1);
+            Tensor q(1, 1);
             q[0] = z;
             data.push_back(p);
             target.push_back(q);
@@ -230,7 +230,7 @@ void RL::BPNN::test()
     for (int i = 0; i < 10000; i++) {
         for (int j = 0; j < 128; j++) {
             int k = selectIndex(Random::engine);
-            Mat& out = net.forward(data[k]);
+            Tensor& out = net.forward(data[k]);
             net.backward(Loss::MSE(out, target[k]));
             net.gradient(data[k], target[k]);
         }
@@ -238,13 +238,13 @@ void RL::BPNN::test()
     }
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            Mat x(2, 1);
+            Tensor x(2, 1);
             float x1 = uniform(Random::engine);
             float x2 = uniform(Random::engine);
             float z = zeta(x1, x2);
             x[0] = x1;
             x[1] = x2;
-            Mat &s = net.forward(x);
+            Tensor &s = net.forward(x);
             std::cout<<"x1 = "<<x1<<" x2 = "<<x2<<" z = "<<z<<"  predict: "
                     <<s[0]<<" error:"<<s[0] - z<<std::endl;
         }

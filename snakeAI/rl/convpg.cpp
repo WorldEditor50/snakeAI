@@ -1,5 +1,6 @@
-#include "dpg.h"
-RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
+#include "convpg.h"
+
+RL::ConvPG::ConvPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
     gamma = 0.9;
     exploringRate = 1;
@@ -8,37 +9,39 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.05*std::log(0.05);
-    policyNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
-                     Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
-                     Softmax::_(hiddenDim, actionDim, true));
+    policyNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, true),
+                    MaxPooling2d::_(4, 24, 24, 2, 2),
+                    Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 1, 1, true, true),
+                    MaxPooling2d::_(4, 12, 12, 2, 2),
+                    Layer<Tanh>::_(4*6*6, 32, true),
+                    LayerNorm<Sigmoid, LN::Post>::_(32, hiddenDim, true),
+                    Softmax::_(hiddenDim, actionDim, true));
 }
 
-RL::Tensor &RL::DPG::eGreedyAction(const Tensor &state)
+RL::Tensor &RL::ConvPG::eGreedyAction(const Tensor &state)
 {
     Tensor& out = policyNet.forward(state);
     return eGreedy(out, exploringRate, false);
 }
 
-RL::Tensor &RL::DPG::noiseAction(const RL::Tensor &state)
+RL::Tensor &RL::ConvPG::noiseAction(const RL::Tensor &state)
 {
     Tensor& out = policyNet.forward(state);
     return noise(out);
 }
 
-RL::Tensor &RL::DPG::gumbelMax(const RL::Tensor &state)
+RL::Tensor &RL::ConvPG::gumbelMax(const RL::Tensor &state)
 {
     Tensor& out = policyNet.forward(state);
     return gumbelSoftmax(out, alpha.val);
 }
 
-RL::Tensor &RL::DPG::action(const Tensor &state)
+RL::Tensor &RL::ConvPG::action(const Tensor &state)
 {
     return policyNet.forward(state);
 }
 
-void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
+void RL::ConvPG::reinforce(std::vector<Step>& x, float learningRate)
 {
     float r = 0;
     Tensor discountedReward(x.size(), 1);
@@ -57,26 +60,15 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
         policyNet.gradient(x[i].state, x[i].action);
     }
     alpha.RMSProp(0.9, 1e-4, 0);
-#if 1
+#if 0
     std::cout<<"alpha:";
     alpha.val.printValue();
 #endif
     //policyNet.optimize(OPT_NORMRMSPROP, 1e-2);
-    policyNet.optimize(OPT_NORMRMSPROP, learningRate, 0.1);
+    policyNet.NormRMSProp(0.9, 1e-3, 0.1);
     policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;
 }
 
-void RL::DPG::save(const std::string &fileName)
-{
-    policyNet.save(fileName);
-    return;
-}
-
-void RL::DPG::load(const std::string &fileName)
-{
-    policyNet.load(fileName);
-    return;
-}

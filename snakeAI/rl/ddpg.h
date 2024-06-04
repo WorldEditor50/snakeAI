@@ -20,13 +20,13 @@ public:
     DDPG(){}
     ~DDPG(){}
     explicit DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
-    void perceive(const Mat& state,
-                  const Mat& action,
-                  const Mat& nextState,
+    void perceive(const Tensor& state,
+                  const Tensor& action,
+                  const Tensor& nextState,
                   float reward,
                   bool done);
-    Mat& noiseAction(const Mat &state);
-    Mat& action(const Mat& state);
+    Tensor& noiseAction(const Tensor &state);
+    Tensor& action(const Tensor& state);
     void experienceReplay(const Transition& x);
     void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,

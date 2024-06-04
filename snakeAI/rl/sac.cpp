@@ -44,9 +44,9 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     critic2Net.copyTo(critic2TargetNet);
 }
 
-void RL::SAC::perceive(const Mat& state,
-                       const Mat& action,
-                       const Mat& nextState,
+void RL::SAC::perceive(const Tensor& state,
+                       const Tensor& action,
+                       const Tensor& nextState,
                        float reward,
                        bool done)
 {
@@ -62,19 +62,19 @@ void RL::SAC::perceive(const std::vector<RL::Transition> &x)
     return;
 }
 
-RL::Mat &RL::SAC::eGreedyAction(const RL::Mat &state)
+RL::Tensor &RL::SAC::eGreedyAction(const RL::Tensor &state)
 {
-    Mat& out = actor.forward(state);
+    Tensor& out = actor.forward(state);
     return eGreedy(out, exploringRate, true);
 }
 
-RL::Mat &RL::SAC::gumbelMax(const RL::Mat &state)
+RL::Tensor &RL::SAC::gumbelMax(const RL::Tensor &state)
 {
-    Mat& out = actor.forward(state);
+    Tensor& out = actor.forward(state);
     return RL::gumbelSoftmax(out, alpha.val);
 }
 
-RL::Mat& RL::SAC::action(const RL::Mat &state)
+RL::Tensor& RL::SAC::action(const RL::Tensor &state)
 {
     return actor.forward(state);
 }
@@ -85,11 +85,11 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
     /* train critic net */
     {
         /* select action */
-        Mat& nextProb = actor.forward(x.nextState);
+        Tensor& nextProb = actor.forward(x.nextState);
         std::size_t k = nextProb.argmax();
         /* select value */;
-        Mat& q1 = critic1TargetNet.forward(x.nextState);
-        Mat& q2 = critic2TargetNet.forward(x.nextState);
+        Tensor& q1 = critic1TargetNet.forward(x.nextState);
+        Tensor& q2 = critic2TargetNet.forward(x.nextState);
         float q = std::min(q1[k], q2[k]);
         float nextValue = 0;
         nextValue = nextProb[k]*(q - alpha[k]*std::log(nextProb[k] + 1e-8));
@@ -99,29 +99,29 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         } else {
             qTarget = x.reward + gamma*nextValue;
         }
-        Mat qTarget1 = critic1Net.forward(x.state);
+        Tensor qTarget1 = critic1Net.forward(x.state);
         qTarget1[i] = qTarget;
         critic1Net.backward(Loss::MSE(critic1Net.output(), qTarget1));
         critic1Net.gradient(x.state, qTarget1);
-        Mat qTarget2 = critic2Net.forward(x.state);
+        Tensor qTarget2 = critic2Net.forward(x.state);
         qTarget2[i] = qTarget;
         critic2Net.backward(Loss::MSE(critic2Net.output(), qTarget2));
         critic2Net.gradient(x.state, qTarget2);
     }
     /* train policy net */
     {
-        Mat& q1 = critic1Net.forward(x.state);
-        Mat& q2 = critic2Net.forward(x.state);
+        Tensor& q1 = critic1Net.forward(x.state);
+        Tensor& q2 = critic2Net.forward(x.state);
         float q = std::min(q1[i], q2[i]);
-        const Mat& prob = actor.forward(x.state);
-        Mat p(actionDim, 1);
+        const Tensor& prob = actor.forward(x.state);
+        Tensor p(actionDim, 1);
         p[i] = prob[i]*(q - alpha[i]*std::log(prob[i] + 1e-8));
         actor.backward(Loss::CrossEntropy(prob, p));
         actor.gradient(x.state, p);
     }
     /* alpha */
     {
-        const Mat& prob = x.action;
+        const Tensor& prob = x.action;
         alpha.g[i] += -prob[i]*std::log(prob[i] + 1e-8) - entropy0;
     }
     return;
@@ -153,7 +153,7 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
     //alpha.clamp(0.1, 1.2);
 #if 1
     std::cout<<"alpha:";
-    alpha.val.show();
+    alpha.val.printValue();
 #endif
     critic1Net.optimize(OPT_NORMRMSPROP, 1e-3, 0);
     critic2Net.optimize(OPT_NORMRMSPROP, 1e-3, 0);

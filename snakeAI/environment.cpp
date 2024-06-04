@@ -1,7 +1,8 @@
-#include "board.h"
+#include "environment.h"
 #include <iostream>
 
-Board::Board():blockNum(0),agent(map, snake)
+Environment::Environment()
+    :blockNum(0),snake(map),agent(*this, snake)
 {
     xt = -1;
     yt = -1;
@@ -14,11 +15,12 @@ Board::Board():blockNum(0),agent(map, snake)
     agentMethod.insert(std::pair<std::string, AgentMethod>("qlstm", &Agent::qlstmAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("drpg", &Agent::drpgAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("ddpg", &Agent::ddpgAction));
+    agentMethod.insert(std::pair<std::string, AgentMethod>("convpg", &Agent::convpgAction));
+    agentMethod.insert(std::pair<std::string, AgentMethod>("convdqn", &Agent::convdqnAction));
     act = agentMethod["sac"];
 }
-void Board::init(size_t w, size_t h)
+void Environment::init(size_t w, size_t h)
 {
-
     /* init board parameter */
     this->width = w;
     this->height = h;
@@ -28,7 +30,7 @@ void Board::init(size_t w, size_t h)
     this->cols = height / unitLen - 2;
     std::cout<<"rows:"<<rows<<"cols:"<<cols<<std::endl;
     /* init map */
-    map = RL::Mat(rows, cols);
+    map = RL::Tensor(rows, cols);
     for (std::size_t i = 0; i < rows; i++) {
         for (std::size_t j = 0; j < cols; j++) {
             if (i == 0 || i == rows - 1) {
@@ -41,26 +43,26 @@ void Board::init(size_t w, size_t h)
         }
     }
     /* set block */
-    //setBlocks(0);
+    //setBlocks(60);
     /* set target */
-    this->setTarget();
-    this->snake.create(25, 25);
+    setTarget();
+    snake.create(25, 25);
     return;
 }
 
-void Board::setAgent(const std::string &name)
+void Environment::setAgent(const std::string &name)
 {
     act = agentMethod[name];
     return;
 }
 
-void Board::setTrainAgent(bool on)
+void Environment::setTrainAgent(bool on)
 {
     agent.setTrain(on);
     return;
 }
 
-void Board::setTarget()
+void Environment::setTarget()
 {
     if (xt >= 0 || yt >= 0) {
         map(xt, yt) = OBJ_NONE;
@@ -71,13 +73,13 @@ void Board::setTarget()
         x = rand() % (rows - 1);
         y = rand() % (cols - 1);
     }
-    this->xt = x;
-    this->yt = y;
+    xt = x;
+    yt = y;
     map(xt, yt) = OBJ_TARGET;
     return;
 }
 
-void Board::setTarget(const std::deque<Point> &body)
+void Environment::setTarget(const std::deque<Point> &body)
 {
     setTarget();
     for (std::size_t i = 0; i < body.size(); i++) {
@@ -89,7 +91,7 @@ void Board::setTarget(const std::deque<Point> &body)
     return;
 }
 
-void Board::setSnake(const std::deque<Point> &body)
+void Environment::updateMap(const std::deque<Point> &body)
 {
     for (std::size_t i = 0; i < body.size(); i++) {
         map(body[i].x, body[i].y) = OBJ_SNAKE;
@@ -97,7 +99,16 @@ void Board::setSnake(const std::deque<Point> &body)
     return;
 }
 
-void Board::clearSnake(const std::deque<Point> &body)
+void Environment::updateMap(RL::Tensor &map_, const std::deque<Point> &body)
+{
+    for (std::size_t i = 0; i < body.size(); i++) {
+        map_(body[i].x, body[i].y) = OBJ_SNAKE;
+    }
+    map_(xt, yt) = OBJ_TARGET;
+    return;
+}
+
+void Environment::clearSnake(const std::deque<Point> &body)
 {
     for (std::size_t i = 0; i < body.size(); i++) {
         map(body[i].x, body[i].y) = OBJ_NONE;
@@ -105,7 +116,25 @@ void Board::clearSnake(const std::deque<Point> &body)
     return;
 }
 
-void Board::setBlocks(int N)
+void Environment::clearSnake(RL::Tensor &map_, const std::deque<Point> &body)
+{
+    for (std::size_t i = 0; i < body.size(); i++) {
+        map_(body[i].x, body[i].y) = OBJ_NONE;
+    }
+    return;
+}
+
+void Environment::setPoint(int x, int y)
+{
+    map(x, y) = OBJ_SNAKE;
+}
+
+void Environment::clearPoint(int x, int y)
+{
+    map(x, y) = OBJ_NONE;
+}
+
+void Environment::setBlocks(int N)
 {
     if (blockNum >= N) {
         return;
@@ -123,12 +152,12 @@ void Board::setBlocks(int N)
     return;
 }
 
-void Board::moveTo(int direct)
+void Environment::moveTo(int direct)
 {
 
 }
 
-int Board::play1(float &totalReward)
+int Environment::play1(float &totalReward)
 {
     int x = snake.body[0].x;
     int y = snake.body[0].y;    
@@ -142,7 +171,7 @@ int Board::play1(float &totalReward)
         setTarget(snake.body);
     }
     /* snake hits block */
-    if (map(x, y) == Board::OBJ_BLOCK) {
+    if (map(x, y) == OBJ_BLOCK) {
         snake.reset(rows, cols);
         setTarget(snake.body);
     }
@@ -159,14 +188,14 @@ int Board::play1(float &totalReward)
     return 0;
 }
 
-int Board::play2(float &totalReward)
+int Environment::play2(float &totalReward)
 {
     int x = snake.body[0].x;
     int y = snake.body[0].y;
     /* make decision */
-    int direct = act(agent, x, y, xt, yt, totalReward);
+    int k = act(agent, x, y, xt, yt, totalReward);
     /* move */
-    snake.move(direct);
+    snake.move(k);
     x = snake.body[0].x;
     y = snake.body[0].y;
     /* snake found the target */
@@ -178,7 +207,7 @@ int Board::play2(float &totalReward)
         return 1;
     }
     /* snake hits block */
-    if (map(x, y) == Board::OBJ_BLOCK) {
+    if (map(x, y) == OBJ_BLOCK) {
         snake.reset(rows, cols);
         setTarget();
         return -1;
@@ -193,3 +222,74 @@ int Board::play2(float &totalReward)
     return 0;
 }
 
+float Environment::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    /* agent goes out of the map */
+    if (map(xn, yn) == 1) {
+        return -1;
+    }
+    /* agent reaches to the target's position */
+    if (xn == xt && yn == yt) {
+        return 1;
+    }
+    /* the distance from agent's previous position to the target's position */
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    /* the distance from agent's current position to the target's position */
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    return std::sqrt(d1) - std::sqrt(d2);
+}
+
+float Environment::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    if (map(xn, yn) == 1) {
+        return -1;
+    }
+    if (xn == xt && yn == yt) {
+        return 1;
+    }
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    float r = std::sqrt(d1) - std::sqrt(d2);
+    return r/std::sqrt(1 + r*r);
+}
+
+float Environment::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    if (map(xn, yn) == 1) {
+        return -1;
+    }
+    if (xn == xt && yn == yt) {
+        return 1;
+    }
+    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
+    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
+    return std::tanh(d1 - d2);
+}
+
+float Environment::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    if (map(xn, yn) == 1) {
+        return -1;
+    }
+    if (xn == xt && yn == yt) {
+        return 1;
+    }
+    float d1 = std::sqrt((xi - xt) * (xi - xt) + (yi - yt) * (yi - yt));
+    float d2 = std::sqrt((xn - xt) * (xn - xt) + (yn - yt) * (yn - yt));
+    float r = (1 - 2*d2 + d2*d2)/(1 - d2 + d2*d2);
+    if (d2 - d1 > 0) {
+        r *= -1;
+    }
+    return r;
+}
+
+float Environment::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    if (map(xn, yn) == 1) {
+        return -1;
+    }
+    if (xn == xt && yn == yt) {
+        return 1;
+    }
+    return 0.01;
+}

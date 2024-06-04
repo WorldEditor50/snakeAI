@@ -13,9 +13,9 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
     this->QMainNet.copyTo(QTargetNet);
 }
 
-void RL::QLSTM::perceive(Mat& state,
-        Mat& action,
-        Mat& nextState,
+void RL::QLSTM::perceive(Tensor& state,
+        Tensor& action,
+        Tensor& nextState,
         float reward,
         bool done)
 {
@@ -26,13 +26,13 @@ void RL::QLSTM::perceive(Mat& state,
     return;
 }
 
-RL::Mat& RL::QLSTM::eGreedyAction(const Mat &state)
+RL::Tensor& RL::QLSTM::eGreedyAction(const Tensor &state)
 {
-    Mat& out = QMainNet.forward(state);
+    Tensor& out = QMainNet.forward(state);
     return eGreedy(out, exploringRate, false);
 }
 
-RL::Mat &RL::QLSTM::action(const Mat &state)
+RL::Tensor &RL::QLSTM::action(const Tensor &state)
 {
     return QMainNet.forward(state);
 }
@@ -43,11 +43,11 @@ void RL::QLSTM::reset()
     return;
 }
 
-void RL::QLSTM::experienceReplay(const Transition& x, std::vector<Mat> &y)
+void RL::QLSTM::experienceReplay(const Transition& x, std::vector<Tensor> &y)
 {
-    Mat qTarget(actionDim, 1);
-    /* estimate q-target: Q-Regression */
-    /* select Action to estimate q-value */
+    Tensor qTarget(actionDim, 1);
+    /* estiTensore q-target: Q-Regression */
+    /* select Action to estiTensore q-value */
     int i = x.action.argmax();
     qTarget = QMainNet.forward(x.state);
     if (x.done == true) {
@@ -56,7 +56,7 @@ void RL::QLSTM::experienceReplay(const Transition& x, std::vector<Mat> &y)
         /* select optimal Action in the QMainNet */
         int k = QMainNet.forward(x.nextState).argmax();
         /* select value in the QTargetNet */
-        Mat &v = QTargetNet.forward(x.nextState);
+        Tensor &v = QTargetNet.forward(x.nextState);
         qTarget[i] = x.reward + gamma * v[k];
     }
     y.push_back(qTarget);
@@ -77,8 +77,8 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
         learningSteps = 0;
     }
     /* experience replay */
-    std::vector<Mat> x;
-    std::vector<Mat> y;
+    std::vector<Tensor> x;
+    std::vector<Tensor> y;
     std::uniform_int_distribution<int> uniform(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
         int k = uniform(Random::engine);

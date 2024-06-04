@@ -13,14 +13,14 @@ namespace RL {
 class Grad
 {
 public:
-    Mat w;
-    Mat b;
+    Tensor w;
+    Tensor b;
 public:
     Grad(){}
     Grad(std::size_t outputDim, std::size_t inputDim)
     {
-        w = Mat(outputDim, inputDim);
-        b = Mat(outputDim, 1);
+        w = Tensor(outputDim, inputDim);
+        b = Tensor(outputDim, 1);
     }
     explicit Grad(const Grad &r)
         :w(r.w),b(r.b){}
@@ -35,12 +35,21 @@ public:
 class iLayer
 {
 public:
+    enum Type {
+        LAYER_FC = 0,
+        LAYER_LSTM,
+        LAYER_CONV2D,
+        LAYER_MAXPOOLING,
+        LAYER_AVGPOOLING
+    };
+public:
+    int type;
     std::size_t inputDim;
     std::size_t outputDim;
-    Mat w;
-    Mat b;
-    Mat o;
-    Mat e;
+    Tensor w;
+    Tensor b;
+    Tensor o;
+    Tensor e;
     Grad g;
     Grad v;
     Grad m;
@@ -49,45 +58,46 @@ public:
     iLayer(std::size_t inputDim_, std::size_t outputDim_, bool trainFlag)
         :inputDim(inputDim_), outputDim(outputDim_)
     {
-        w = Mat(outputDim, inputDim);
-        b = Mat(outputDim, 1);
-        o = Mat(outputDim, 1);
-        e = Mat(outputDim, 1);
+        type = LAYER_FC;
+        w = Tensor(outputDim, inputDim);
+        b = Tensor(outputDim, 1);
+        o = Tensor(outputDim, 1);
+        e = Tensor(outputDim, 1);
         if (trainFlag == true) {
             g = Grad(outputDim, inputDim);
             v = Grad(outputDim, inputDim);
             m = Grad(outputDim, inputDim);
         }
-        uniformRand(w, -1, 1);
-        uniformRand(b, -1, 1);
+        Random::uniform(w, -1, 1);
+        Random::uniform(b, -1, 1);
     }
     explicit iLayer(const iLayer &r)
-        :inputDim(r.inputDim), outputDim(r.outputDim),
+        :type(r.type), inputDim(r.inputDim), outputDim(r.outputDim),
           w(r.w), b(r.b), o(r.o), e(r.e), g(r.g), v(r.v), m(r.m){}
     virtual ~iLayer(){}
-    virtual Mat& forward(const Mat& x)
+    virtual Tensor& forward(const Tensor& x)
     {
-        Mat::Mul::ikkj(o, w, x);
+        Tensor::Mul::ikkj(o, w, x);
         o += b;
         return o;
     }
 
-    virtual void gradient(const Mat& x, const Mat&)
+    virtual void gradient(const Tensor& x, const Tensor&)
     {
-        Mat::Mul::ikjk(g.w, e, x);
+        Tensor::Mul::ikjk(g.w, e, x);
         g.b += e;
         e.zero();
         o.zero();
         return;
     }
 
-    virtual void backward(Mat &ei)
+    virtual void backward(Tensor &ei)
     {
-        Mat::Mul::kikj(ei, w, e);
+        Tensor::Mul::kikj(ei, w, e);
         return;
     }
 
-    void SGD(float learningRate)
+    virtual void SGD(float learningRate)
     {
         Optimize::SGD(w, g.w, learningRate);
         Optimize::SGD(b, g.b, learningRate);
@@ -95,7 +105,7 @@ public:
         return;
     }
 
-    void RMSProp(float rho, float learningRate, float decay)
+    virtual void RMSProp(float rho, float learningRate, float decay)
     {
         Optimize::RMSProp(w, v.w, g.w, learningRate, rho, decay);
         Optimize::RMSProp(b, v.b, g.b, learningRate, rho, decay);
@@ -103,7 +113,7 @@ public:
         return;
     }
 
-    void NormRMSProp(float rho, float learningRate, float decay)
+    virtual void NormRMSProp(float rho, float learningRate, float decay)
     {
         Optimize::NormRMSProp(w, v.w, g.w, learningRate, rho, decay);
         Optimize::NormRMSProp(b, v.b, g.b, learningRate, rho, decay);
@@ -111,7 +121,7 @@ public:
         return;
     }
 
-    void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay)
+    virtual void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay)
     {
         Optimize::Adam(w, v.w, m.w, g.w,
                         alpha_t, beta_t, learningRate, alpha, beta, decay);
@@ -139,9 +149,9 @@ public:
     Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
         :iLayer(inputDim, outputDim, trainFlag){}
 
-    Mat& forward(const Mat& x) override
+    Tensor& forward(const Tensor& x) override
     {
-        Mat::Mul::ikkj(o, w, x);
+        Tensor::Mul::ikkj(o, w, x);
         o += b;
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Fn::f(o[i]);
@@ -149,13 +159,13 @@ public:
         return o;
     }
 
-    void gradient(const Mat& x, const Mat&) override
+    void gradient(const Tensor& x, const Tensor&) override
     {
-        Mat dy(outputDim, 1);
+        Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             dy[i] = Fn::d(o[i]) * e[i];
         }
-        Mat::Mul::ikjk(g.w, dy, x);
+        Tensor::Mul::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o.zero();
@@ -178,17 +188,17 @@ public:
     {
         return std::make_shared<Softmax>(inputDim, outputDim, tarinFlag);
     }
-    Mat& forward(const RL::Mat &x) override
+    Tensor& forward(const RL::Tensor &x) override
     {
-        Mat::Mul::ikkj(o, w, x);
+        Tensor::Mul::ikkj(o, w, x);
         o += b;
         return RL::softmax(o);
     }
 
-    void gradient(const RL::Mat &x, const Mat &y) override
+    void gradient(const RL::Tensor &x, const Tensor &y) override
     {
-        Mat dy = o - y;
-        Mat::Mul::ikjk(g.w, dy, x);
+        Tensor dy = o - y;
+        Tensor::Mul::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o.zero();
@@ -200,7 +210,7 @@ public:
 class GeluLayer : public iLayer
 {
 public:
-    Mat op;
+    Tensor op;
 public:
     GeluLayer(){}
     ~GeluLayer(){}
@@ -213,9 +223,9 @@ public:
     {
         return std::make_shared<GeluLayer>(inputDim, outputDim, tarinFlag);
     }
-    Mat& forward(const RL::Mat &x) override
+    Tensor& forward(const RL::Tensor &x) override
     {
-        Mat::Mul::ikkj(op, w, x);
+        Tensor::Mul::ikkj(op, w, x);
         op += b;
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Gelu::f(op[i]);
@@ -223,13 +233,13 @@ public:
         return o;
     }
 
-    void gradient(const Mat& x, const Mat&) override
+    void gradient(const Tensor& x, const Tensor&) override
     {
-        Mat dy(outputDim, 1);
+        Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             dy[i] = Gelu::d(op[i]) * e[i];
         }
-        Mat::Mul::ikjk(g.w, dy, x);
+        Tensor::Mul::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o.zero();
@@ -241,7 +251,7 @@ public:
 class SwishLayer : public iLayer
 {
 public:
-    Mat op;
+    Tensor op;
 public:
     SwishLayer(){}
     ~SwishLayer(){}
@@ -254,9 +264,9 @@ public:
     {
         return std::make_shared<SwishLayer>(inputDim, outputDim, tarinFlag);
     }
-    Mat& forward(const RL::Mat &x) override
+    Tensor& forward(const RL::Tensor &x) override
     {
-        Mat::Mul::ikkj(op, w, x);
+        Tensor::Mul::ikkj(op, w, x);
         op += b;
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Swish::f(op[i]);
@@ -264,13 +274,13 @@ public:
         return o;
     }
 
-    void gradient(const Mat& x, const Mat&) override
+    void gradient(const Tensor& x, const Tensor&) override
     {
-        Mat dy(outputDim, 1);
+        Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             dy[i] = Swish::d(op[i]) * e[i];
         }
-        Mat::Mul::ikjk(g.w, dy, x);
+        Tensor::Mul::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o.zero();
@@ -285,7 +295,7 @@ class Dropout : public Layer<Fn>
 public:
     bool trainFlag;
     float p;
-    Mat mask;
+    Tensor mask;
 public:
     Dropout(){}
     ~Dropout(){}
@@ -300,7 +310,7 @@ public:
     {
         return std::make_shared<Dropout>(inputDim, outputDim, tarinFlag, p_);
     }
-    Mat& forward(const RL::Mat &x) override
+    Tensor& forward(const RL::Tensor &x) override
     {
         Layer<Fn>::forward(x);
         if (trainFlag == true) {
@@ -313,7 +323,7 @@ public:
         return Layer<Fn>::o;
     }
 
-    void backward(Mat& ei) override
+    void backward(Tensor& ei) override
     {
         if (trainFlag == true) {
             Layer<Fn>::e *= mask;
@@ -337,14 +347,14 @@ class LayerNorm<Fn, LN::Def> : public iLayer
 public:
     float gamma;
     float u;
-    Mat op;
+    Tensor op;
 public:
     LayerNorm(){}
     ~LayerNorm(){}
     explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
         :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
     {
-        op = Mat(outputDim, 1);
+        op = Tensor(outputDim, 1);
     }
 
     static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
@@ -353,9 +363,9 @@ public:
     {
         return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
     }
-    Mat& forward(const RL::Mat &x) override
+    Tensor& forward(const RL::Tensor &x) override
     {
-        Mat::Mul::ikkj(op, w, x);
+        Tensor::Mul::ikkj(op, w, x);
         u = op.mean();
         float sigma = op.variance(u);
         gamma = 1.0/std::sqrt(sigma + 1e-9);
@@ -365,22 +375,22 @@ public:
         return o;
     }
 
-    void backward(Mat &ei) override
+    void backward(Tensor &ei) override
     {
-        Mat::Mul::kikj(ei, w, e*gamma);
+        Tensor::Mul::kikj(ei, w, e*gamma);
         return;
     }
 
-    void gradient(const Mat& x, const Mat&) override
+    void gradient(const Tensor& x, const Tensor&) override
     {
-        Mat dy(outputDim, 1);
+        Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             float error = Fn::d(o[i])*e[i];
             float d = (op[i] - u)*gamma;
             dy[i] = (1.0 - 1.0/float(outputDim))*(1 - d*d)*gamma*error;
             g.b[i] += error;
         }
-        Mat::Mul::ikjk(g.w, dy, x);
+        Tensor::Mul::ikjk(g.w, dy, x);
         e.zero();
         op.zero();
         return;
@@ -394,16 +404,16 @@ class LayerNorm<Fn, LN::Pre> : public iLayer
 public:
     float gamma;
     float u;
-    Mat x_;
-    Mat op;
+    Tensor x_;
+    Tensor op;
 public:
     LayerNorm(){}
     ~LayerNorm(){}
     explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
         :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
     {
-        x_ = Mat(inputDim, 1);
-        op = Mat(outputDim, 1);
+        x_ = Tensor(inputDim, 1);
+        op = Tensor(outputDim, 1);
     }
 
     static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
@@ -412,7 +422,7 @@ public:
     {
         return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
     }
-    Mat& forward(const RL::Mat &x) override
+    Tensor& forward(const RL::Tensor &x) override
     {
         u = x.mean();
         float sigma = x.variance(u);
@@ -420,32 +430,32 @@ public:
         for (std::size_t i = 0; i < x.size(); i++) {
             x_[i] = (x[i] - u)*gamma;
         }
-        Mat::Mul::ikkj(op, w, x_);
+        Tensor::Mul::ikkj(op, w, x_);
         for (std::size_t i = 0; i < o.size(); i++) {
             o[i] = Fn::f(op[i] + b[i]);
         }
         return o;
     }
 
-    void backward(Mat &ei) override
+    void backward(Tensor &ei) override
     {
-        Mat::Mul::kikj(ei, w, e*gamma);
+        Tensor::Mul::kikj(ei, w, e*gamma);
         return;
     }
 
-    void gradient(const Mat& x, const Mat&) override
+    void gradient(const Tensor& x, const Tensor&) override
     {
-        Mat dy(outputDim, 1);
+        Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             dy[i] = Fn::d(o[i])*e[i];
         }
-        Mat dx(inputDim, 1);
+        Tensor dx(inputDim, 1);
         for (std::size_t i = 0; i < dx.totalSize; i++) {
             //float d = (x[i] - u)*gamma;
             float d = x_[i];
             dx[i] = (1 - 1.0/float(inputDim))*(1 - d*d)*gamma*d;
         }
-        Mat::Mul::ikjk(g.w, dy, dx);
+        Tensor::Mul::ikjk(g.w, dy, dx);
         g.b += dy;
         e.zero();
         op.zero();
@@ -460,16 +470,16 @@ class LayerNorm<Fn, LN::Post> : public iLayer
 public:
     float gamma;
     float u;
-    Mat o1;
-    Mat o2;
+    Tensor o1;
+    Tensor o2;
 public:
     LayerNorm(){}
     ~LayerNorm(){}
     explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
         :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
     {
-        o1 = Mat(outputDim, 1);
-        o2 = Mat(outputDim, 1);
+        o1 = Tensor(outputDim, 1);
+        o2 = Tensor(outputDim, 1);
     }
 
     static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
@@ -478,9 +488,9 @@ public:
     {
         return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
     }
-    Mat& forward(const RL::Mat &x) override
+    Tensor& forward(const RL::Tensor &x) override
     {
-        Mat::Mul::ikkj(o1, w, x);
+        Tensor::Mul::ikkj(o1, w, x);
         for (std::size_t i = 0; i < o.size(); i++) {
             o2[i] = Fn::f(o1[i] + b[i]);
         }
@@ -493,20 +503,20 @@ public:
         return o;
     }
 
-    void backward(Mat &ei) override
+    void backward(Tensor &ei) override
     {
-        Mat::Mul::kikj(ei, w, e*gamma);
+        Tensor::Mul::kikj(ei, w, e*gamma);
         return;
     }
 
-    void gradient(const Mat& x, const Mat&) override
+    void gradient(const Tensor& x, const Tensor&) override
     {
-        Mat dy(outputDim, 1);
+        Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             float d = o2[i];//(o2[i] - u)*gamma;
             dy[i] = (1 - d*d)*(1 - 1.0/float(outputDim))*Fn::d(o2[i])*gamma*e[i];
         }
-        Mat::Mul::ikjk(g.w, dy, x);
+        Tensor::Mul::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o1.zero();
@@ -521,14 +531,14 @@ class RMSNorm : public iLayer
 {
 public:
     float gamma;
-    Mat op;
+    Tensor op;
 public:
     RMSNorm(){}
     ~RMSNorm(){}
     explicit RMSNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
         :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
     {
-        op = Mat(outputDim, 1);
+        op = Tensor(outputDim, 1);
     }
 
     static std::shared_ptr<RMSNorm> _(std::size_t inputDim,
@@ -537,9 +547,9 @@ public:
     {
         return std::make_shared<RMSNorm>(inputDim, outputDim, tarinFlag);
     }
-    Mat& forward(const RL::Mat &x) override
+    Tensor& forward(const RL::Tensor &x) override
     {
-        Mat::Mul::ikkj(op, w, x);
+        Tensor::Mul::ikkj(op, w, x);
         float sigma = op.variance(0);
         gamma = 1.0/std::sqrt(sigma + 1e-9);
         for (std::size_t i = 0; i < o.size(); i++) {
@@ -548,22 +558,22 @@ public:
         return o;
     }
 
-    void backward(Mat &ei) override
+    void backward(Tensor &ei) override
     {
-        Mat::Mul::kikj(ei, w, e*gamma);
+        Tensor::Mul::kikj(ei, w, e*gamma);
         return;
     }
 
-    void gradient(const Mat& x, const Mat&) override
+    void gradient(const Tensor& x, const Tensor&) override
     {
-        Mat dy(outputDim, 1);
+        Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             float error = Fn::d(o[i])*e[i];
             float d = op[i]*gamma;
             dy[i] = (1 - d*d)*gamma*error;
             g.b[i] += error;
         }
-        Mat::Mul::ikjk(g.w, dy, x);
+        Tensor::Mul::ikjk(g.w, dy, x);
         e.zero();
         op.zero();
         return;
@@ -575,16 +585,16 @@ template<typename Fn>
 class TanhNorm : public iLayer
 {
 public:
-    Mat o1;
-    Mat o2;
+    Tensor o1;
+    Tensor o2;
 public:
     TanhNorm(){}
     ~TanhNorm(){}
     explicit TanhNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
         :iLayer(inputDim, outputDim, trainFlag_)
     {
-        o1 = Mat(outputDim, 1);
-        o2 = Mat(outputDim, 1);
+        o1 = Tensor(outputDim, 1);
+        o2 = Tensor(outputDim, 1);
     }
 
     static std::shared_ptr<TanhNorm> _(std::size_t inputDim,
@@ -593,9 +603,9 @@ public:
     {
         return std::make_shared<TanhNorm>(inputDim, outputDim, tarinFlag);
     }
-    Mat& forward(const RL::Mat &x) override
+    Tensor& forward(const RL::Tensor &x) override
     {
-        Mat::Mul::ikkj(o1, w, x);
+        Tensor::Mul::ikkj(o1, w, x);
         o2 = RL::tanh(o1);
         for (std::size_t i = 0; i < o.size(); i++) {
             o[i] = Fn::f(o2[i] + b[i]);
@@ -603,22 +613,22 @@ public:
         return o;
     }
 
-    void backward(Mat &ei) override
+    void backward(Tensor &ei) override
     {
-        Mat::Mul::kikj(ei, w, e);
+        Tensor::Mul::kikj(ei, w, e);
         return;
     }
 
-    void gradient(const Mat& x, const Mat&) override
+    void gradient(const Tensor& x, const Tensor&) override
     {
-        Mat dy(outputDim, 1);
+        Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             float error = Fn::d(o[i])*e[i];
             float d = o2[i];
             dy[i] = (1 - d*d)*error;
             g.b[i] += error;
         }
-        Mat::Mul::ikjk(g.w, dy, x);
+        Tensor::Mul::ikjk(g.w, dy, x);
         e.zero();
         o1.zero();
         return;

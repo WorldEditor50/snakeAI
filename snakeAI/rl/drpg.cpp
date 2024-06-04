@@ -12,37 +12,37 @@ RL::DRPG::DRPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
                         Softmax::_(hiddenDim, actionDim, true));
 }
 
-RL::Mat &RL::DRPG::eGreedyAction(const Mat &state)
+RL::Tensor &RL::DRPG::eGreedyAction(const Tensor &state)
 {
-    Mat& out = policyNet.forward(state);
+    Tensor& out = policyNet.forward(state);
     return eGreedy(out, exploringRate, false);
 }
 
-RL::Mat &RL::DRPG::noiseAction(const RL::Mat &state)
+RL::Tensor &RL::DRPG::noiseAction(const RL::Tensor &state)
 {
-    Mat& out = policyNet.forward(state);
+    Tensor& out = policyNet.forward(state);
     return noise(out);
 }
 
-RL::Mat &RL::DRPG::gumbelMax(const RL::Mat &state)
+RL::Tensor &RL::DRPG::gumbelMax(const RL::Tensor &state)
 {
-    Mat& out = policyNet.forward(state);
+    Tensor& out = policyNet.forward(state);
     return gumbelSoftmax(out, exploringRate);
 }
 
-RL::Mat &RL::DRPG::action(const Mat &state)
+RL::Tensor &RL::DRPG::action(const Tensor &state)
 {
     return policyNet.forward(state);
 }
 
-void RL::DRPG::reinforce(const std::vector<Mat> &x, std::vector<Mat> &y, std::vector<float>& reward, float learningRate)
+void RL::DRPG::reinforce(const std::vector<Tensor> &x, std::vector<Tensor> &y, std::vector<float>& reward, float learningRate)
 {
     float r = 0;
     for (int i = reward.size() - 1; i >= 0; i--) {
         r = gamma * r + reward[i];
         reward[i] = r;
     }
-    Mat re(reward.size(), 1);
+    Tensor re(reward.size(), 1);
     re.val = reward;
     float u = re.mean();
     for (std::size_t t = 0; t < y.size(); t++) {

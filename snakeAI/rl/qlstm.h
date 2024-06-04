@@ -12,15 +12,15 @@ public:
     QLSTM(){}
     explicit QLSTM(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     ~QLSTM(){}
-    void perceive(Mat& state,
-                  Mat& action,
-                  Mat& nextState,
+    void perceive(Tensor& state,
+                  Tensor& action,
+                  Tensor& nextState,
                   float reward,
                   bool done);
-    Mat& eGreedyAction(const Mat& state);
-    Mat &action(const Mat &state);
+    Tensor& eGreedyAction(const Tensor& state);
+    Tensor &action(const Tensor &state);
     void reset();
-    void experienceReplay(const Transition& x, std::vector<Mat> &y);
+    void experienceReplay(const Transition& x, std::vector<Tensor> &y);
     void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 32,

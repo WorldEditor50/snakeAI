@@ -27,7 +27,7 @@ enum OptType {
 class BPNN
 {
 public:
-    using FnLoss = std::function<Mat(const Mat&, const Mat&)>;
+    using FnLoss = std::function<Tensor(const Tensor&, const Tensor&)>;
     using Layers = std::vector<std::shared_ptr<iLayer> >;
 protected:
     float alpha1_t;
@@ -44,12 +44,12 @@ public:
     BPNN &operator = (const BPNN &r);
     void copyTo(BPNN& dstNet);
     void softUpdateTo(BPNN& dstNet, float alpha);
-    Mat &forward(const Mat &x);
-    inline Mat& operator()(const Mat &x) {return forward(x);}
-    Mat &output();
-    void backward(const Mat &loss, Mat& E);
-    void backward(const Mat &loss);
-    void gradient(const Mat &x, const Mat &y);
+    Tensor &forward(const Tensor &x);
+    inline Tensor& operator()(const Tensor &x) {return forward(x);}
+    Tensor &output();
+    void backward(const Tensor &loss, Tensor& E);
+    void backward(const Tensor &loss);
+    void gradient(const Tensor &x, const Tensor &y);
     void SGD(float learningRate = 0.001);
     void RMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0);
     void NormRMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0);

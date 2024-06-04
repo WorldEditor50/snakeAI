@@ -21,11 +21,11 @@ public:
     PPO(){}
     explicit PPO(int stateDim, int hiddenDim, int actionDim);
     ~PPO(){}
-    Mat &eGreedyAction(const Mat &state);
-    RL::Mat &noiseAction(const RL::Mat &state);
-    RL::Mat &gumbelMax(const RL::Mat &state);
-    Mat &action(const Mat &state);
-    Mat& output(){return actorP.output();}
+    Tensor &eGreedyAction(const Tensor &state);
+    RL::Tensor &noiseAction(const RL::Tensor &state);
+    RL::Tensor &gumbelMax(const RL::Tensor &state);
+    Tensor &action(const Tensor &state);
+    Tensor& output(){return actorP.output();}
     void learnWithKLpenalty(std::vector<Step>& trajectory, float learningRate);
     void learnWithClipObjective(std::vector<Step>& x, float learningRate);
     void save(const std::string &actorPara, const std::string &criticPara);

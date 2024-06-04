@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
     setPalette(palette);
     /* info */
     ui->agentComboBox->addItems(QStringList{"sac", "dqn", "dpg", "ppo", "ddpg", "qlstm",
-                                            "drpg", "astar", "rand"});
+                                            "drpg", "convpg", "convdqn", "astar", "rand"});
     /* game */
     connect(ui->agentComboBox, &QComboBox::currentTextChanged,
             ui->gamewidget, &GameWidget::setAgent);
@@ -26,9 +26,13 @@ MainWindow::MainWindow(QWidget *parent)
     ui->trainCheckBox->setChecked(true);
     connect(ui->trainCheckBox, &QCheckBox::clicked,
             ui->gamewidget, &GameWidget::setTrainAgent);
+    connect(ui->blocksCheckBox, &QCheckBox::clicked,
+            this, [=](){
+        ui->gamewidget->setBlocks(200);
+    });
     /* show reward */
     statisticalWidget = new AxisWidget;
-    statisticalWidget->setWindowTitle("Total reward/epoch");
+    statisticalWidget->setWindowTitle("Total reward/episode");
     connect(ui->gamewidget, &GameWidget::sendTotalReward,
             statisticalWidget, &AxisWidget::addPoint, Qt::QueuedConnection);
     statisticalWidget->move(QPoint(x() + width(), y()));

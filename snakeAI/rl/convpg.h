@@ -1,5 +1,7 @@
-#ifndef POLICY_GRADIENT_H
-#define POLICY_GRADIENT_H
+#ifndef CONVPG_H
+#define CONVPG_H
+
+
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -8,18 +10,20 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
-#include "bpnn.h"
+#include "net.hpp"
+#include "layer.h"
+#include "conv2d.hpp"
 #include "rl_basic.h"
 #include "parameter.hpp"
 
 namespace RL {
 
-class DPG
+class ConvPG
 {
 public:
-    DPG(){}
-    explicit DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
-    ~DPG(){}
+    ConvPG(){}
+    explicit ConvPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
+    ~ConvPG(){}
     Tensor &eGreedyAction(const Tensor &state);
     Tensor &noiseAction(const Tensor &state);
     Tensor &gumbelMax(const RL::Tensor &state);
@@ -35,7 +39,7 @@ protected:
     float learningRate;
     float entropy0;
     GradValue alpha;
-    BPNN policyNet;
+    Net policyNet;
 };
 }
-#endif // POLICY_GRADIENT_H
+#endif // CONVPG_H

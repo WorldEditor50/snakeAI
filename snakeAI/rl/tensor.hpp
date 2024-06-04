@@ -5,6 +5,8 @@
 #include <functional>
 #include <iostream>
 #include <assert.h>
+namespace RL {
+
 template<typename T, template<typename Ti> class Alloc=std::allocator>
 class Tensor_
 {
@@ -15,46 +17,11 @@ public:
     using Size = std::vector<int>;
     using iterator = typename Vector::iterator;
     using const_iterator = typename Vector::const_iterator;
-    class Sub
-    {
-    public:
-        Tensor_ *pointer;
-        std::size_t pos;
-    public:
-        Sub():pointer(nullptr),pos(0){}
-        Sub(const Sub &r):pointer(r.pointer),pos(r.pos){}
-        Sub& operator=(const Sub &r)
-        {
-            if (this == &r) {
-                return *this;
-            }
-            pointer = r.pointer;
-            pos = r.pos;
-            return *this;
-        }
-        inline void operator=(const Tensor_ &x)
-        {
-            for (std::size_t i = 0; i < x.totalSize; i++) {
-                pointer->val[i + pos] = x.val[i];
-            }
-            return;
-        }
-        inline void operator=(const std::vector<T> &x)
-        {
-            for (std::size_t i = 0; i < x.size(); i++) {
-                pointer->val[i + pos] = x[i];
-            }
-            return;
-        }
-    };
-
 public:
     std::size_t totalSize;
     Vector val;
     Size sizes;
     Shape shape;
-private:
-    Sub subset;
 public:
     /* default construct */
     Tensor_():totalSize(0){}
@@ -328,14 +295,6 @@ public:
         return x;
     }
 
-    template<typename ...Index>
-    inline Sub& at(Index ...index)
-    {
-        subset.pointer = this;
-        subset.pos = posOf(index...);
-        return subset;
-    }
-
     /* visit */
     template<typename ...Index>
     inline int posOf(Index ...index) const
@@ -416,7 +375,7 @@ public:
 
     Tensor_ flatten() const
     {
-        Tensor_ x(totalSize);
+        Tensor_ x(totalSize, 1);
         x.val = val;
         return x;
     }
@@ -829,7 +788,7 @@ public:
         for (std::size_t i = 0; i < totalSize; i++) {
             s += val[i]*val[i];
         }
-        return std::sqrt(s);
+        return std::sqrt(s + 1e-8);
     }
 
     struct Mul {
@@ -986,4 +945,5 @@ using Tensorf  = Tensor_<float>;
 using Tensord  = Tensor_<double>;
 using Tensor   = Tensorf;
 
+}
 #endif // TENSOR_HPP

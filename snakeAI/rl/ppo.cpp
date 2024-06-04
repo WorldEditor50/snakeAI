@@ -35,25 +35,25 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
 
 }
 
-RL::Mat &RL::PPO::eGreedyAction(const Mat &state)
+RL::Tensor &RL::PPO::eGreedyAction(const Tensor &state)
 {
-    Mat& out = actorQ.forward(state);
+    Tensor& out = actorQ.forward(state);
     return eGreedy(out, exploringRate, false);
 }
 
-RL::Mat &RL::PPO::noiseAction(const RL::Mat &state)
+RL::Tensor &RL::PPO::noiseAction(const RL::Tensor &state)
 {
-    Mat& out = actorQ.forward(state);
+    Tensor& out = actorQ.forward(state);
     return noise(out, exploringRate);
 }
 
-RL::Mat &RL::PPO::gumbelMax(const RL::Mat &state)
+RL::Tensor &RL::PPO::gumbelMax(const RL::Tensor &state)
 {
-    Mat& out = actorQ.forward(state);
+    Tensor& out = actorQ.forward(state);
     return gumbelSoftmax(out, alpha.val);
 }
 
-RL::Mat &RL::PPO::action(const Mat &state)
+RL::Tensor &RL::PPO::action(const Tensor &state)
 {
     return actorP.forward(state);
 }
@@ -66,8 +66,8 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
     }
     /* reward */
     int end = trajectory.size() - 1;
-    Mat criticState(stateDim + actionDim, 1);
-    Mat::concat(0, criticState,
+    Tensor criticState(stateDim + actionDim, 1);
+    Tensor::concat(0, criticState,
                 trajectory[end].state,
                 trajectory[end].action);
     float r = critic.forward(criticState).max();
@@ -80,27 +80,27 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
     for (int t = end; t >= 0; t--) {
         int k = trajectory[t].action.argmax();
         /* advangtage */
-        Mat::concat(0, criticState,
+        Tensor::concat(0, criticState,
                     trajectory[t].state,
                     trajectory[t].action);
-        Mat v = critic.forward(criticState);
+        Tensor v = critic.forward(criticState);
         float advantage = trajectory[t].reward - v[k];
         /* critic */
-        Mat r = v;
+        Tensor r = v;
         if (t == end) {
             r[k] = trajectory[t].reward;
         } else {
-            Mat::concat(0, criticState,
+            Tensor::concat(0, criticState,
                         trajectory[t + 1].state,
                         trajectory[t + 1].action);
-            Mat &v1 = critic.forward(criticState);
+            Tensor &v1 = critic.forward(criticState);
             r[k] = trajectory[t].reward + 0.99*v1[k];
         }
         critic.backward(Loss::MSE(v, r));
         critic.gradient(criticState, r);
         /* actor */
-        Mat& q = trajectory[t].action;
-        const Mat& p = actorP.forward(trajectory[t].state);
+        Tensor& q = trajectory[t].action;
+        const Tensor& p = actorP.forward(trajectory[t].state);
         float kl = p[k] * std::log(p[k]/q[k] + 1e-9);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         q[k] *= ratio*advantage - beta*kl;
@@ -131,8 +131,8 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
         learningSteps = 0;
     }
     int end = trajectory.size() - 1;
-    Mat criticState(stateDim + actionDim, 1);
-    Mat::concat(0, criticState,
+    Tensor criticState(stateDim + actionDim, 1);
+    Tensor::concat(0, criticState,
                 trajectory[end].state,
                 trajectory[end].action);
     float r = critic.forward(criticState).max();
@@ -142,30 +142,30 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
     }
     for (int t = end; t >= 0; t--) {
         int k = trajectory[t].action.argmax();
-        Mat::concat(0, criticState,
+        Tensor::concat(0, criticState,
                     trajectory[t].state,
                     trajectory[t].action);
         /* advangtage */
-        Mat v = critic.forward(criticState);
+        Tensor v = critic.forward(criticState);
         float adv = trajectory[t].reward - v[k];
         /* critic */
-        Mat r = v;
+        Tensor r = v;
         if (t == end) {
             r[k] = trajectory[t].reward;
         } else {
-            Mat::concat(0, criticState,
+            Tensor::concat(0, criticState,
                         trajectory[t + 1].state,
                         trajectory[t + 1].action);
-            Mat &v1 = critic.forward(criticState);
+            Tensor &v1 = critic.forward(criticState);
             r[k] = trajectory[t].reward + 0.99*v1[k];
         }
         critic.backward(Loss::MSE(v, r));
         critic.gradient(criticState, r);
         /* temperture parameter */
-        Mat& q = trajectory[t].action;
+        Tensor& q = trajectory[t].action;
         alpha.g[k] += -q[k]*std::log(q[k] + 1e-8) - entropy0;
         /* actor */
-        const Mat& p = actorP.forward(trajectory[t].state);
+        const Tensor& p = actorP.forward(trajectory[t].state);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
         q[k] *= ratio * adv;
@@ -179,7 +179,7 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
     alpha.RMSProp(0.9, 1e-4, 0);
 #if 1
     std::cout<<"alpha:";
-    alpha.val.show();
+    alpha.val.printValue();
 #endif
     /* update step */
     exploringRate *= 0.99999;

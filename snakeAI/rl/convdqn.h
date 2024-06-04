@@ -1,5 +1,5 @@
-#ifndef DQNN_H
-#define DQNN_H
+#ifndef CONVDQN_H
+#define CONVDQN_H
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -8,17 +8,16 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
-#include "bpnn.h"
+#include "net.hpp"
 #include "rl_basic.h"
 
 namespace RL {
 
-class DQN
+class ConvDQN
 {
 public:
-    DQN(){}
-    explicit DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
-    ~DQN(){}
+    ConvDQN(){}
+    explicit ConvDQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     void perceive(const Tensor& state,
                   const Tensor& action,
                   const Tensor& nextState,
@@ -32,8 +31,6 @@ public:
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 32,
                float learningRate = 0.001);
-    void save(const std::string& fileName);
-    void load(const std::string& fileName);
 protected:
     std::size_t stateDim;
     std::size_t actionDim;
@@ -41,9 +38,9 @@ protected:
     float exploringRate;
     float totalReward;
     int learningSteps;
-    BPNN QMainNet;
-    BPNN QTargetNet;
+    Net QMainNet;
+    Net QTargetNet;
     std::deque<Transition> memories;
 };
 }
-#endif // DQNN_H
+#endif // CONVDQN_H

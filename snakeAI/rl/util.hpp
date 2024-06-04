@@ -3,7 +3,7 @@
 #include <vector>
 #include <random>
 #include <ctime>
-#include "mat.hpp"
+#include "tensor.hpp"
 
 namespace RL {
 
@@ -14,12 +14,12 @@ struct Random {
     static std::random_device device;
     static std::mt19937 generator;
 
-    inline static int categorical(const Mat& p)
+    inline static int categorical(const Tensor& p)
     {
         std::discrete_distribution<int> distribution(p.begin(), p.end());
         return distribution(Random::generator);
     }
-    inline static void uniform(Mat &x, float x1, float x2)
+    inline static void uniform(Tensor &x, float x1, float x2)
     {
         std::uniform_real_distribution<float> distribution(x1, x2);
         for (std::size_t i = 0; i < x.size(); i++) {
@@ -27,7 +27,7 @@ struct Random {
         }
         return;
     }
-    inline static void bernoulli(Mat &x, float p)
+    inline static void bernoulli(Tensor &x, float p)
     {
         std::bernoulli_distribution distribution(p);
         for (std::size_t i = 0; i <x.size(); i++) {
@@ -35,7 +35,7 @@ struct Random {
         }
         return;
     }
-    inline static void normal(Mat &x, float u, float sigma)
+    inline static void normal(Tensor &x, float u, float sigma)
     {
         std::normal_distribution<float> distribution(u, sigma);
         for (std::size_t i = 0; i <x.size(); i++) {
@@ -46,7 +46,7 @@ struct Random {
 };
 
 namespace Norm {
-    inline float l1(const Mat &x1, const Mat& x2)
+    inline float l1(const Tensor &x1, const Tensor& x2)
     {
         float s = 0;
         for (std::size_t i = 0; i < x1.size(); i++) {
@@ -55,7 +55,7 @@ namespace Norm {
         }
         return s;
     }
-    inline float l2(const Mat &x1, const Mat& x2)
+    inline float l2(const Tensor &x1, const Tensor& x2)
     {
         float s = 0;
         for (std::size_t i = 0; i < x1.size(); i++) {
@@ -64,7 +64,7 @@ namespace Norm {
         }
         return std::sqrt(s);
     }
-    inline float lp(const Mat &x1, const Mat& x2, float p)
+    inline float lp(const Tensor &x1, const Tensor& x2, float p)
     {
         float s = 0;
         for (std::size_t i = 0; i < x1.size(); i++) {
@@ -73,7 +73,7 @@ namespace Norm {
         }
         return std::pow(s, 1.0/p);
     }
-    inline float l8(const Mat &x1, const Mat& x2)
+    inline float l8(const Tensor &x1, const Tensor& x2)
     {
         float s = x1[0] - x2[0];
         for (std::size_t i = 1; i < x1.size(); i++) {
@@ -86,7 +86,7 @@ namespace Norm {
     }
 }
 
-inline Mat& sqrt(Mat& x)
+inline Tensor& sqrt(Tensor& x)
 {
     for (std::size_t i = 0; i < x.size(); i++) {
         x[i] = std::sqrt(x[i]);
@@ -94,7 +94,7 @@ inline Mat& sqrt(Mat& x)
     return x;
 }
 
-inline Mat& exp(Mat& x)
+inline Tensor& exp(Tensor& x)
 {
     for (std::size_t i = 0; i < x.size(); i++) {
         x[i] = std::exp(x[i]);
@@ -102,7 +102,7 @@ inline Mat& exp(Mat& x)
     return x;
 }
 
-inline Mat& log(Mat& x)
+inline Tensor& log(Tensor& x)
 {
     for (std::size_t i = 0; i < x.size(); i++) {
         x[i] = std::log(x[i]);
@@ -110,7 +110,7 @@ inline Mat& log(Mat& x)
     return x;
 }
 
-inline Mat& tanh(Mat& x)
+inline Tensor& tanh(Tensor& x)
 {
     for (std::size_t i = 0; i < x.size(); i++) {
         x[i] = std::tanh(x[i]);
@@ -118,7 +118,7 @@ inline Mat& tanh(Mat& x)
     return x;
 }
 
-inline Mat& sin(Mat& x)
+inline Tensor& sin(Tensor& x)
 {
     for (std::size_t i = 0; i < x.size(); i++) {
         x[i] = std::sin(x[i]);
@@ -126,7 +126,7 @@ inline Mat& sin(Mat& x)
     return x;
 }
 
-inline Mat& cos(Mat& x)
+inline Tensor& cos(Tensor& x)
 {
     for (std::size_t i = 0; i < x.size(); i++) {
         x[i] = std::cos(x[i]);
@@ -134,54 +134,54 @@ inline Mat& cos(Mat& x)
     return x;
 }
 
-inline Mat sqrt(const Mat& x)
+inline Tensor sqrt(const Tensor& x)
 {
-    Mat y(x.rows, x.cols);
+    Tensor y(x.shape);
     for (std::size_t i = 0; i < x.size(); i++) {
         y[i] = std::sqrt(x[i]);
     }
     return x;
 }
 
-inline Mat exp(const Mat& x)
+inline Tensor exp(const Tensor& x)
 {
-    Mat y(x.rows, x.cols);
+    Tensor y(x.shape);
     for (std::size_t i = 0; i < x.size(); i++) {
         y[i] = std::exp(x[i]);
     }
     return y;
 }
 
-inline Mat log(const Mat& x)
+inline Tensor log(const Tensor& x)
 {
-    Mat y(x.rows, x.cols);
+    Tensor y(x.shape);
     for (std::size_t i = 0; i < x.size(); i++) {
         y[i] = std::log(x[i]);
     }
     return y;
 }
 
-inline Mat tanh(const Mat& x)
+inline Tensor tanh(const Tensor& x)
 {
-    Mat y(x.rows, x.cols);
+    Tensor y(x.shape);
     for (std::size_t i = 0; i < x.size(); i++) {
         y[i] = std::tanh(x[i]);
     }
     return y;
 }
 
-inline Mat sin(const Mat& x)
+inline Tensor sin(const Tensor& x)
 {
-    Mat y(x.rows, x.cols);
+    Tensor y(x.shape);
     for (std::size_t i = 0; i < x.size(); i++) {
         y[i] = std::sin(x[i]);
     }
     return y;
 }
 
-inline Mat cos(const Mat& x)
+inline Tensor cos(const Tensor& x)
 {
-    Mat y(x.rows, x.cols);
+    Tensor y(x.shape);
     for (std::size_t i = 0; i < x.size(); i++) {
         y[i] /= std::cos(x[i]);
     }
@@ -189,7 +189,7 @@ inline Mat cos(const Mat& x)
 }
 
 /* exponential moving average */
-inline void EMA(Mat &s, const Mat s_, float r)
+inline void lerp(Tensor &s, const Tensor s_, float r)
 {
     for (std::size_t i = 0; i < s.size(); i++) {
         s[i] = (1 - r) * s[i] + r * s_[i];
@@ -198,15 +198,15 @@ inline void EMA(Mat &s, const Mat s_, float r)
 }
 float gaussian(float x, float u, float sigma);
 float clip(float x, float sup, float inf);
-float hmean(const Mat &x);
-float gmean(const Mat &x);
-float variance(const Mat &x, float u);
-float covariance(const Mat& x1, const Mat& x2);
-void zscore(Mat &x);
-void normalize(Mat &x);
+float hmean(const Tensor &x);
+float gmean(const Tensor &x);
+float variance(const Tensor &x, float u);
+float covariance(const Tensor& x1, const Tensor& x2);
+void zscore(Tensor &x);
+void normalize(Tensor &x);
 
 
-inline float M3(const Mat &x, float u)
+inline float M3(const Tensor &x, float u)
 {
     float s = 0;
     for (std::size_t i = 0; i < x.size(); i++) {
@@ -216,7 +216,7 @@ inline float M3(const Mat &x, float u)
     return s/float(x.size());
 }
 
-inline float M4(const Mat &x, float u)
+inline float M4(const Tensor &x, float u)
 {
     float s = 0;
     for (std::size_t i = 0; i < x.size(); i++) {
@@ -226,7 +226,7 @@ inline float M4(const Mat &x, float u)
     return s/float(x.size());
 }
 
-inline void clamp(Mat &x, float x1, float x2)
+inline void clamp(Tensor &x, float x1, float x2)
 {
     std::uniform_real_distribution<float> uniform(x1, x2);
     for (std::size_t i = 0; i < x.size(); i++) {
@@ -247,7 +247,7 @@ inline void uniformRand(T &x, float x1, float x2)
     return;
 }
 
-inline Mat& eGreedy(Mat& x, float exploringRate, bool hard)
+inline Tensor& eGreedy(Tensor& x, float exploringRate, bool hard)
 {
     std::uniform_real_distribution<float> uniformReal(0, 1);
     float p = uniformReal(Random::engine);
@@ -262,9 +262,9 @@ inline Mat& eGreedy(Mat& x, float exploringRate, bool hard)
     return x;
 }
 
-inline Mat& noise(Mat& x)
+inline Tensor& noise(Tensor& x)
 {
-    Mat epsilon(x);
+    Tensor epsilon(x);
     uniformRand(epsilon, -1, 1);
     x += epsilon;
     float s = x.max();
@@ -273,12 +273,12 @@ inline Mat& noise(Mat& x)
     return x;
 }
 
-inline Mat& noise(Mat& x, float exploringRate)
+inline Tensor& noise(Tensor& x, float exploringRate)
 {
     std::uniform_real_distribution<float> uniform(0, 1);
     float p = uniform(Random::engine);
     if (p < exploringRate) {
-        Mat epsilon(x);
+        Tensor epsilon(x);
         uniformRand(epsilon, -1, 1);
         x += epsilon;
         float s = x.max();
@@ -288,7 +288,7 @@ inline Mat& noise(Mat& x, float exploringRate)
     return x;
 }
 
-inline Mat& softmax(Mat &x)
+inline Tensor& softmax(Tensor &x)
 {
     float s = 0;
     float maxValue = x.max();
@@ -301,9 +301,9 @@ inline Mat& softmax(Mat &x)
     return x;
 }
 
-inline Mat& gumbelSoftmax(Mat &x, float tau)
+inline Tensor& gumbelSoftmax(Tensor &x, float tau)
 {
-    Mat epsilon(x);
+    Tensor epsilon(x);
     Random::uniform(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
         epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
@@ -314,9 +314,9 @@ inline Mat& gumbelSoftmax(Mat &x, float tau)
     return x;
 }
 
-inline Mat& gumbelSoftmax(Mat &x, const Mat& tau)
+inline Tensor& gumbelSoftmax(Tensor &x, const Tensor& tau)
 {
-    Mat epsilon(x);
+    Tensor epsilon(x);
     Random::uniform(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
         epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
@@ -327,14 +327,14 @@ inline Mat& gumbelSoftmax(Mat &x, const Mat& tau)
     return x;
 }
 
-inline Mat& gaussianResample(Mat &z, float u, float sigma)
+inline Tensor& gaussianResample(Tensor &z, float u, float sigma)
 {
     /*
         z = u + std*eps
         eps ~ N(0, 1)
     */
     float std = std::sqrt(sigma);
-    Mat eps(z.rows, z.cols);
+    Tensor eps(z.shape);
     Random::normal(eps, u, std);
     for (std::size_t i = 0; i < z.totalSize; i++) {
         z[i] = u + std*eps[i];

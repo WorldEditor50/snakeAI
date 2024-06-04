@@ -4,7 +4,7 @@ std::default_random_engine RL::Random::engine(std::random_device{}());
 std::random_device RL::Random::device;
 std::mt19937 RL::Random::generator(RL::Random::device());
 
-void RL::zscore(Mat &x)
+void RL::zscore(Tensor &x)
 {
     /* sigma */
     float u = x.mean();
@@ -15,7 +15,7 @@ void RL::zscore(Mat &x)
     return;
 }
 
-void RL::normalize(Mat &x)
+void RL::normalize(Tensor &x)
 {
     float minValue = x[0];
     float maxValue = x[0];
@@ -33,7 +33,7 @@ void RL::normalize(Mat &x)
     return;
 }
 
-float RL::variance(const Mat &x, float u)
+float RL::variance(const Tensor &x, float u)
 {
     float sigma = 0;
     /* sigma */
@@ -43,7 +43,7 @@ float RL::variance(const Mat &x, float u)
     return sigma / float(x.size());
 }
 
-float RL::covariance(const Mat &x1, const Mat &x2)
+float RL::covariance(const Tensor &x1, const Tensor &x2)
 {
     float u = x1.mean();
     float v = x2.mean();
@@ -65,7 +65,7 @@ float RL::clip(float x, float sup, float inf)
     return y;
 }
 
-float RL::hmean(const RL::Mat &x)
+float RL::hmean(const RL::Tensor &x)
 {
     float s = 0;
     for (std::size_t i = 0; i < x.size(); i++) {
@@ -74,7 +74,7 @@ float RL::hmean(const RL::Mat &x)
     return float(x.size())/s;
 }
 
-float RL::gmean(const RL::Mat &x)
+float RL::gmean(const RL::Tensor &x)
 {
     float s = 1;
     for (std::size_t i = 0; i < x.size(); i++) {

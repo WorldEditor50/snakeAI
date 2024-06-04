@@ -9,19 +9,19 @@ class LstmNet
 public:
     LSTM lstm;
     BPNN bpnet;
-    std::vector<Mat> y;
+    std::vector<Tensor> y;
 public:
     LstmNet(){}
     template<typename ...TLayer>
     explicit LstmNet(const LSTM &lstm_, TLayer&&...layer)
         :lstm(lstm_),bpnet(layer...){}
-    Mat &forward(const Mat &x)
+    Tensor &forward(const Tensor &x)
     {
-        Mat &out = lstm.forward(x);
+        Tensor &out = lstm.forward(x);
         bpnet.forward(out);
         return bpnet.output();
     }
-    void forward(const std::vector<RL::Mat> &sequence)
+    void forward(const std::vector<RL::Tensor> &sequence)
     {
         lstm.reset();
         for (auto &x : sequence) {
@@ -34,14 +34,14 @@ public:
         }
         return;
     }
-    void backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat> &yt, BPNN::FnLoss Loss)
+    void backward(const std::vector<RL::Tensor> &x, const std::vector<RL::Tensor> &yt, BPNN::FnLoss Loss)
     {
         std::size_t outputDim = bpnet.output().size();
-        RL::Mat E(lstm.outputDim, 1);
+        RL::Tensor E(lstm.outputDim, 1);
         LSTM::State delta_(lstm.hiddenDim, lstm.outputDim);
         for (int t = yt.size() - 1; t >= 0; t--) {
             /* loss */
-            Mat loss = Loss(y[t], yt[t]);
+            Tensor loss = Loss(y[t], yt[t]);
             /* backward */
             bpnet.backward(loss, E);
             /* gradient */
@@ -66,7 +66,7 @@ public:
         lstm.softUpdateTo(dst.lstm, rho);
         return;
     }
-    Mat& output(){return bpnet.output();}
+    Tensor& output(){return bpnet.output();}
     void reset() {lstm.reset();}
     void optimize(float learningRate, float decay)
     {
@@ -88,11 +88,11 @@ class LstmStack
 public:
     std::vector<std::shared_ptr<LSTM> > lstms;
     BPNN bpnet;
-    std::vector<Mat> y;
+    std::vector<Tensor> y;
 public:
     template <typename ...TLstm>
     LstmStack(TLstm&& ...lstms_):lstms(lstms_...){}
-    Mat &forward(const Mat &x)
+    Tensor &forward(const Tensor &x)
     {
         LSTM::State s = lstms[0]->feedForward(x, lstms[0]->h, lstms[0]->c);
         lstms[0]->h = s.h;
@@ -104,12 +104,12 @@ public:
             lstms[i]->c = s.c;
             lstms[i]->states.push_back(s);
         }
-        Mat out = lstms.back()->output();
+        Tensor out = lstms.back()->output();
         y.push_back(out);
         bpnet.forward(out);
         return bpnet.output();
     }
-    void forward(const std::vector<RL::Mat> &sequence)
+    void forward(const std::vector<RL::Tensor> &sequence)
     {
         for (auto &lstm : lstms) {
             lstm->reset();
@@ -130,15 +130,15 @@ public:
         bpnet.forward(lstms.back()->output());
         return;
     }
-    void backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat> &yt, BPNN::FnLoss Loss)
+    void backward(const std::vector<RL::Tensor> &x, const std::vector<RL::Tensor> &yt, BPNN::FnLoss Loss)
     {
         std::size_t outputDim = bpnet.output().size();
         auto lstm = lstms.back();
-        std::vector<RL::Mat> E(x.size(), Mat(lstm->outputDim, 1));
+        std::vector<RL::Tensor> E(x.size(), Tensor(lstm->outputDim, 1));
         std::vector<LSTM::State> deltas(lstms.size(), LSTM::State(lstm->hiddenDim, lstm->outputDim));
         for (std::size_t t = 0; t < yt.size(); t++) {
             /* loss */
-            Mat loss = Loss(y[t], yt[t]);
+            Tensor loss = Loss(y[t], yt[t]);
             /* backward */
             bpnet.backward(loss, E[t]);
             /* gradient */
@@ -167,7 +167,7 @@ public:
         bpnet.softUpdateTo(dst.bpnet, rho);
         return;
     }
-    Mat& output(){return lstms.back()->output();}
+    Tensor& output(){return lstms.back()->output();}
     void reset()
     {
         for (auto &lstm : lstms) {

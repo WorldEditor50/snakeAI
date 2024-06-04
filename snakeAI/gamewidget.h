@@ -12,7 +12,7 @@
 #include <chrono>
 #include <ctime>
 #include <cstdlib>
-#include "board.h"
+#include "environment.h"
 #include "snake.h"
 #include "agent.h"
 #include "axis.h"
@@ -43,7 +43,7 @@ private:
     void play1();
     void play2();
 public:
-   Board board;
+   Environment env;
 private:
     int winCount;
     int lostCount;

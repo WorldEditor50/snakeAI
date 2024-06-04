@@ -11,7 +11,7 @@ RL::GRU::GRU(std::size_t inputDim_,
         v = GRUParam(inputDim_, hiddenDim_, outputDim_);
         s = GRUParam(inputDim_, hiddenDim_, outputDim_);
     }
-    h = Mat(hiddenDim, 1);
+    h = Tensor(hiddenDim, 1);
     alpha_t = 1;
     beta_t = 1;
     GRUParam::random();
@@ -23,7 +23,7 @@ void RL::GRU::clear()
     return;
 }
 
-RL::GRU::State RL::GRU::feedForward(const RL::Mat &x, const RL::Mat &_h)
+RL::GRU::State RL::GRU::feedForward(const RL::Tensor &x, const RL::Tensor &_h)
 {
     /*
             h(t-1) -->----------------------------------
@@ -50,28 +50,28 @@ RL::GRU::State RL::GRU::feedForward(const RL::Mat &x, const RL::Mat &_h)
         yt = linear(W*ht + B)
     */
     State state(hiddenDim, outputDim);
-    for (std::size_t i = 0; i < Wr.rows; i++) {
-        for (std::size_t j = 0; j < Wr.cols; j++) {
+    for (std::size_t i = 0; i < Wr.shape[0]; i++) {
+        for (std::size_t j = 0; j < Wr.shape[1]; j++) {
             state.r[i] += Wr(i, j) * x[j];
             state.z[i] += Wz(i, j) * x[j];
             state.g[i] += Wg(i, j) * x[j];
         }
-        for (std::size_t j = 0; j < Ur.cols; j++) {
+        for (std::size_t j = 0; j < Ur.shape[1]; j++) {
             state.r[i] += Ur(i, j) * _h[j];
             state.z[i] += Uz(i, j) * _h[j];
         }
         state.r[i] = Sigmoid::f(state.r[i] + Br[i]);
         state.z[i] = Sigmoid::f(state.z[i] + Bz[i]);
-        for (std::size_t j = 0; j < Ur.cols; j++) {
+        for (std::size_t j = 0; j < Ur.shape[1]; j++) {
             state.g[i] += Ug(i, j) * _h[j] * state.r[j];
         }
         state.g[i] = Tanh::f(state.g[i] + Bg[i]);
         state.h[i] = (1 - state.z[i]) * _h[i] + state.z[i] * state.g[i];
     }
 
-    for (std::size_t i = 0; i < W.rows; i++) {
+    for (std::size_t i = 0; i < W.shape[0]; i++) {
         float sy = 0;
-        for (std::size_t j = 0; j < W.cols; j++) {
+        for (std::size_t j = 0; j < W.shape[1]; j++) {
             sy += W(i, j) * state.h[j];
         }
         state.y[i] = Linear::f(sy + B[i]);
@@ -79,7 +79,7 @@ RL::GRU::State RL::GRU::feedForward(const RL::Mat &x, const RL::Mat &_h)
     return state;
 }
 
-void RL::GRU::forward(const std::vector<RL::Mat> &sequence)
+void RL::GRU::forward(const std::vector<RL::Tensor> &sequence)
 {
     h.zero();
     for (auto &x : sequence) {
@@ -90,27 +90,27 @@ void RL::GRU::forward(const std::vector<RL::Mat> &sequence)
     return;
 }
 
-RL::Mat RL::GRU::forward(const RL::Mat &x)
+RL::Tensor RL::GRU::forward(const RL::Tensor &x)
 {
     State state = feedForward(x, h);
     h = state.h;
     return state.y;
 }
 
-void RL::GRU::backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat> &E)
+void RL::GRU::backward(const std::vector<RL::Tensor> &x, const std::vector<RL::Tensor> &E)
 {
     State delta(hiddenDim, outputDim);
     State delta_(hiddenDim, outputDim);
     for (int t = states.size() - 1; t >= 0; t--) {
         /* backward */
-        for (std::size_t i = 0; i < W.rows; i++) {
-            for (std::size_t j = 0; j < W.cols; j++) {
+        for (std::size_t i = 0; i < W.shape[0]; i++) {
+            for (std::size_t j = 0; j < W.shape[1]; j++) {
                 delta.h[j] += W(i, j) * E[t][i];
             }
         }
 #if 0
-        for (std::size_t i = 0; i < Ur.rows; i++) {
-            for (std::size_t j = 0; j < Ur.cols; j++) {
+        for (std::size_t i = 0; i < Ur.shape[0]; i++) {
+            for (std::size_t j = 0; j < Ur.shape[1]; j++) {
                 delta.h[j] += Ur(i, j) * delta_.r[i];
                 delta.h[j] += Uz(i, j) * delta_.z[i];
                 delta.h[j] += Ug(i, j) * delta_.g[i];
@@ -119,8 +119,8 @@ void RL::GRU::backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat>
 #else
         /* BPTT with EMA */
         float gamma = 0.99;
-        for (std::size_t i = 0; i < Ur.rows; i++) {
-            for (std::size_t j = 0; j < Ur.cols; j++) {
+        for (std::size_t i = 0; i < Ur.shape[0]; i++) {
+            for (std::size_t j = 0; j < Ur.shape[1]; j++) {
                 delta.h[j] = delta.h[j]*gamma + Ur(i, j) * delta_.r[i]*(1 - gamma);
                 delta.h[j] = delta.h[j]*gamma + Uz(i, j) * delta_.z[i]*(1 - gamma);
                 delta.h[j] = delta.h[j]*gamma + Ug(i, j) * delta_.g[i]*(1 - gamma);
@@ -150,36 +150,36 @@ void RL::GRU::backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat>
             δz = δh ⊙ (gt - ht-1) ⊙ dsigmoid(zt)
 
         */
-        Mat _h = t > 0 ? states[t - 1].h : Mat(hiddenDim, 1);
-        for (std::size_t i = 0; i < Ug.rows; i++) {
+        Tensor _h = t > 0 ? states[t - 1].h : Tensor(hiddenDim, 1);
+        for (std::size_t i = 0; i < Ug.shape[0]; i++) {
             delta.g[i] = delta.h[i] * states[t].z[i] * Tanh::d(states[t].g[i]);
             delta.z[i] = delta.h[i] * (states[t].g[i] - _h[i]) * Sigmoid::d(states[t].z[i]);
         }
-        Mat dhr(hiddenDim, 1);
-        for (std::size_t i = 0; i < Ug.rows; i++) {
-            for (std::size_t j = 0; j < Ug.cols; j++) {
+        Tensor dhr(hiddenDim, 1);
+        for (std::size_t i = 0; i < Ug.shape[0]; i++) {
+            for (std::size_t j = 0; j < Ug.shape[1]; j++) {
                 dhr[j] += Ug(i, j) * states[t].g[i];
             }
         }
-        for (std::size_t i = 0; i < Ug.rows; i++) {
+        for (std::size_t i = 0; i < Ug.shape[0]; i++) {
             delta.r[i] = delta.h[i] * dhr[i] * _h[i] *Sigmoid::d(states[t].r[i]);
         }
         /* gradient */
-        for (std::size_t i = 0; i < W.rows; i++) {
-            for (std::size_t j = 0; j < W.cols; j++) {
+        for (std::size_t i = 0; i < W.shape[0]; i++) {
+            for (std::size_t j = 0; j < W.shape[1]; j++) {
                 d.W(i, j) += E[t][i] * Linear::d(states[t].y[i]) * states[t].h[j];
             }
             d.B[i] += E[t][i] * Linear::d(states[t].y[i]);
         }
-        for (std::size_t i = 0; i < Wr.rows; i++) {
-            for (std::size_t j = 0; j < Wr.cols; j++) {
+        for (std::size_t i = 0; i < Wr.shape[0]; i++) {
+            for (std::size_t j = 0; j < Wr.shape[1]; j++) {
                 d.Wr(i, j) += delta.r[i] * x[t][j];
                 d.Wz(i, j) += delta.z[i] * x[t][j];
                 d.Wg(i, j) += delta.g[i] * x[t][j];
             }
         }
-        for (std::size_t i = 0; i < Ur.rows; i++) {
-            for (std::size_t j = 0; j < Ur.cols; j++) {
+        for (std::size_t i = 0; i < Ur.shape[0]; i++) {
+            for (std::size_t j = 0; j < Ur.shape[1]; j++) {
                 d.Ur(i, j) += delta.r[i] * _h[j];
                 d.Uz(i, j) += delta.z[i] * _h[j];
                 d.Ug(i, j) += delta.g[i] * states[t].r[j] * _h[j];
@@ -198,10 +198,10 @@ void RL::GRU::backward(const std::vector<RL::Mat> &x, const std::vector<RL::Mat>
     return;
 }
 
-void RL::GRU::gradient(const std::vector<RL::Mat> &x, const std::vector<RL::Mat> &yt)
+void RL::GRU::gradient(const std::vector<RL::Tensor> &x, const std::vector<RL::Tensor> &yt)
 {
     /* loss */
-    std::vector<RL::Mat> E(yt.size(), Mat(outputDim, 1));
+    std::vector<RL::Tensor> E(yt.size(), Tensor(outputDim, 1));
     for (int t = states.size() - 1; t >= 0; t--) {
         for (std::size_t i = 0; i < outputDim; i++) {
             E[t][i] = 2 * (states[t].y[i] - yt[t][i]);
@@ -212,10 +212,10 @@ void RL::GRU::gradient(const std::vector<RL::Mat> &x, const std::vector<RL::Mat>
     return;
 }
 
-void RL::GRU::gradient(const std::vector<RL::Mat> &x, const RL::Mat &yt)
+void RL::GRU::gradient(const std::vector<RL::Tensor> &x, const RL::Tensor &yt)
 {
     /* loss */
-    std::vector<RL::Mat> E(states.size(), Mat(outputDim, 1));
+    std::vector<RL::Tensor> E(states.size(), Tensor(outputDim, 1));
     int t = states.size() - 1;
     for (std::size_t i = 0; i < outputDim; i++) {
         E[t][i] = 2 * (states[t].y[i] - yt[i]);
@@ -295,25 +295,25 @@ void RL::GRU::test()
         return x*x + y*y + x*y;
     };
     std::uniform_real_distribution<float> uniform(-1, 1);
-    std::vector<Mat> data;
-    std::vector<Mat> target;
+    std::vector<Tensor> data;
+    std::vector<Tensor> target;
     for (int i = 0; i < 200; i++) {
         for (int j = 0; j < 200; j++) {
-            Mat p(2, 1);
+            Tensor p(2, 1);
             float x = uniform(Random::engine);
             float y = uniform(Random::engine);
             float z = zeta(x, y);
             p[0] = x;
             p[1] = y;
-            Mat q(1, 1);
+            Tensor q(1, 1);
             q[0] = z;
             data.push_back(p);
             target.push_back(q);
         }
     }
     std::uniform_int_distribution<int> selectIndex(0, data.size() - 1);
-    auto sample = [&](std::vector<Mat> &batchData,
-            std::vector<Mat> &batchTarget, int batchSize){
+    auto sample = [&](std::vector<Tensor> &batchData,
+            std::vector<Tensor> &batchTarget, int batchSize){
         for (int i = 0; i < batchSize; i++) {
             int k = selectIndex(Random::engine);
             batchData.push_back(data[k]);
@@ -321,8 +321,8 @@ void RL::GRU::test()
         }
     };
     for (int i = 0; i < 10000; i++) {
-        std::vector<Mat> batchData;
-        std::vector<Mat> batchTarget;
+        std::vector<Tensor> batchData;
+        std::vector<Tensor> batchTarget;
         sample(batchData, batchTarget, 32);
         gru.forward(batchData);
         gru.gradient(batchData, batchTarget);
@@ -332,7 +332,7 @@ void RL::GRU::test()
     gru.clear();
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {
-            Mat p(2, 1);
+            Tensor p(2, 1);
             float x = uniform(Random::engine);
             float y = uniform(Random::engine);
             float z = zeta(x, y);

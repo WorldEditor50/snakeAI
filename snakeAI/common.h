@@ -5,6 +5,12 @@
 #define    LEFT     1
 #define    UP       2
 #define    DOWN     3
+enum Object {
+    OBJ_BLOCK = -1,
+    OBJ_NONE = 0,
+    OBJ_SNAKE,
+    OBJ_TARGET
+};
 
 class Point
 {

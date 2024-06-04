@@ -13,24 +13,24 @@ class LSTMParam
 {
 public:
     /* input gate */
-    Mat wi;
-    Mat ui;
-    Mat bi;
+    Tensor wi;
+    Tensor ui;
+    Tensor bi;
     /* generate */
-    Mat wg;
-    Mat ug;
-    Mat bg;
+    Tensor wg;
+    Tensor ug;
+    Tensor bg;
     /* forget gate */
-    Mat wf;
-    Mat uf;
-    Mat bf;
+    Tensor wf;
+    Tensor uf;
+    Tensor bf;
     /* output gate */
-    Mat wo;
-    Mat uo;
-    Mat bo;
+    Tensor wo;
+    Tensor uo;
+    Tensor bo;
     /* predict */
-    Mat w;
-    Mat b;
+    Tensor w;
+    Tensor b;
 public:
     LSTMParam(){}
     LSTMParam(const LSTMParam &r)
@@ -41,27 +41,27 @@ public:
          w(r.w), b(r.b){}
     explicit LSTMParam(std::size_t inputDim, std::size_t hiddenDim, std::size_t outputDim)
     {
-        wi = Mat(hiddenDim, inputDim);
-        wg = Mat(hiddenDim, inputDim);
-        wf = Mat(hiddenDim, inputDim);
-        wo = Mat(hiddenDim, inputDim);
+        wi = Tensor(hiddenDim, inputDim);
+        wg = Tensor(hiddenDim, inputDim);
+        wf = Tensor(hiddenDim, inputDim);
+        wo = Tensor(hiddenDim, inputDim);
 
-        ui = Mat(hiddenDim, hiddenDim);
-        ug = Mat(hiddenDim, hiddenDim);
-        uf = Mat(hiddenDim, hiddenDim);
-        uo = Mat(hiddenDim, hiddenDim);
+        ui = Tensor(hiddenDim, hiddenDim);
+        ug = Tensor(hiddenDim, hiddenDim);
+        uf = Tensor(hiddenDim, hiddenDim);
+        uo = Tensor(hiddenDim, hiddenDim);
 
-        bi = Mat(hiddenDim, 1);
-        bg = Mat(hiddenDim, 1);
-        bf = Mat(hiddenDim, 1);
-        bo = Mat(hiddenDim, 1);
+        bi = Tensor(hiddenDim, 1);
+        bg = Tensor(hiddenDim, 1);
+        bf = Tensor(hiddenDim, 1);
+        bo = Tensor(hiddenDim, 1);
 
-        w = Mat(outputDim, hiddenDim);
-        b = Mat(outputDim, 1);
+        w = Tensor(outputDim, hiddenDim);
+        b = Tensor(outputDim, 1);
     }
     void zero()
     {
-        std::vector<Mat*> weights = {&wi, &wg, &wf, &wo,
+        std::vector<Tensor*> weights = {&wi, &wg, &wf, &wo,
                                      &ui, &ug, &uf, &uo,
                                      &bi, &bg, &bf, &bo,
                                      &w, &b};
@@ -72,7 +72,7 @@ public:
     }
     void random()
     {
-        std::vector<Mat*> weights = {&wi, &wg, &wf, &wo,
+        std::vector<Tensor*> weights = {&wi, &wg, &wf, &wo,
                                      &ui, &ug, &uf, &uo,
                                      &bi, &bg, &bf, &bo,
                                      &w, &b};
@@ -89,22 +89,22 @@ public:
     class State
     {
     public:
-        Mat i;
-        Mat f;
-        Mat g;
-        Mat o;
-        Mat c;
-        Mat h;
-        Mat y;
+        Tensor i;
+        Tensor f;
+        Tensor g;
+        Tensor o;
+        Tensor c;
+        Tensor h;
+        Tensor y;
     public:
         State(){}
         State(const State &r)
             :i(r.i),f(r.f), g(r.g),
              o(r.o),c(r.c),h(r.h), y(r.y){}
         explicit State(std::size_t hiddenDim, std::size_t outputDim):
-            i(Mat(hiddenDim, 1)),f(Mat(hiddenDim, 1)),g(Mat(hiddenDim, 1)),
-            o(Mat(hiddenDim, 1)),c(Mat(hiddenDim, 1)),h(Mat(hiddenDim, 1)),
-            y(Mat(outputDim, 1)){}
+            i(Tensor(hiddenDim, 1)),f(Tensor(hiddenDim, 1)),g(Tensor(hiddenDim, 1)),
+            o(Tensor(hiddenDim, 1)),c(Tensor(hiddenDim, 1)),h(Tensor(hiddenDim, 1)),
+            y(Tensor(outputDim, 1)){}
 
         void zero()
         {
@@ -123,9 +123,9 @@ public:
     std::size_t inputDim;
     std::size_t hiddenDim;
     std::size_t outputDim;
-    Mat h;
-    Mat c;
-    Mat y;
+    Tensor h;
+    Tensor c;
+    Tensor y;
     /* state */
     std::vector<State> states;
 protected:
@@ -146,18 +146,18 @@ public:
         return std::make_shared<LSTM>(inputDim_, hiddenDim_, outputDim_, trainFlag);
     }
     void reset();
-    Mat &output(){return y;}
+    Tensor &output(){return y;}
     /* forward */
-    State feedForward(const Mat &x, const Mat &_h, const Mat &_c);
-    void forward(const std::vector<Mat> &sequence);
-    Mat &forward(const Mat &x);
+    State feedForward(const Tensor &x, const Tensor &_h, const Tensor &_c);
+    void forward(const std::vector<Tensor> &sequence);
+    Tensor &forward(const Tensor &x);
     /* backward */
-    void backwardAtTime(int t, const Mat &x, const Mat &E, State &delta_);
-    void backward(const std::vector<Mat> &x, const std::vector<Mat> &E);
+    void backwardAtTime(int t, const Tensor &x, const Tensor &E, State &delta_);
+    void backward(const std::vector<Tensor> &x, const std::vector<Tensor> &E);
     /* seq2seq */
-    void gradient(const std::vector<Mat> &x, const std::vector<Mat> &yt);
-    /* seq2Mat */
-    void gradient(const std::vector<Mat> &x, const Mat &yt);
+    void gradient(const std::vector<Tensor> &x, const std::vector<Tensor> &yt);
+    /* seq2Tensor */
+    void gradient(const std::vector<Tensor> &x, const Tensor &yt);
     /* optimize */
     void SGD(float learningRate);
     void RMSProp(float learningRate, float rho = 0.9, float decay = 0.01);

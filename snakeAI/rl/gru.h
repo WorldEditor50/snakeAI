@@ -12,40 +12,40 @@ class GRUParam
 {
 public:
     /* reset gate */
-    Mat Wr;
-    Mat Ur;
-    Mat Br;
+    Tensor Wr;
+    Tensor Ur;
+    Tensor Br;
     /* update gate */
-    Mat Wz;
-    Mat Uz;
-    Mat Bz;
+    Tensor Wz;
+    Tensor Uz;
+    Tensor Bz;
     /* h */
-    Mat Wg;
-    Mat Ug;
-    Mat Bg;
+    Tensor Wg;
+    Tensor Ug;
+    Tensor Bg;
     /* predict */
-    Mat W;
-    Mat B;
+    Tensor W;
+    Tensor B;
 public:
     GRUParam(){}
     GRUParam(std::size_t inputDim, std::size_t hiddenDim, std::size_t outputDim)
     {
-        Wr = Mat(hiddenDim, inputDim);
-        Wz = Mat(hiddenDim, inputDim);
-        Wg = Mat(hiddenDim, inputDim);
-        Ur = Mat(hiddenDim, hiddenDim);
-        Uz = Mat(hiddenDim, hiddenDim);
-        Ug = Mat(hiddenDim, hiddenDim);
-        Br = Mat(hiddenDim, 1);
-        Bz = Mat(hiddenDim, 1);
-        Bg = Mat(hiddenDim, 1);
-        W = Mat(outputDim, hiddenDim);
-        B = Mat(outputDim, 1);
+        Wr = Tensor(hiddenDim, inputDim);
+        Wz = Tensor(hiddenDim, inputDim);
+        Wg = Tensor(hiddenDim, inputDim);
+        Ur = Tensor(hiddenDim, hiddenDim);
+        Uz = Tensor(hiddenDim, hiddenDim);
+        Ug = Tensor(hiddenDim, hiddenDim);
+        Br = Tensor(hiddenDim, 1);
+        Bz = Tensor(hiddenDim, 1);
+        Bg = Tensor(hiddenDim, 1);
+        W = Tensor(outputDim, hiddenDim);
+        B = Tensor(outputDim, 1);
     }
 
     void zero()
     {
-        std::vector<Mat*> weights = {&Wr, &Wz, &Wg,
+        std::vector<Tensor*> weights = {&Wr, &Wz, &Wg,
                                      &Ur, &Uz, &Ug,
                                      &Br, &Bz, &Bg,
                                      &W, &B};
@@ -56,7 +56,7 @@ public:
     }
     void random()
     {
-        std::vector<Mat*> weights = {&Wr, &Wz, &Wg,
+        std::vector<Tensor*> weights = {&Wr, &Wz, &Wg,
                                      &Ur, &Uz, &Ug,
                                      &Br, &Bz, &Bg,
                                      &W, &B};
@@ -73,16 +73,16 @@ public:
     class State
     {
     public:
-        Mat r;
-        Mat z;
-        Mat g;
-        Mat h;
-        Mat y;
+        Tensor r;
+        Tensor z;
+        Tensor g;
+        Tensor h;
+        Tensor y;
     public:
         State(){}
         State(std::size_t hiddenDim, std::size_t outputDim):
-            r(Mat(hiddenDim, 1)), z(Mat(hiddenDim, 1)),
-            g(Mat(hiddenDim, 1)), h(Mat(hiddenDim, 1)), y(Mat(outputDim, 1)){}
+            r(Tensor(hiddenDim, 1)), z(Tensor(hiddenDim, 1)),
+            g(Tensor(hiddenDim, 1)), h(Tensor(hiddenDim, 1)), y(Tensor(outputDim, 1)){}
         void zero()
         {
             for (std::size_t k = 0; k < r.size(); k++) {
@@ -99,7 +99,7 @@ protected:
     std::size_t inputDim;
     std::size_t hiddenDim;
     std::size_t outputDim;
-    Mat h;
+    Tensor h;
     /* optimize */
     GRUParam d;
     GRUParam v;
@@ -112,12 +112,12 @@ public:
     GRU(){}
     GRU(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
     void clear();
-    State feedForward(const Mat &x, const Mat &_h);
-    void forward(const std::vector<Mat> &sequence);
-    Mat forward(const Mat &x);
-    void backward(const std::vector<Mat> &x, const std::vector<Mat> &E);
-    void gradient(const std::vector<Mat> &x, const std::vector<Mat> &yt);
-    void gradient(const std::vector<Mat> &x, const Mat &yt);
+    State feedForward(const Tensor &x, const Tensor &_h);
+    void forward(const std::vector<Tensor> &sequence);
+    Tensor forward(const Tensor &x);
+    void backward(const std::vector<Tensor> &x, const std::vector<Tensor> &E);
+    void gradient(const std::vector<Tensor> &x, const std::vector<Tensor> &yt);
+    void gradient(const std::vector<Tensor> &x, const Tensor &yt);
     void SGD(float learningRate = 0.001);
     void RMSProp(float learningRate = 0.001, float rho = 0.9);
     void Adam(float learningRate = 0.001, float alpha = 0.9, float beta = 0.99);

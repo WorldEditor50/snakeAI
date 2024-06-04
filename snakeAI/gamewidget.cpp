@@ -22,7 +22,7 @@ void GameWidget::start()
     }
     int w = 600;
     int h = 600;
-    board.init(w, h);
+    env.init(w, h);
     isPlaying = true;
     playThread = std::thread(&GameWidget::run, this);
     return;
@@ -39,25 +39,24 @@ void GameWidget::stop()
 
 QRect GameWidget::getRect(int x, int y)
 {
-    int x1 = (x + 1) * board.unitLen;
-    int y1 = board.width - (y + 1) * board.unitLen;
-    int x2 = (x + 2) * board.unitLen;
-    int y2 = board.width - (y + 2) * board.unitLen;
+    int x1 = (x + 1) * env.unitLen;
+    int y1 = env.width - (y + 1) * env.unitLen;
+    int x2 = (x + 2) * env.unitLen;
+    int y2 = env.width - (y + 2) * env.unitLen;
     return QRect(QPoint(x2,y2), QPoint(x1, y1));
 }
 
 void GameWidget::paintEvent(QPaintEvent *ev)
 {
-    Q_UNUSED(ev)
     QPainter painter;
     painter.begin(this);
     painter.setPen(Qt::black);
     painter.setBrush(Qt::gray);
     painter.setRenderHint(QPainter::Antialiasing);
     /* draw map */
-    for (std::size_t i = 0; i < board.rows; i++) {
-        for (std::size_t j = 0; j < board.cols; j++) {
-            if (board.map(i, j) == Board::OBJ_BLOCK) {
+    for (std::size_t i = 0; i < env.rows; i++) {
+        for (std::size_t j = 0; j < env.cols; j++) {
+            if (env.map(i, j) == OBJ_BLOCK) {
                 painter.setBrush(Qt::gray);
                 QRect rect = getRect(i, j);
                 painter.drawRect(rect);
@@ -67,17 +66,17 @@ void GameWidget::paintEvent(QPaintEvent *ev)
     /* draw target */
     painter.setBrush(Qt::green);
     painter.setPen(Qt::green);
-    QRect rect1 = getRect(board.xt, board.yt);
+    QRect rect1 = getRect(env.xt, env.yt);
     painter.drawRect(rect1);
     /* draw snake */
     painter.setBrush(Qt::red);
     painter.setPen(Qt::red);
-    for (std::size_t i = 0; i < board.snake.body.size(); i++) {
-        QRect rect = getRect(board.snake.body[i].x, board.snake.body[i].y);
+    for (std::size_t i = 0; i < env.snake.body.size(); i++) {
+        QRect rect = getRect(env.snake.body[i].x, env.snake.body[i].y);
         painter.drawRect(rect);
     }
     painter.end();
-    return;// QWidget::paintEvent(ev);
+    return QWidget::paintEvent(ev);
 }
 
 void GameWidget::run()
@@ -85,7 +84,7 @@ void GameWidget::run()
     /* play */
     while (isPlaying) {
         float r = 0;
-        int ret = board.play2(r);
+        int ret = env.play2(r);
         if (ret > 0) {
             winCount++;
             emit win(QString("%1").arg(winCount));
@@ -102,7 +101,7 @@ void GameWidget::run()
 
 void GameWidget::setBlocks(int value)
 {
-    board.setBlocks(value);
+    env.setBlocks(value);
     return;
 }
 
@@ -113,13 +112,13 @@ void GameWidget::setAgent(const QString &name)
     emit win(QString("%1").arg(0));
     lostCount = 0;
     emit lost(QString("%1").arg(0));
-    board.setAgent(name.toStdString());
+    env.setAgent(name.toStdString());
     return;
 }
 
 void GameWidget::setTrainAgent(bool on)
 {
-    board.setTrainAgent(on);
+    env.setTrainAgent(on);
     return;
 }
 
@@ -127,7 +126,7 @@ void GameWidget::play1()
 {
     QTimer::singleShot(200, [&]{
         float r = 0;
-        int ret = board.play1(r);
+        int ret = env.play1(r);
         if (ret > 0) {
             winCount++;
             emit win(QString("%1").arg(winCount));
@@ -145,7 +144,7 @@ void GameWidget::play2()
 {
     QTimer::singleShot(100, [=](){
         float r = 0;
-        int ret = board.play2(r);
+        int ret = env.play2(r);
         if (ret > 0) {
             winCount++;
             emit win(QString("%1").arg(winCount));
