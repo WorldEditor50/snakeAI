@@ -1,90 +1,94 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
 #include "tensor.hpp"
+#include "util.hpp"
 
 namespace RL {
 
 namespace Optimize {
 
-inline void SGD(Tensor &w, Tensor &dw, float learningRate)
+inline void SGD(Tensor &w, Tensor &dw,
+                float lr, float decay=0, bool clipGrad=true)
 {
+    if (clipGrad) {
+        dw /= dw.norm2();
+    }
     for (std::size_t i = 0; i < w.totalSize; i++) {
-        w[i] -= learningRate * dw[i];
+        w[i] = (1 - decay)*w[i] - lr*dw[i];
     }
     return;
 }
 
-inline void SGDM(Tensor &w, Tensor &m, Tensor &dw, float learningRate, float alpha, float decay=0)
+inline void SGDM(Tensor &w, Tensor &m, Tensor &dw,
+                 float lr, float alpha,
+                 float decay=0, float clipGrad=true)
 {
+    if (clipGrad) {
+        dw /= dw.norm2();
+    }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         m[i] = (1 - decay)*m[i] - dw[i]*alpha;
-        w[i] -= learningRate * m[i];
+        w[i] -= lr * m[i];
     }
     return;
 }
 
-inline void Adagrad(Tensor &w, Tensor &r, Tensor &dw, float learningRate)
+inline void Adagrad(Tensor &w, Tensor &r, Tensor &dw,
+                    float lr, float decay=0, float clipGrad=true)
 {
+    if (clipGrad) {
+        dw /= dw.norm2();
+    }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         r[i] += dw[i]*dw[i];
-        w[i] -= learningRate*dw[i]/(std::sqrt(r[i]) + 1e-9);
+        w[i] = (1 - decay)*w[i] - lr*dw[i]/(std::sqrt(r[i]) + 1e-9);
     }
     return;
 }
 
-inline void AdaDelta(Tensor &w, Tensor &v, Tensor &delta, Tensor &dwPrime, Tensor &dw, float learningRate, float rho)
+inline void AdaDelta(Tensor &w, Tensor &v, Tensor &delta, Tensor &dwPrime, Tensor &dw,
+                     float lr, float rho, float decay = 0, bool clipGrad=true)
 {
+    if (clipGrad) {
+        dw /= dw.norm2();
+    }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         v[i] = rho * v[i] + (1 - rho) * dw[i] * dw[i];
         delta[i] = rho*delta[i] + (1 - rho)*dwPrime[i]*dwPrime[i];
         dwPrime[i] = std::sqrt((delta[i] + 1e-9)/(v[i] + 1e-9));
-        w[i] -= learningRate*dwPrime[i];
+        w[i] = (1 - decay)*w[i] - lr*dwPrime[i];
     }
     return;
 }
 
-inline void RMSProp(Tensor &w, Tensor &v, Tensor &dw, float learningRate, float rho, float decay = 0)
+inline void RMSProp(Tensor &w, Tensor &v, Tensor &dw,
+                    float lr, float rho=0.9,
+                    float decay = 0, bool clipGrad=true)
 {
+    if (clipGrad) {
+        dw /= dw.norm2();
+    }
     for (std::size_t i = 0; i < w.totalSize; i++) {
-        v[i] = rho * v[i] + (1 - rho) * dw[i] * dw[i];
-        w[i] = (1 - decay)*w[i] - learningRate * dw[i] / (std::sqrt(v[i]) + 1e-9);
+        v[i] = rho*v[i] + (1 - rho)*dw[i]*dw[i];
+        w[i] = (1 - decay)*w[i] - lr*dw[i]/(std::sqrt(v[i]) + 1e-9);
     }
     return;
 }
 
-inline void NormRMSProp(Tensor &w, Tensor &v, Tensor &dw, float learningRate, float rho, float decay = 0)
+inline void Adam(Tensor &w, Tensor &v, Tensor &m, Tensor &dw,
+                 float alpha_, float beta_,
+                 float lr, float alpha, float beta,
+                 float decay = 0, bool clipGrad=true)
 {
-    float scale = 1.0 / dw.norm2();
-    dw *= scale;
-    for (std::size_t i = 0; i < w.totalSize; i++) {
-        v[i] = rho * v[i] + (1 - rho)*dw[i]*dw[i];
-        w[i] = (1 - decay)*w[i] - learningRate*dw[i]/(std::sqrt(v[i]) + 1e-9);
+    if (clipGrad) {
+        dw /= dw.norm2();
     }
-    return;
-}
-
-inline void Adam(Tensor &w, Tensor &v, Tensor &m, Tensor &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
-{
-    for (std::size_t i = 0; i < w.totalSize; i++) {
-        m[i] = alpha * m[i] + (1 - alpha) * dw[i];
-        v[i] = beta * v[i] + (1 - beta) * dw[i] * dw[i];
-        float m_ = m[i] / (1 - alpha_);
-        float v_ = v[i] / (1 - beta_);
-        w[i] = (1 - decay)*w[i] - learningRate * m_ / (std::sqrt(v_) + 1e-9);
-    }
-    return;
-}
-
-inline void NormAdam(Tensor &w, Tensor &v, Tensor &m, Tensor &dw, float alpha_, float beta_, float learningRate, float alpha, float beta, float decay = 0)
-{
-    float scale = 1.0 / dw.norm2();
-    dw *= scale;
     for (std::size_t i = 0; i < w.totalSize; i++) {
         m[i] = alpha * m[i] + (1 - alpha) * dw[i];
         v[i] = beta * v[i] + (1 - beta) * dw[i] * dw[i];
         float m_ = m[i] / (1 - alpha_);
         float v_ = v[i] / (1 - beta_);
-        w[i] = (1 - decay)*w[i] - learningRate * m_ / (std::sqrt(v_) + 1e-9);
+        w[i] = (1 - decay)*w[i] - lr*m_/(std::sqrt(v_) + 1e-9);
     }
     return;
 }

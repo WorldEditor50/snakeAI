@@ -290,9 +290,8 @@ public:
     }
     void gradient(const Tensor &x, const Tensor &) override{}
     void SGD(float learningRate) override {}
-    void RMSProp(float rho, float learningRate, float decay) override {}
-    void NormRMSProp(float rho, float learningRate, float decay) override {}
-    void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay) override{}
+    void RMSProp(float rho, float learningRate, float decay, bool) override {}
+    void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay, bool) override{}
 };
 
 class AvgPooling2d: public iConv2d
@@ -369,9 +368,8 @@ public:
     }
     void gradient(const Tensor &x, const Tensor &) override{}
     void SGD(float learningRate) override {}
-    void RMSProp(float rho, float learningRate, float decay) override {}
-    void NormRMSProp(float rho, float learningRate, float decay) override {}
-    void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay) override{}
+    void RMSProp(float rho, float learningRate, float decay, bool) override {}
+    void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay, bool) override{}
 };
 
 }

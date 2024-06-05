@@ -119,19 +119,12 @@ void RL::LSTM::backwardAtTime(int t,
                          State &delta_)
 {
     State delta(hiddenDim, outputDim);
-    for (std::size_t i = 0; i < w.shape[0]; i++) {
-        for (std::size_t j = 0; j < w.shape[1]; j++) {
-            delta.h[j] += w(i, j) * E[i];
-        }
-    }
-    for (std::size_t i = 0; i < ui.shape[0]; i++) {
-        for (std::size_t j = 0; j < ui.shape[1]; j++) {
-            delta.h[j] += ui(i, j) * delta_.i[i];
-            delta.h[j] += uf(i, j) * delta_.f[i];
-            delta.h[j] += ug(i, j) * delta_.g[i];
-            delta.h[j] += uo(i, j) * delta_.o[i];
-        }
-    }
+    Tensor::MM::kijk(delta.h, w, E);
+
+    Tensor::MM::kijk(delta.h, ui, delta_.i);
+    Tensor::MM::kijk(delta.h, uf, delta_.f);
+    Tensor::MM::kijk(delta.h, ug, delta_.g);
+    Tensor::MM::kijk(delta.h, uo, delta_.o);
 
     /*
         δht = E + δht+1
@@ -153,33 +146,25 @@ void RL::LSTM::backwardAtTime(int t,
     /* gradient */
     for (std::size_t i = 0; i < w.shape[0]; i++) {
         for (std::size_t j = 0; j < w.shape[1]; j++) {
-            g.w(i, j) += E[i] * Linear::d(states[t].y[i]) * states[t].h[j];
+            g.w(i, j) += E[i] * states[t].y[i] * states[t].h[j];
         }
-        g.b[i] += E[i] * Linear::d(states[t].y[i]);
+        g.b[i] += E[i] * states[t].y[i];
     }
-    for (std::size_t i = 0; i < wi.shape[0]; i++) {
-        for (std::size_t j = 0; j < wi.shape[1]; j++) {
-            g.wi(i, j) += delta.i[i] * x[j];
-            g.wf(i, j) += delta.f[i] * x[j];
-            g.wg(i, j) += delta.g[i] * x[j];
-            g.wo(i, j) += delta.o[i] * x[j];
-        }
-    }
+
+    Tensor::MM::ikjk(g.wi, delta.i, x);
+    Tensor::MM::ikjk(g.wf, delta.f, x);
+    Tensor::MM::ikjk(g.wg, delta.g, x);
+    Tensor::MM::ikjk(g.wo, delta.o, x);
     Tensor _h = t > 0 ? states[t - 1].h : Tensor(hiddenDim, 1);
-    for (std::size_t i = 0; i < ui.shape[0]; i++) {
-        for (std::size_t j = 0; j < ui.shape[1]; j++) {
-            g.ui(i, j) += delta.i[i] * _h[j];
-            g.uf(i, j) += delta.f[i] * _h[j];
-            g.ug(i, j) += delta.g[i] * _h[j];
-            g.uo(i, j) += delta.o[i] * _h[j];
-        }
-    }
-    for (std::size_t i = 0; i < bi.size(); i++) {
-        g.bi[i] += delta.i[i];
-        g.bf[i] += delta.f[i];
-        g.bg[i] += delta.g[i];
-        g.bo[i] += delta.o[i];
-    }
+    Tensor::MM::ikjk(g.ui, delta.i, _h);
+    Tensor::MM::ikjk(g.uf, delta.f, _h);
+    Tensor::MM::ikjk(g.ug, delta.g, _h);
+    Tensor::MM::ikjk(g.uo, delta.o, _h);
+
+    g.bi += delta.i;
+    g.bf += delta.f;
+    g.bg += delta.g;
+    g.bo += delta.o;
     /* next */
     delta_ = delta;
     return;

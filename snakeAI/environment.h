@@ -54,7 +54,7 @@ public:
     int play2(float &totalReward);
     float reward0(int xi, int yi, int xn, int yn, int xt, int yt);
     float reward1(int xi, int yi, int xn, int yn, int xt, int yt);
-    float reward2(int xi, int yi, int xn, int yn, int xt, int yt);
+    float reward2(const RL::Tensor &map_, int xi, int yi, int xn, int yn, int xt, int yt);
     float reward3(int xi, int yi, int xn, int yn, int xt, int yt);
     float reward4(int xi, int yi, int xn, int yn, int xt, int yt);
 };

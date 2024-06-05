@@ -225,7 +225,7 @@ int Environment::play2(float &totalReward)
 float Environment::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
 {
     /* agent goes out of the map */
-    if (map(xn, yn) == 1) {
+    if (map(xn, yn) == OBJ_BLOCK) {
         return -1;
     }
     /* agent reaches to the target's position */
@@ -241,7 +241,7 @@ float Environment::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
 
 float Environment::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map(xn, yn) == 1) {
+    if (map(xn, yn) == OBJ_BLOCK) {
         return -1;
     }
     if (xn == xt && yn == yt) {
@@ -253,22 +253,29 @@ float Environment::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
     return r/std::sqrt(1 + r*r);
 }
 
-float Environment::reward2(int xi, int yi, int xn, int yn, int xt, int yt)
+float Environment::reward2(const RL::Tensor &map_, int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map(xn, yn) == 1) {
-        return -1;
+    /* count blocks */
+    float u = 0;
+    int radius = 9;
+    if (xi - radius >= 0 && yi - radius >= 0 &&
+            xi + radius < map_.shape[0] && yi + radius < map_.shape[1]) {
+        RL::Tensor window = map_.block({xi - radius, yi - radius},
+                                        {2*radius + 1, 2*radius + 1});
+        for (std::size_t i = 0; i < window.totalSize; i++) {
+            if (window[i] == OBJ_BLOCK) {
+                u += 1;
+            }
+        }
+        u /= window.totalSize;
     }
-    if (xn == xt && yn == yt) {
-        return 1;
-    }
-    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    return std::tanh(d1 - d2);
+    float r = reward0(xi, yi, xn, yn, xt, yt);
+    return r*(1 - u);
 }
 
 float Environment::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map(xn, yn) == 1) {
+    if (map(xn, yn) == OBJ_BLOCK) {
         return -1;
     }
     if (xn == xt && yn == yt) {
@@ -285,7 +292,7 @@ float Environment::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
 
 float Environment::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
 {
-    if (map(xn, yn) == 1) {
+    if (map(xn, yn) == OBJ_BLOCK) {
         return -1;
     }
     if (xn == xt && yn == yt) {

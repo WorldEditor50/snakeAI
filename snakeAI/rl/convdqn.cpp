@@ -9,19 +9,23 @@ RL::ConvDQN::ConvDQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t a
     totalReward = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    QMainNet = Net(Conv2d<Tanh>::_(1, 118, 118, 2, 5, 5, 1, true, true),
-                   MaxPooling2d::_(2, 24, 24, 2, 2),
-                   Conv2d<Sigmoid>::_(2, 12, 12, 4, 3, 1, 1, true, true),
+    QMainNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, true),
+                   MaxPooling2d::_(4, 24, 24, 2, 2),
+                   Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 1, 1, true, true),
                    MaxPooling2d::_(4, 12, 12, 2, 2),
-                   Layer<Tanh>::_(4*6*6, hiddenDim, true),
+                   Conv2d<Sigmoid>::_(4, 6, 6, 4, 3, 1, 1, true, true),
+                   MaxPooling2d::_(4, 4, 4, 2, 2),
+                   Layer<Tanh>::_(4*2*2, hiddenDim, true),
                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                    Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    QTargetNet = Net(Conv2d<Tanh>::_(1, 118, 118, 2, 5, 5, 1, true, false),
-                     MaxPooling2d::_(2, 24, 24, 2, 2),
-                     Conv2d<Sigmoid>::_(2, 12, 12, 4, 3, 1, 1, true, false),
+    QTargetNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, false),
+                     MaxPooling2d::_(4, 24, 24, 2, 2),
+                     Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 1, 1, true, false),
                      MaxPooling2d::_(4, 12, 12, 2, 2),
-                     Layer<Tanh>::_(4*6*6, hiddenDim, false),
+                     Conv2d<Sigmoid>::_(4, 6, 6, 4, 3, 1, 1, true, false),
+                     MaxPooling2d::_(4, 4, 4, 2, 2),
+                     Layer<Tanh>::_(4*2*2, hiddenDim, false),
                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                      Layer<Sigmoid>::_(hiddenDim, actionDim, false));
 
@@ -60,7 +64,8 @@ void RL::ConvDQN::experienceReplay(const Transition& x)
     /* estiTensore q-target: Q-Regression */
     /* select Action to estiTensore q-value */
     int i = x.action.argmax();
-    Tensor qTarget = QMainNet.forward(x.state);
+    Tensor out = QMainNet.forward(x.state);
+    Tensor qTarget = out;
     if (x.done == true) {
         qTarget[i] = x.reward;
     } else {
@@ -71,7 +76,6 @@ void RL::ConvDQN::experienceReplay(const Transition& x)
         qTarget[i] = x.reward + gamma * v[k];
     }
     /* train QMainNet */
-    Tensor &out = QMainNet.forward(x.state);
     QMainNet.backward(Loss::MSE(out, qTarget));
     QMainNet.gradient(x.state, qTarget);
     return;
@@ -98,7 +102,7 @@ void RL::ConvDQN::learn(std::size_t maxMemorySize,
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    QMainNet.NormRMSProp(0.9, learningRate, 0);
+    QMainNet.RMSProp(0.9, learningRate, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;

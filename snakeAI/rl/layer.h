@@ -44,8 +44,6 @@ public:
     };
 public:
     int type;
-    std::size_t inputDim;
-    std::size_t outputDim;
     Tensor w;
     Tensor b;
     Tensor o;
@@ -55,10 +53,57 @@ public:
     Grad m;
 public:
     iLayer(){}
-    iLayer(std::size_t inputDim_, std::size_t outputDim_, bool trainFlag)
+    virtual ~iLayer(){}
+    virtual Tensor& forward(const Tensor& x)
+    {
+        return o;
+    }
+
+    virtual void gradient(const Tensor& x, const Tensor&){}
+
+    virtual void backward(Tensor &ei){}
+    virtual void SGD(float learningRate)
+    {
+        Optimize::SGD(w, g.w, learningRate);
+        Optimize::SGD(b, g.b, learningRate);
+        g.zero();
+        return;
+    }
+
+    virtual void RMSProp(float rho, float lr, float decay, bool clipGrad)
+    {
+        Optimize::RMSProp(w, v.w, g.w, lr, rho, decay, clipGrad);
+        Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
+        g.zero();
+        return;
+    }
+
+    virtual void Adam(float alpha, float beta,
+                      float alpha_, float beta_,
+                      float lr, float decay, bool clipGrad)
+    {
+        Optimize::Adam(w, v.w, m.w, g.w,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        Optimize::Adam(b, v.b, m.b, g.b,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        g.zero();
+        return;
+    }
+};
+
+class iFcLayer : public iLayer
+{
+public:
+    std::size_t inputDim;
+    std::size_t outputDim;
+public:
+    iFcLayer(){}
+    iFcLayer(std::size_t inputDim_, std::size_t outputDim_, bool trainFlag)
         :inputDim(inputDim_), outputDim(outputDim_)
     {
-        type = LAYER_FC;
+        type = iLayer::LAYER_FC;
         w = Tensor(outputDim, inputDim);
         b = Tensor(outputDim, 1);
         o = Tensor(outputDim, 1);
@@ -71,20 +116,19 @@ public:
         Random::uniform(w, -1, 1);
         Random::uniform(b, -1, 1);
     }
-    explicit iLayer(const iLayer &r)
-        :type(r.type), inputDim(r.inputDim), outputDim(r.outputDim),
-          w(r.w), b(r.b), o(r.o), e(r.e), g(r.g), v(r.v), m(r.m){}
-    virtual ~iLayer(){}
+    explicit iFcLayer(const iFcLayer &r)
+        :inputDim(r.inputDim), outputDim(r.outputDim){}
+    virtual ~iFcLayer(){}
     virtual Tensor& forward(const Tensor& x)
     {
-        Tensor::Mul::ikkj(o, w, x);
+        Tensor::MM::ikkj(o, w, x);
         o += b;
         return o;
     }
 
     virtual void gradient(const Tensor& x, const Tensor&)
     {
-        Tensor::Mul::ikjk(g.w, e, x);
+        Tensor::MM::ikjk(g.w, e, x);
         g.b += e;
         e.zero();
         o.zero();
@@ -93,48 +137,14 @@ public:
 
     virtual void backward(Tensor &ei)
     {
-        Tensor::Mul::kikj(ei, w, e);
-        return;
-    }
-
-    virtual void SGD(float learningRate)
-    {
-        Optimize::SGD(w, g.w, learningRate);
-        Optimize::SGD(b, g.b, learningRate);
-        g.zero();
-        return;
-    }
-
-    virtual void RMSProp(float rho, float learningRate, float decay)
-    {
-        Optimize::RMSProp(w, v.w, g.w, learningRate, rho, decay);
-        Optimize::RMSProp(b, v.b, g.b, learningRate, rho, decay);
-        g.zero();
-        return;
-    }
-
-    virtual void NormRMSProp(float rho, float learningRate, float decay)
-    {
-        Optimize::NormRMSProp(w, v.w, g.w, learningRate, rho, decay);
-        Optimize::NormRMSProp(b, v.b, g.b, learningRate, rho, decay);
-        g.zero();
-        return;
-    }
-
-    virtual void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay)
-    {
-        Optimize::Adam(w, v.w, m.w, g.w,
-                        alpha_t, beta_t, learningRate, alpha, beta, decay);
-        Optimize::Adam(b, v.b, m.b, g.b,
-                        alpha_t, beta_t, learningRate, alpha, beta, decay);
-        g.zero();
+        Tensor::MM::kikj(ei, w, e);
         return;
     }
 
 };
 
 template<typename Fn>
-class Layer : public iLayer
+class Layer : public iFcLayer
 {
 public:
     Layer(){}
@@ -147,11 +157,11 @@ public:
     }
 
     Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
-        :iLayer(inputDim, outputDim, trainFlag){}
+        :iFcLayer(inputDim, outputDim, trainFlag){}
 
     Tensor& forward(const Tensor& x) override
     {
-        Tensor::Mul::ikkj(o, w, x);
+        Tensor::MM::ikkj(o, w, x);
         o += b;
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Fn::f(o[i]);
@@ -165,7 +175,7 @@ public:
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             dy[i] = Fn::d(o[i]) * e[i];
         }
-        Tensor::Mul::ikjk(g.w, dy, x);
+        Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o.zero();
@@ -173,13 +183,13 @@ public:
     }
 };
 
-class Softmax : public iLayer
+class Softmax : public iFcLayer
 {
 public:
     Softmax() {}
     ~Softmax(){}
     explicit Softmax(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
-        :iLayer(inputDim, outputDim, trainFlag)
+        :iFcLayer(inputDim, outputDim, trainFlag)
     {
 
     }
@@ -190,7 +200,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x) override
     {
-        Tensor::Mul::ikkj(o, w, x);
+        Tensor::MM::ikkj(o, w, x);
         o += b;
         return RL::softmax(o);
     }
@@ -198,7 +208,7 @@ public:
     void gradient(const RL::Tensor &x, const Tensor &y) override
     {
         Tensor dy = o - y;
-        Tensor::Mul::ikjk(g.w, dy, x);
+        Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o.zero();
@@ -207,7 +217,7 @@ public:
 
 };
 
-class GeluLayer : public iLayer
+class GeluLayer : public iFcLayer
 {
 public:
     Tensor op;
@@ -215,7 +225,7 @@ public:
     GeluLayer(){}
     ~GeluLayer(){}
     explicit GeluLayer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
-        :iLayer(inputDim, outputDim, trainFlag),op(outputDim, 1){}
+        :iFcLayer(inputDim, outputDim, trainFlag),op(outputDim, 1){}
 
     static std::shared_ptr<GeluLayer> _(std::size_t inputDim,
                                     std::size_t outputDim,
@@ -225,7 +235,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x) override
     {
-        Tensor::Mul::ikkj(op, w, x);
+        Tensor::MM::ikkj(op, w, x);
         op += b;
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Gelu::f(op[i]);
@@ -239,7 +249,7 @@ public:
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             dy[i] = Gelu::d(op[i]) * e[i];
         }
-        Tensor::Mul::ikjk(g.w, dy, x);
+        Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o.zero();
@@ -248,7 +258,7 @@ public:
 
 };
 
-class SwishLayer : public iLayer
+class SwishLayer : public iFcLayer
 {
 public:
     Tensor op;
@@ -256,7 +266,7 @@ public:
     SwishLayer(){}
     ~SwishLayer(){}
     explicit SwishLayer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
-        :iLayer(inputDim, outputDim, trainFlag),op(outputDim, 1){}
+        :iFcLayer(inputDim, outputDim, trainFlag),op(outputDim, 1){}
 
     static std::shared_ptr<SwishLayer> _(std::size_t inputDim,
                                     std::size_t outputDim,
@@ -266,7 +276,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x) override
     {
-        Tensor::Mul::ikkj(op, w, x);
+        Tensor::MM::ikkj(op, w, x);
         op += b;
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Swish::f(op[i]);
@@ -280,7 +290,7 @@ public:
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             dy[i] = Swish::d(op[i]) * e[i];
         }
-        Tensor::Mul::ikjk(g.w, dy, x);
+        Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o.zero();
@@ -342,7 +352,7 @@ template<typename Fn, typename Type=LN::Def>
 class LayerNorm{};
 
 template<typename Fn>
-class LayerNorm<Fn, LN::Def> : public iLayer
+class LayerNorm<Fn, LN::Def> : public iFcLayer
 {
 public:
     float gamma;
@@ -352,7 +362,7 @@ public:
     LayerNorm(){}
     ~LayerNorm(){}
     explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
+        :iFcLayer(inputDim, outputDim, trainFlag_), gamma(1)
     {
         op = Tensor(outputDim, 1);
     }
@@ -365,7 +375,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x) override
     {
-        Tensor::Mul::ikkj(op, w, x);
+        Tensor::MM::ikkj(op, w, x);
         u = op.mean();
         float sigma = op.variance(u);
         gamma = 1.0/std::sqrt(sigma + 1e-9);
@@ -377,7 +387,7 @@ public:
 
     void backward(Tensor &ei) override
     {
-        Tensor::Mul::kikj(ei, w, e*gamma);
+        Tensor::MM::kikj(ei, w, e*gamma);
         return;
     }
 
@@ -390,7 +400,7 @@ public:
             dy[i] = (1.0 - 1.0/float(outputDim))*(1 - d*d)*gamma*error;
             g.b[i] += error;
         }
-        Tensor::Mul::ikjk(g.w, dy, x);
+        Tensor::MM::ikjk(g.w, dy, x);
         e.zero();
         op.zero();
         return;
@@ -399,7 +409,7 @@ public:
 };
 
 template<typename Fn>
-class LayerNorm<Fn, LN::Pre> : public iLayer
+class LayerNorm<Fn, LN::Pre> : public iFcLayer
 {
 public:
     float gamma;
@@ -410,7 +420,7 @@ public:
     LayerNorm(){}
     ~LayerNorm(){}
     explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
+        :iFcLayer(inputDim, outputDim, trainFlag_), gamma(1)
     {
         x_ = Tensor(inputDim, 1);
         op = Tensor(outputDim, 1);
@@ -430,7 +440,7 @@ public:
         for (std::size_t i = 0; i < x.size(); i++) {
             x_[i] = (x[i] - u)*gamma;
         }
-        Tensor::Mul::ikkj(op, w, x_);
+        Tensor::MM::ikkj(op, w, x_);
         for (std::size_t i = 0; i < o.size(); i++) {
             o[i] = Fn::f(op[i] + b[i]);
         }
@@ -439,7 +449,7 @@ public:
 
     void backward(Tensor &ei) override
     {
-        Tensor::Mul::kikj(ei, w, e*gamma);
+        Tensor::MM::kikj(ei, w, e*gamma);
         return;
     }
 
@@ -455,7 +465,7 @@ public:
             float d = x_[i];
             dx[i] = (1 - 1.0/float(inputDim))*(1 - d*d)*gamma*d;
         }
-        Tensor::Mul::ikjk(g.w, dy, dx);
+        Tensor::MM::ikjk(g.w, dy, dx);
         g.b += dy;
         e.zero();
         op.zero();
@@ -465,7 +475,7 @@ public:
 };
 
 template<typename Fn>
-class LayerNorm<Fn, LN::Post> : public iLayer
+class LayerNorm<Fn, LN::Post> : public iFcLayer
 {
 public:
     float gamma;
@@ -476,7 +486,7 @@ public:
     LayerNorm(){}
     ~LayerNorm(){}
     explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
+        :iFcLayer(inputDim, outputDim, trainFlag_), gamma(1)
     {
         o1 = Tensor(outputDim, 1);
         o2 = Tensor(outputDim, 1);
@@ -490,7 +500,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x) override
     {
-        Tensor::Mul::ikkj(o1, w, x);
+        Tensor::MM::ikkj(o1, w, x);
         for (std::size_t i = 0; i < o.size(); i++) {
             o2[i] = Fn::f(o1[i] + b[i]);
         }
@@ -505,7 +515,7 @@ public:
 
     void backward(Tensor &ei) override
     {
-        Tensor::Mul::kikj(ei, w, e*gamma);
+        Tensor::MM::kikj(ei, w, e*gamma);
         return;
     }
 
@@ -516,7 +526,7 @@ public:
             float d = o2[i];//(o2[i] - u)*gamma;
             dy[i] = (1 - d*d)*(1 - 1.0/float(outputDim))*Fn::d(o2[i])*gamma*e[i];
         }
-        Tensor::Mul::ikjk(g.w, dy, x);
+        Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
         o1.zero();
@@ -527,7 +537,7 @@ public:
 
 
 template<typename Fn>
-class RMSNorm : public iLayer
+class RMSNorm : public iFcLayer
 {
 public:
     float gamma;
@@ -536,7 +546,7 @@ public:
     RMSNorm(){}
     ~RMSNorm(){}
     explicit RMSNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iLayer(inputDim, outputDim, trainFlag_), gamma(1)
+        :iFcLayer(inputDim, outputDim, trainFlag_), gamma(1)
     {
         op = Tensor(outputDim, 1);
     }
@@ -549,7 +559,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x) override
     {
-        Tensor::Mul::ikkj(op, w, x);
+        Tensor::MM::ikkj(op, w, x);
         float sigma = op.variance(0);
         gamma = 1.0/std::sqrt(sigma + 1e-9);
         for (std::size_t i = 0; i < o.size(); i++) {
@@ -560,7 +570,7 @@ public:
 
     void backward(Tensor &ei) override
     {
-        Tensor::Mul::kikj(ei, w, e*gamma);
+        Tensor::MM::kikj(ei, w, e*gamma);
         return;
     }
 
@@ -573,7 +583,7 @@ public:
             dy[i] = (1 - d*d)*gamma*error;
             g.b[i] += error;
         }
-        Tensor::Mul::ikjk(g.w, dy, x);
+        Tensor::MM::ikjk(g.w, dy, x);
         e.zero();
         op.zero();
         return;
@@ -582,7 +592,7 @@ public:
 
 
 template<typename Fn>
-class TanhNorm : public iLayer
+class TanhNorm : public iFcLayer
 {
 public:
     Tensor o1;
@@ -591,7 +601,7 @@ public:
     TanhNorm(){}
     ~TanhNorm(){}
     explicit TanhNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iLayer(inputDim, outputDim, trainFlag_)
+        :iFcLayer(inputDim, outputDim, trainFlag_)
     {
         o1 = Tensor(outputDim, 1);
         o2 = Tensor(outputDim, 1);
@@ -605,7 +615,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x) override
     {
-        Tensor::Mul::ikkj(o1, w, x);
+        Tensor::MM::ikkj(o1, w, x);
         o2 = RL::tanh(o1);
         for (std::size_t i = 0; i < o.size(); i++) {
             o[i] = Fn::f(o2[i] + b[i]);
@@ -615,7 +625,7 @@ public:
 
     void backward(Tensor &ei) override
     {
-        Tensor::Mul::kikj(ei, w, e);
+        Tensor::MM::kikj(ei, w, e);
         return;
     }
 
@@ -628,7 +638,7 @@ public:
             dy[i] = (1 - d*d)*error;
             g.b[i] += error;
         }
-        Tensor::Mul::ikjk(g.w, dy, x);
+        Tensor::MM::ikjk(g.w, dy, x);
         e.zero();
         o1.zero();
         return;

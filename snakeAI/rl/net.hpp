@@ -64,7 +64,7 @@ public:
                     layers[i]->type == iLayer::LAYER_FC) {
                 Tensor e(layers[i - 1]->e.totalSize, 1);
                 layers[i]->backward(e);
-                layers[i - 1]->e.val.swap(e.val);
+                layers[i - 1]->e.val = e.val;
             } else {
                 layers[i]->backward(layers[i - 1]->e);
             }
@@ -89,10 +89,10 @@ public:
         return;
     }
 
-    void NormRMSProp(float rho, float learningRate, float decay)
+    void RMSProp(float rho, float learningRate, float decay)
     {
         for (std::size_t i = 0; i < layers.size(); i++) {
-            layers[i]->NormRMSProp(rho, learningRate, decay);
+            layers[i]->RMSProp(rho, learningRate, decay, true);
         }
         return;
     }

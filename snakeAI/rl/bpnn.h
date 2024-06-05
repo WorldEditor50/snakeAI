@@ -52,9 +52,7 @@ public:
     void gradient(const Tensor &x, const Tensor &y);
     void SGD(float learningRate = 0.001);
     void RMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0);
-    void NormRMSProp(float rho = 0.9, float learningRate = 0.001, float decay = 0);
     void Adam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001, float decay = 0);
-    void NormAdam(float alpha1 = 0.9, float alpha2 = 0.99, float learningRate = 0.001, float decay = 0);
     void optimize(OptType optType = OPT_RMSPROP, float learningRate = 0.001, float decay = 0);
     void clamp(float c0, float cn);
     void show();

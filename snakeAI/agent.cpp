@@ -270,9 +270,8 @@ int Agent::convpgAction(int x, int y, int xt, int yt, float &totalReward)
     int yn = y;
     RL::Tensor cloneMap = env.map;
     Snake cloneSnake(snake.body, cloneMap);
-    //std::cout<<"+++++++"<<std::endl;
     state = cloneMap;
-    state.normalize();
+    state /= state.max();
     state.reshape(1, 118, 118);
     RL::Tensor state_ = state;
     if (trainFlag == true) {
@@ -286,6 +285,7 @@ int Agent::convpgAction(int x, int y, int xt, int yt, float &totalReward)
             RL::Tensor &a = convpg.gumbelMax(state);
             int k = a.argmax();
             simulateMove(cloneSnake, xn, yn, k);
+            //float r = env.reward2(cloneMap, xi, yi, xn, yn, xt, yt);
             float r = env.reward0(xi, yi, xn, yn, xt, yt);
             total += r;
             steps.push_back(RL::Step(state, a, r));
@@ -293,7 +293,7 @@ int Agent::convpgAction(int x, int y, int xt, int yt, float &totalReward)
                 break;
             }
             state = cloneMap;
-            state.normalize();
+            state /= state.max();
             state.reshape(1, 118, 118);
         }
         totalReward = total;
@@ -313,13 +313,13 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
     RL::Tensor cloneMap = env.map;
     Snake cloneSnake(snake.body, cloneMap);
     state = cloneMap;
-    state.normalize();
+    state /= state.max();
     state.reshape(1, 118, 118);
     RL::Tensor state_ = state;
     if (trainFlag == true) {
         /* exploring environment */
         float total = 0;
-        for (std::size_t i = 0; i < 64; i++) {
+        for (std::size_t i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
             /* sample */
@@ -327,7 +327,7 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
             int k = a.argmax();
             simulateMove(cloneSnake, xn, yn, k);
             nextState = cloneMap;
-            nextState.normalize();
+            nextState /= nextState.max();
             nextState.reshape(1, 118, 118);
             float r = env.reward0(xi, yi, xn, yn, xt, yt);
             total += r;

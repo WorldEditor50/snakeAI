@@ -13,8 +13,10 @@ RL::ConvPG::ConvPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t act
                     MaxPooling2d::_(4, 24, 24, 2, 2),
                     Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 1, 1, true, true),
                     MaxPooling2d::_(4, 12, 12, 2, 2),
-                    Layer<Tanh>::_(4*6*6, 32, true),
-                    LayerNorm<Sigmoid, LN::Post>::_(32, hiddenDim, true),
+                    Conv2d<Tanh>::_(4, 6, 6, 4, 3, 1, 0, true, true),
+                    MaxPooling2d::_(4, 4, 4, 2, 2),
+                    Layer<Sigmoid>::_(4*2*2, hiddenDim, true),
+                    LayerNorm<Tanh, LN::Post>::_(hiddenDim, hiddenDim, true),
                     Softmax::_(hiddenDim, actionDim, true));
 }
 
@@ -65,7 +67,7 @@ void RL::ConvPG::reinforce(std::vector<Step>& x, float learningRate)
     alpha.val.printValue();
 #endif
     //policyNet.optimize(OPT_NORMRMSPROP, 1e-2);
-    policyNet.NormRMSProp(0.9, 1e-3, 0.1);
+    policyNet.RMSProp(0.9, learningRate, 0.1);
     policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;

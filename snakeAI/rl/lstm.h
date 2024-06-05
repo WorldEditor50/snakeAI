@@ -6,8 +6,16 @@
 #include "activate.h"
 #include "optimize.h"
 #include "loss.h"
+#include "layer.h"
 
 namespace RL {
+
+
+class iLSTM : public iLayer
+{
+public:
+
+};
 
 class LSTMParam
 {
