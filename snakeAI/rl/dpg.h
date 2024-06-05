@@ -8,7 +8,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
-#include "bpnn.h"
+#include "net.hpp"
 #include "rl_basic.h"
 #include "parameter.hpp"
 
@@ -35,7 +35,7 @@ protected:
     float learningRate;
     float entropy0;
     GradValue alpha;
-    BPNN policyNet;
+    Net policyNet;
 };
 }
 #endif // POLICY_GRADIENT_H

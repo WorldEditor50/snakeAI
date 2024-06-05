@@ -8,7 +8,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
-#include "bpnn.h"
+#include "net.hpp"
 #include "rl_basic.h"
 namespace RL {
 
@@ -40,10 +40,10 @@ protected:
     float beta;
     float exploringRate;
     int learningSteps;
-    BPNN actorP;
-    BPNN actorQ;
-    BPNN criticP;
-    BPNN criticQ;
+    Net actorP;
+    Net actorQ;
+    Net criticP;
+    Net criticQ;
     std::deque<Transition> memories;
 };
 }

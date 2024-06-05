@@ -10,13 +10,6 @@
 
 namespace RL {
 
-
-class iLSTM : public iLayer
-{
-public:
-
-};
-
 class LSTMParam
 {
 public:
@@ -91,7 +84,7 @@ public:
     }
 };
 
-class LSTM : public LSTMParam
+class LSTM : public iLayer
 {
 public:
     class State
@@ -131,49 +124,72 @@ public:
     std::size_t inputDim;
     std::size_t hiddenDim;
     std::size_t outputDim;
+
+    /* input gate */
+    Tensor wi;
+    Tensor ui;
+    Tensor bi;
+    /* generate */
+    Tensor wg;
+    Tensor ug;
+    Tensor bg;
+    /* forget gate */
+    Tensor wf;
+    Tensor uf;
+    Tensor bf;
+    /* output gate */
+    Tensor wo;
+    Tensor uo;
+    Tensor bo;
+    /* predict */
+    Tensor w;
+    Tensor b;
+
     Tensor h;
     Tensor c;
-    Tensor y;
     /* state */
     std::vector<State> states;
+
+    std::vector<Tensor> cacheX;
+    std::vector<Tensor> cacheE;
 protected:
-    float alpha_t;
-    float beta_t;
     LSTMParam g;
     LSTMParam v;
     LSTMParam s;
 public:
     LSTM(){}
     LSTM(const LSTM &r)
-        :LSTMParam(r),inputDim(r.inputDim),hiddenDim(r.hiddenDim),outputDim(r.outputDim),
-    h(r.h),c(r.c),y(r.y),states(r.states),alpha_t(r.alpha_t),beta_t(r.beta_t),
-    g(r.g),v(r.v),s(r.s){}
+        :inputDim(r.inputDim),hiddenDim(r.hiddenDim),outputDim(r.outputDim),
+          wi(r.wi), ui(r.ui), bi(r.bi),
+          wg(r.wg), ug(r.ug), bg(r.bg),
+          wf(r.wf), uf(r.uf), bf(r.bf),
+          wo(r.wo), uo(r.uo), bo(r.bo),
+          w(r.w), b(r.b),
+          h(r.h),c(r.c),states(r.states),
+          g(r.g),v(r.v),s(r.s){}
     explicit LSTM(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag);
     static std::shared_ptr<LSTM> _(std::size_t inputDim_, std::size_t hiddenDim_, std::size_t outputDim_, bool trainFlag)
     {
         return std::make_shared<LSTM>(inputDim_, hiddenDim_, outputDim_, trainFlag);
     }
     void reset();
-    Tensor &output(){return y;}
     /* forward */
     State feedForward(const Tensor &x, const Tensor &_h, const Tensor &_c);
-    void forward(const std::vector<Tensor> &sequence);
-    Tensor &forward(const Tensor &x);
+    Tensor &forward(const Tensor &x, bool inference=false) override;
     /* backward */
     void backwardAtTime(int t, const Tensor &x, const Tensor &E, State &delta_);
     void backward(const std::vector<Tensor> &x, const std::vector<Tensor> &E);
-    /* seq2seq */
-    void gradient(const std::vector<Tensor> &x, const std::vector<Tensor> &yt);
-    /* seq2Tensor */
-    void gradient(const std::vector<Tensor> &x, const Tensor &yt);
+    void cacheError(const Tensor &e) override;
     /* optimize */
-    void SGD(float learningRate);
-    void RMSProp(float learningRate, float rho = 0.9, float decay = 0.01);
-    void Adam(float learningRate, float alpha = 0.9, float beta = 0.99, float decay = 0.01);
+    void SGD(float learningRate) override;
+    virtual void RMSProp(float rho, float lr, float decay, bool clipGrad) override;
+    void Adam(float alpha, float beta,
+              float alpha_, float beta_,
+              float lr, float decay, bool clipGrad) override;
     void clamp(float c0, float cn);
     /* parameter */
-    void copyTo(LSTM &dst);
-    void softUpdateTo(LSTM &dst, float rho);
+    void copyTo(iLayer* layer);
+    void softUpdateTo(iLayer* layer, float rho);
     static void test();
 };
 

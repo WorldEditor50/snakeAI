@@ -6,53 +6,55 @@ RL::DRPG::DRPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    policyNet = LstmNet(LSTM(stateDim, hiddenDim, hiddenDim, true),
-                        Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                        LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
-                        Softmax::_(hiddenDim, actionDim, true));
+    lstm = LSTM::_(stateDim, hiddenDim, hiddenDim, true);
+    policyNet = Net(lstm,
+                    Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                    LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
+                    Softmax::_(hiddenDim, actionDim, true));
 }
 
 RL::Tensor &RL::DRPG::eGreedyAction(const Tensor &state)
 {
-    Tensor& out = policyNet.forward(state);
+    Tensor& out = policyNet.forward(state, true);
     return eGreedy(out, exploringRate, false);
 }
 
 RL::Tensor &RL::DRPG::noiseAction(const RL::Tensor &state)
 {
-    Tensor& out = policyNet.forward(state);
+    Tensor& out = policyNet.forward(state, true);
     return noise(out);
 }
 
 RL::Tensor &RL::DRPG::gumbelMax(const RL::Tensor &state)
 {
-    Tensor& out = policyNet.forward(state);
+    Tensor& out = policyNet.forward(state, true);
     return gumbelSoftmax(out, exploringRate);
 }
 
 RL::Tensor &RL::DRPG::action(const Tensor &state)
 {
-    return policyNet.forward(state);
+    return policyNet.forward(state, true);
 }
 
-void RL::DRPG::reinforce(const std::vector<Tensor> &x, std::vector<Tensor> &y, std::vector<float>& reward, float learningRate)
+void RL::DRPG::reinforce(std::vector<Step>& x, float learningRate)
 {
     float r = 0;
-    for (int i = reward.size() - 1; i >= 0; i--) {
-        r = gamma * r + reward[i];
-        reward[i] = r;
+    Tensor discountedReward(x.size(), 1);
+    for (int i = x.size() - 1; i >= 0; i--) {
+        r = gamma * r + x[i].reward;
+        discountedReward[i] = r;
     }
-    Tensor re(reward.size(), 1);
-    re.val = reward;
-    float u = re.mean();
-    for (std::size_t t = 0; t < y.size(); t++) {
-        int k = y[t].argmax();
-        y[t][k] *= reward[t] - u;
+    float u = discountedReward.mean();
+    lstm->reset();
+    for (std::size_t i = 0; i < x.size(); i++) {
+        const Tensor &prob = x[i].action;
+        int k = x[i].action.argmax();
+        x[i].action[k] = prob[k]*(discountedReward[i] - u);
+        Tensor &out = policyNet.forward(x[i].state, false);
+        policyNet.backward(Loss::CrossEntropy(out, x[i].action));
+        policyNet.gradient(x[i].state, x[i].action);
     }
-    policyNet.reset();
-    policyNet.forward(x);
-    policyNet.backward(x, y, Loss::CrossEntropy);
-    policyNet.optimize(learningRate, 0.1);
+    policyNet.RMSProp(0.9, learningRate, 0.1);
     policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.25 ? 0.25 : exploringRate;

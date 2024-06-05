@@ -15,19 +15,19 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
     alpha.val.fill(1);
     entropy0 = -0.04*std::log(0.04);
 
-    actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+    actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   Softmax::_(hiddenDim, actionDim, true));
 
-    actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
+    actorQ = Net(Layer<Tanh>::_(stateDim, hiddenDim, false),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                   Softmax::_(hiddenDim, actionDim, false));
 
-    critic = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
+    critic = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
@@ -115,8 +115,8 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
     } else if (KLexpect <= delta / 1.5) {
         beta /= 2;
     }
-    actorP.optimize(OPT_NORMRMSPROP, learningRate, 0.1);
-    critic.optimize(OPT_NORMRMSPROP, 1e-3, 0.01);
+    actorP.RMSProp(0.9, learningRate, 0.1);
+    critic.RMSProp(0.9, 1e-3, 0.01);
     /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.01 ? 0.01 : exploringRate;
@@ -172,9 +172,9 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
         actorP.backward(Loss::CrossEntropy(p, q));
         actorP.gradient(trajectory[t].state, q);
     }
-    actorP.optimize(OPT_NORMRMSPROP, learningRate, 0.1);
+    actorP.RMSProp(0.9, learningRate, 0.1);
     actorP.clamp(-1, 1);
-    critic.optimize(OPT_NORMRMSPROP, 1e-3, 0.01);
+    critic.RMSProp(0.9, 1e-3, 0.01);
 
     alpha.RMSProp(0.9, 1e-4, 0);
 #if 1
@@ -190,15 +190,15 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
 
 void RL::PPO::save(const std::string &actorPara, const std::string &criticPara)
 {
-    actorP.save(actorPara);
-    critic.save(criticPara);
+    //actorP.save(actorPara);
+    //critic.save(criticPara);
     return;
 }
 
 void RL::PPO::load(const std::string &actorPara, const std::string &criticPara)
 {
-    actorP.load(actorPara);
-    actorP.copyTo(actorQ);
-    critic.load(criticPara);
+    //actorP.load(actorPara);
+    //actorP.copyTo(actorQ);
+    //critic.load(criticPara);
     return;
 }

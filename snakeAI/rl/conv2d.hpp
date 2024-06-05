@@ -66,7 +66,28 @@ public:
 };
 template <typename Fn>
 class Conv2d : public iConv2d
-{  
+{
+public:
+    class Conv2dGrad
+    {
+    public:
+        Tensor kernels;
+        Tensor b;
+    public:
+        Conv2dGrad(){}
+        void zero()
+        {
+            kernels.zero();
+            b.zero();
+            return;
+        }
+    };
+public:
+    Tensor kernels;
+    Tensor b;
+    Conv2dGrad g;
+    Conv2dGrad v;
+    Conv2dGrad m;
 public:
     Conv2d(){}
     explicit Conv2d(int inChannels_,
@@ -83,7 +104,6 @@ public:
     {
         type = LAYER_CONV2D;
         /* (N, c, kernelSize, kernelSize) */
-        Tensor &kernels = iLayer::w;
         kernels = Tensor(outChannels, inChannels, kernelSize, kernelSize);
         Random::uniform(kernels, -1, 1);
         ho = std::floor((hi - kernelSize + 2*padding)/stride) + 1;
@@ -97,11 +117,11 @@ public:
         }
 
         if (withgrad_ == true) {
-            g.w = Tensor(kernels.shape);
+            g.kernels = Tensor(kernels.shape);
             g.b = Tensor(b.shape);
-            v.w = Tensor(kernels.shape);
+            v.kernels = Tensor(kernels.shape);
             v.b = Tensor(b.shape);
-            m.w = Tensor(kernels.shape);
+            m.kernels = Tensor(kernels.shape);
             m.b = Tensor(b.shape);
 
             e = Tensor(outChannels, ho, wo);
@@ -122,10 +142,9 @@ public:
                                         bias_, withgrad_);
     }
 
-    Tensor& forward(const Tensor &x) override
+    Tensor& forward(const Tensor &x, bool inference=false) override
     {
         /* conv */
-        Tensor &kernels = iLayer::w;
         conv2d(o, kernels, x, stride, padding);
         /* bias */
         if (bias == true) {
@@ -140,7 +159,6 @@ public:
 
     void backward(Tensor &ei) override
     {
-        Tensor &kernels = iLayer::w;
         for (int n = 0; n < ei.shape[0]; n++) {
             for (int i = 0; i < ei.shape[1]; i++) {
                 for (int j = 0; j < ei.shape[2]; j++) {
@@ -179,7 +197,7 @@ public:
             g.b += dy;
         }
         /* dkernel */
-        Tensor &dkernels = g.w;
+        Tensor &dkernels = g.kernels;
         for (int n = 0; n < x.shape[0]; n++) {
             for (int i = 0; i < x.shape[1]; i++) {
                 for (int j = 0; j < x.shape[2]; j++) {
@@ -206,6 +224,58 @@ public:
         }
         o.zero();
         e.zero();
+        return;
+    }
+
+    void SGD(float learningRate) override
+    {
+        Optimize::SGD(kernels, g.kernels, learningRate, true);
+        Optimize::SGD(b, g.b, learningRate, true);
+        g.zero();
+        return;
+    }
+
+    void RMSProp(float rho, float lr, float decay, bool clipGrad) override
+    {
+        Optimize::RMSProp(kernels, v.kernels, g.kernels, lr, rho, decay, clipGrad);
+        Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
+        g.zero();
+        return;
+    }
+
+    void Adam(float alpha, float beta,
+                      float alpha_, float beta_,
+                      float lr, float decay, bool clipGrad) override
+    {
+        Optimize::Adam(kernels, v.kernels, m.kernels, g.kernels,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        Optimize::Adam(b, v.b, m.b, g.b,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        g.zero();
+        return;
+    }
+
+    void clamp(float c0, float cn) override
+    {
+        Optimize::clamp(kernels, c0, cn);
+        Optimize::clamp(b, c0, cn);
+        return;
+    }
+
+    virtual void copyTo(iLayer* layer) override
+    {
+        Conv2d *pLayer = static_cast<Conv2d*>(layer);
+        pLayer->kernels = kernels;
+        pLayer->b = b;
+        return;
+    }
+    virtual void softUpdateTo(iLayer* layer, float alpha) override
+    {
+        Conv2d *pLayer = static_cast<Conv2d*>(layer);
+        lerp(pLayer->kernels, kernels, alpha);
+        lerp(pLayer->b, b, alpha);
         return;
     }
 };
@@ -239,7 +309,7 @@ public:
         return std::make_shared<MaxPooling2d>(inChannels_, h, w, kernelSize_, stride_);
     }
 
-    Tensor& forward(const Tensor &x) override
+    Tensor& forward(const Tensor &x, bool inference=false) override
     {
         /* input shape is same as output shape */
         for (int n = 0; n < outChannels; n++) {
@@ -320,7 +390,7 @@ public:
         return std::make_shared<AvgPooling2d>(inChannels_, h, w, kernelSize_, stride_);
     }
 
-    Tensor& forward(const Tensor &x) override
+    Tensor& forward(const Tensor &x, bool inference=false) override
     {
         /* conv */
         for (int n = 0; n < outChannels; n++) {

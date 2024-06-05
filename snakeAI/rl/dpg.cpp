@@ -8,11 +8,17 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.05*std::log(0.05);
-    policyNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+#if 0
+    policyNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
                      LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
                      Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                      LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
                      Softmax::_(hiddenDim, actionDim, true));
+#endif
+    policyNet = Net(ScaledDotProduct::_(stateDim, hiddenDim, true),
+                    Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                    LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
+                    Softmax::_(hiddenDim, actionDim, true));
 }
 
 RL::Tensor &RL::DPG::eGreedyAction(const Tensor &state)
@@ -62,7 +68,7 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
     alpha.val.printValue();
 #endif
     //policyNet.optimize(OPT_NORMRMSPROP, 1e-2);
-    policyNet.optimize(OPT_NORMRMSPROP, learningRate, 0.1);
+    policyNet.RMSProp(0.9, learningRate, 0.1);
     policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
@@ -71,12 +77,12 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
 
 void RL::DPG::save(const std::string &fileName)
 {
-    policyNet.save(fileName);
+    //policyNet.save(fileName);
     return;
 }
 
 void RL::DPG::load(const std::string &fileName)
 {
-    policyNet.load(fileName);
+    //policyNet.load(fileName);
     return;
 }

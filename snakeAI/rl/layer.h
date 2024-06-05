@@ -10,28 +10,6 @@
 
 namespace RL {
 
-class Grad
-{
-public:
-    Tensor w;
-    Tensor b;
-public:
-    Grad(){}
-    Grad(std::size_t outputDim, std::size_t inputDim)
-    {
-        w = Tensor(outputDim, inputDim);
-        b = Tensor(outputDim, 1);
-    }
-    explicit Grad(const Grad &r)
-        :w(r.w),b(r.b){}
-    void zero()
-    {
-        w.zero();
-        b.zero();
-        return;
-    }
-};
-
 class iLayer
 {
 public:
@@ -40,64 +18,65 @@ public:
         LAYER_LSTM,
         LAYER_CONV2D,
         LAYER_MAXPOOLING,
-        LAYER_AVGPOOLING
+        LAYER_AVGPOOLING,
+        LAYER_SCALEDDOTPRODUCT
     };
 public:
     int type;
-    Tensor w;
-    Tensor b;
     Tensor o;
     Tensor e;
-    Grad g;
-    Grad v;
-    Grad m;
 public:
     iLayer(){}
     virtual ~iLayer(){}
-    virtual Tensor& forward(const Tensor& x)
+    virtual Tensor& forward(const Tensor& x, bool inference=false)
     {
         return o;
     }
-
     virtual void gradient(const Tensor& x, const Tensor&){}
-
     virtual void backward(Tensor &ei){}
-    virtual void SGD(float learningRate)
-    {
-        Optimize::SGD(w, g.w, learningRate);
-        Optimize::SGD(b, g.b, learningRate);
-        g.zero();
-        return;
-    }
-
-    virtual void RMSProp(float rho, float lr, float decay, bool clipGrad)
-    {
-        Optimize::RMSProp(w, v.w, g.w, lr, rho, decay, clipGrad);
-        Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
-        g.zero();
-        return;
-    }
-
+    virtual void cacheError(const Tensor &e){}
+    virtual void SGD(float learningRate){}
+    virtual void RMSProp(float rho, float lr, float decay, bool clipGrad){}
     virtual void Adam(float alpha, float beta,
                       float alpha_, float beta_,
-                      float lr, float decay, bool clipGrad)
-    {
-        Optimize::Adam(w, v.w, m.w, g.w,
-                       alpha_, beta_, lr,
-                       alpha, beta, decay, clipGrad);
-        Optimize::Adam(b, v.b, m.b, g.b,
-                       alpha_, beta_, lr,
-                       alpha, beta, decay, clipGrad);
-        g.zero();
-        return;
-    }
+                      float lr, float decay, bool clipGrad){}
+    virtual void clamp(float c0, float cn){}
+    virtual void copyTo(iLayer* layer){}
+    virtual void softUpdateTo(iLayer* layer, float alpha){}
 };
 
 class iFcLayer : public iLayer
 {
 public:
+    class FcGrad
+    {
+    public:
+        Tensor w;
+        Tensor b;
+    public:
+        FcGrad(){}
+        FcGrad(std::size_t outputDim, std::size_t inputDim)
+        {
+            w = Tensor(outputDim, inputDim);
+            b = Tensor(outputDim, 1);
+        }
+        explicit FcGrad(const FcGrad &r)
+            :w(r.w),b(r.b){}
+        void zero()
+        {
+            w.zero();
+            b.zero();
+            return;
+        }
+    };
+public:
     std::size_t inputDim;
     std::size_t outputDim;
+    Tensor w;
+    Tensor b;
+    FcGrad g;
+    FcGrad v;
+    FcGrad m;
 public:
     iFcLayer(){}
     iFcLayer(std::size_t inputDim_, std::size_t outputDim_, bool trainFlag)
@@ -109,9 +88,9 @@ public:
         o = Tensor(outputDim, 1);
         e = Tensor(outputDim, 1);
         if (trainFlag == true) {
-            g = Grad(outputDim, inputDim);
-            v = Grad(outputDim, inputDim);
-            m = Grad(outputDim, inputDim);
+            g = FcGrad(outputDim, inputDim);
+            v = FcGrad(outputDim, inputDim);
+            m = FcGrad(outputDim, inputDim);
         }
         Random::uniform(w, -1, 1);
         Random::uniform(b, -1, 1);
@@ -119,7 +98,7 @@ public:
     explicit iFcLayer(const iFcLayer &r)
         :inputDim(r.inputDim), outputDim(r.outputDim){}
     virtual ~iFcLayer(){}
-    virtual Tensor& forward(const Tensor& x)
+    virtual Tensor& forward(const Tensor& x, bool inference=false)
     {
         Tensor::MM::ikkj(o, w, x);
         o += b;
@@ -140,7 +119,55 @@ public:
         Tensor::MM::kikj(ei, w, e);
         return;
     }
+    virtual void SGD(float learningRate) override
+    {
+        Optimize::SGD(w, g.w, learningRate, true);
+        Optimize::SGD(b, g.b, learningRate, true);
+        g.zero();
+        return;
+    }
 
+    virtual void RMSProp(float rho, float lr, float decay, bool clipGrad) override
+    {
+        Optimize::RMSProp(w, v.w, g.w, lr, rho, decay, clipGrad);
+        Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
+        g.zero();
+        return;
+    }
+
+    virtual void Adam(float alpha, float beta,
+                      float alpha_, float beta_,
+                      float lr, float decay, bool clipGrad) override
+    {
+        Optimize::Adam(w, v.w, m.w, g.w,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        Optimize::Adam(b, v.b, m.b, g.b,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        g.zero();
+        return;
+    }
+    virtual void clamp(float c0, float cn) override
+    {
+        Optimize::clamp(w, c0, cn);
+        Optimize::clamp(b, c0, cn);
+        return;
+    }
+    virtual void copyTo(iLayer* layer) override
+    {
+        iFcLayer *pLayer = static_cast<iFcLayer*>(layer);
+        pLayer->w = w;
+        pLayer->b = b;
+        return;
+    }
+    virtual void softUpdateTo(iLayer* layer, float alpha) override
+    {
+        iFcLayer *pLayer = static_cast<iFcLayer*>(layer);
+        lerp(pLayer->w, w, alpha);
+        lerp(pLayer->b, b, alpha);
+        return;
+    }
 };
 
 template<typename Fn>
@@ -159,7 +186,7 @@ public:
     Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
         :iFcLayer(inputDim, outputDim, trainFlag){}
 
-    Tensor& forward(const Tensor& x) override
+    Tensor& forward(const Tensor& x, bool inference=false) override
     {
         Tensor::MM::ikkj(o, w, x);
         o += b;
@@ -198,7 +225,7 @@ public:
     {
         return std::make_shared<Softmax>(inputDim, outputDim, tarinFlag);
     }
-    Tensor& forward(const RL::Tensor &x) override
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(o, w, x);
         o += b;
@@ -233,7 +260,7 @@ public:
     {
         return std::make_shared<GeluLayer>(inputDim, outputDim, tarinFlag);
     }
-    Tensor& forward(const RL::Tensor &x) override
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(op, w, x);
         op += b;
@@ -274,7 +301,7 @@ public:
     {
         return std::make_shared<SwishLayer>(inputDim, outputDim, tarinFlag);
     }
-    Tensor& forward(const RL::Tensor &x) override
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(op, w, x);
         op += b;
@@ -320,7 +347,7 @@ public:
     {
         return std::make_shared<Dropout>(inputDim, outputDim, tarinFlag, p_);
     }
-    Tensor& forward(const RL::Tensor &x) override
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Layer<Fn>::forward(x);
         if (trainFlag == true) {
@@ -373,7 +400,7 @@ public:
     {
         return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
     }
-    Tensor& forward(const RL::Tensor &x) override
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(op, w, x);
         u = op.mean();
@@ -432,7 +459,7 @@ public:
     {
         return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
     }
-    Tensor& forward(const RL::Tensor &x) override
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         u = x.mean();
         float sigma = x.variance(u);
@@ -498,7 +525,7 @@ public:
     {
         return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
     }
-    Tensor& forward(const RL::Tensor &x) override
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(o1, w, x);
         for (std::size_t i = 0; i < o.size(); i++) {
@@ -557,7 +584,7 @@ public:
     {
         return std::make_shared<RMSNorm>(inputDim, outputDim, tarinFlag);
     }
-    Tensor& forward(const RL::Tensor &x) override
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(op, w, x);
         float sigma = op.variance(0);
@@ -613,7 +640,7 @@ public:
     {
         return std::make_shared<TanhNorm>(inputDim, outputDim, tarinFlag);
     }
-    Tensor& forward(const RL::Tensor &x) override
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(o1, w, x);
         o2 = RL::tanh(o1);
@@ -644,6 +671,203 @@ public:
         return;
     }
 
+};
+
+class ScaledDotProduct : public iLayer
+{
+public:
+    class ScaledDotProductGrad
+    {
+    public:
+        Tensor wq;
+        Tensor wk;
+        Tensor wv;
+    public:
+        ScaledDotProductGrad(){}
+        void zero()
+        {
+            wq.zero();
+            wk.zero();
+            wv.zero();
+            return;
+        }
+    };
+public:
+    int inputDim;
+    int outputDim;
+    Tensor wq;
+    Tensor wk;
+    Tensor wv;
+    Tensor q;
+    Tensor k;
+    Tensor v;
+    Tensor qk;
+    Tensor fqk;
+
+    ScaledDotProductGrad g;
+    ScaledDotProductGrad gv;
+    ScaledDotProductGrad gm;
+public:
+    ScaledDotProduct(){}
+
+    explicit ScaledDotProduct(int inputDim_, int outputDim_, bool trainFlag_)
+        :inputDim(inputDim_),outputDim(outputDim_)
+    {
+        type = LAYER_SCALEDDOTPRODUCT;
+        wq = Tensor(outputDim, inputDim);
+        wk = Tensor(outputDim, inputDim);
+        wv = Tensor(outputDim, inputDim);
+        q = Tensor(outputDim, 1);
+        k = Tensor(outputDim, 1);
+        v = Tensor(outputDim, 1);
+        o = Tensor(outputDim, 1);
+        e = Tensor(outputDim, 1);
+        qk = Tensor(outputDim, outputDim);
+        fqk = Tensor(outputDim, outputDim);
+        if (trainFlag_) {
+            g.wq = Tensor(outputDim, inputDim);
+            g.wk = Tensor(outputDim, inputDim);
+            g.wv = Tensor(outputDim, inputDim);
+            gv.wq = Tensor(outputDim, inputDim);
+            gv.wk = Tensor(outputDim, inputDim);
+            gv.wv = Tensor(outputDim, inputDim);
+            gm.wq = Tensor(outputDim, inputDim);
+            gm.wk = Tensor(outputDim, inputDim);
+            gm.wv = Tensor(outputDim, inputDim);
+        }
+    }
+
+    static std::shared_ptr<ScaledDotProduct> _(int inputDim, int outputDim, bool tarinFlag)
+    {
+        return std::make_shared<ScaledDotProduct>(inputDim, outputDim, tarinFlag);
+    }
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
+    {
+        Tensor::MM::ikkj(q, wq, x);
+        Tensor::MM::ikkj(k, wk, x);
+        Tensor::MM::ikkj(v, wv, x);
+        Tensor::MM::ikjk(qk, q, k);
+        float d = std::sqrt(outputDim);
+        fqk = softmax_(qk);
+        Tensor::MM::ikkj(o, fqk, v);
+        return o;
+    }
+
+    void backward(Tensor &ei) override
+    {
+        Tensor::MM::kikj(ei, wq, e);
+        Tensor::MM::kikj(ei, wk, e);
+        Tensor::MM::kikj(ei, wv, e);
+        return;
+    }
+
+    void gradient(const Tensor& x, const Tensor&) override
+    {
+        /*
+            q = Wq*x
+            k = Wk*x
+            v = Wv*x
+            o = f(qk/d)*v
+
+            dq = df(qk/d)*k/d*v
+            dk = df(qk/d)*q/d*v
+            dv = I
+            dWq = dq*e*x
+            dWk = dk*e*x
+            dWv = f(qk/d)*e*x
+        */
+        float d = std::sqrt(outputDim);
+        Tensor dqk(outputDim, outputDim);
+        for (std::size_t i = 0; i < fqk.totalSize; i++) {
+            for (std::size_t j = 0; j < qk.totalSize; j++) {
+                if (i == j) {
+                    dqk[i] += fqk[i]*(1 - fqk[i])*qk[j]/d;
+                } else {
+                    dqk[i] += -fqk[i]*fqk[j]*qk[j]/d;
+                }
+            }
+        }
+        Tensor dq(outputDim, 1);
+        Tensor dk(outputDim, 1);
+        Tensor::MM::ikkj(dq, dqk, k);
+        Tensor::MM::ikkj(dk, dqk, q);
+        dq *= v;
+        dk *= v;
+        dq *= e;
+        dk *= e;
+        Tensor dv(outputDim, 1);
+        Tensor::MM::ikkj(dv, fqk, e);
+        Tensor::MM::ikjk(g.wq, dq, x);
+        Tensor::MM::ikjk(g.wk, dk, x);
+        Tensor::MM::ikjk(g.wv, dv, x);
+        q.zero();
+        k.zero();
+        v.zero();
+        qk.zero();
+        o.zero();
+        e.zero();
+        return;
+    }
+
+    void SGD(float learningRate)
+    {
+        Optimize::SGD(wq, g.wq, learningRate);
+        Optimize::SGD(wk, g.wk, learningRate);
+        Optimize::SGD(wv, g.wv, learningRate);
+        g.zero();
+        return;
+    }
+
+    void RMSProp(float rho, float lr, float decay, bool clipGrad)
+    {
+        Optimize::RMSProp(wq, gv.wq, g.wq, lr, rho, decay, clipGrad);
+        Optimize::RMSProp(wk, gv.wk, g.wk, lr, rho, decay, clipGrad);
+        Optimize::RMSProp(wv, gv.wv, g.wv, lr, rho, decay, clipGrad);
+        g.zero();
+        return;
+    }
+
+     void Adam(float alpha, float beta,
+               float alpha_, float beta_,
+               float lr, float decay, bool clipGrad)
+    {
+        Optimize::Adam(wq, gv.wq, gm.wq, g.wq,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        Optimize::Adam(wk, gv.wk, gm.wk, g.wk,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        Optimize::Adam(wv, gv.wv, gm.wv, g.wv,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        g.zero();
+        return;
+    }
+
+     void clamp(float c0, float cn) override
+     {
+         Optimize::clamp(wq, c0, cn);
+         Optimize::clamp(wk, c0, cn);
+         Optimize::clamp(wv, c0, cn);
+         return;
+     }
+
+     virtual void copyTo(iLayer* layer) override
+     {
+         ScaledDotProduct *pLayer = static_cast<ScaledDotProduct*>(layer);
+         pLayer->wq = wq;
+         pLayer->wk = wk;
+         pLayer->wv = wv;
+         return;
+     }
+     virtual void softUpdateTo(iLayer* layer, float alpha) override
+     {
+         ScaledDotProduct *pLayer = static_cast<ScaledDotProduct*>(layer);
+         lerp(pLayer->wq, wq, alpha);
+         lerp(pLayer->wk, wk, alpha);
+         lerp(pLayer->wv, wv, alpha);
+         return;
+     }
 };
 
 }

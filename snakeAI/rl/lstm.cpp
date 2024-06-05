@@ -3,10 +3,35 @@
 RL::LSTM::LSTM(std::size_t inputDim_,
                std::size_t hiddenDim_,
                std::size_t outputDim_,
-               bool trainFlag):
-    LSTMParam(inputDim_, hiddenDim_, outputDim_),
-    inputDim(inputDim_), hiddenDim(hiddenDim_), outputDim(outputDim_)
+               bool trainFlag)
+    :inputDim(inputDim_), hiddenDim(hiddenDim_), outputDim(outputDim_)
 {
+    type = iLayer::LAYER_LSTM;
+    wi = Tensor(hiddenDim, inputDim);
+    wg = Tensor(hiddenDim, inputDim);
+    wf = Tensor(hiddenDim, inputDim);
+    wo = Tensor(hiddenDim, inputDim);
+
+    ui = Tensor(hiddenDim, hiddenDim);
+    ug = Tensor(hiddenDim, hiddenDim);
+    uf = Tensor(hiddenDim, hiddenDim);
+    uo = Tensor(hiddenDim, hiddenDim);
+
+    bi = Tensor(hiddenDim, 1);
+    bg = Tensor(hiddenDim, 1);
+    bf = Tensor(hiddenDim, 1);
+    bo = Tensor(hiddenDim, 1);
+
+    w = Tensor(outputDim, hiddenDim);
+    b = Tensor(outputDim, 1);
+
+    std::vector<Tensor*> weights = {&wi, &wg, &wf, &wo,
+                                 &ui, &ug, &uf, &uo,
+                                 &bi, &bg, &bf, &bo,
+                                 &w, &b};
+    for (std::size_t i = 0; i < weights.size(); i++) {
+        RL::uniformRand(*weights[i], -1, 1);
+    }
     if (trainFlag == true) {
         g = LSTMParam(inputDim_, hiddenDim_, outputDim_);
         v = LSTMParam(inputDim_, hiddenDim_, outputDim_);
@@ -14,16 +39,16 @@ RL::LSTM::LSTM(std::size_t inputDim_,
     }
     h = Tensor(hiddenDim, 1);
     c = Tensor(hiddenDim, 1);
-    y = Tensor(outputDim, 1);
-    alpha_t = 1;
-    beta_t = 1;
-    LSTMParam::random();
+    o = Tensor(outputDim, 1);
 }
 
 void RL::LSTM::reset()
 {
     h.zero();
     c.zero();
+    cacheX.clear();
+    cacheE.clear();
+    states.clear();
     return;
 }
 
@@ -91,26 +116,17 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Tensor &x, const RL::Tensor &_h,
     return state;
 }
 
-void RL::LSTM::forward(const std::vector<RL::Tensor> &sequence)
-{
-    h.zero();
-    c.zero();
-    for (auto &x : sequence) {
-        State state = feedForward(x, h, c);
-        h = state.h;
-        c = state.c;
-        states.push_back(state);
-    }
-    return;
-}
-
-RL::Tensor &RL::LSTM::forward(const RL::Tensor &x)
+RL::Tensor &RL::LSTM::forward(const RL::Tensor &x, bool inference)
 {
     State state = feedForward(x, h, c);
     h = state.h;
     c = state.c;
-    y = state.y;
-    return y;
+    o = state.y;
+    if (inference == false) {
+        cacheX.push_back(x);
+        states.push_back(state);
+    }
+    return o;
 }
 
 void RL::LSTM::backwardAtTime(int t,
@@ -181,102 +197,91 @@ void RL::LSTM::backward(const std::vector<RL::Tensor> &x, const std::vector<RL::
     return;
 }
 
-void RL::LSTM::gradient(const std::vector<RL::Tensor> &x,
-                        const std::vector<RL::Tensor> &yt)
+void RL::LSTM::cacheError(const RL::Tensor &e)
 {
-    /* loss */
-    std::vector<RL::Tensor> E(states.size(), Tensor(outputDim, 1));
-    for (int t = states.size() - 1; t >= 0; t--) {
-        for (std::size_t i = 0; i < outputDim; i++) {
-            E[t][i] = 2* (states[t].y[i] - yt[t][i]);
-        }
-    }
-    /* backward */
-    backward(x, E);
+    cacheE.push_back(e);
     return;
 }
 
-void RL::LSTM::gradient(const std::vector<RL::Tensor> &x, const RL::Tensor &yt)
-{
-    /* loss */
-    std::vector<RL::Tensor> E(states.size(), Tensor(outputDim, 1));
-    int t = states.size() - 1;
-    for (std::size_t i = 0; i < outputDim; i++) {
-        E[t][i] = 2 * (states[t].y[i] - yt[i]);
-    }
-    /* backward */
-    backward(x, E);
-    return;
-}
-
-void RL::LSTM::SGD(float learningRate)
+void RL::LSTM::SGD(float lr)
 {   
-    Optimize::SGD(w, g.w, learningRate);
-    Optimize::SGD(b, g.b, learningRate);
+    backward(cacheX, cacheE);
+    cacheX.clear();
+    cacheE.clear();
 
-    Optimize::SGD(wi, g.wi, learningRate);
-    Optimize::SGD(wg, g.wg, learningRate);
-    Optimize::SGD(wf, g.wf, learningRate);
-    Optimize::SGD(wo, g.wo, learningRate);
+    Optimize::SGD(w, g.w, lr);
+    Optimize::SGD(b, g.b, lr);
 
-    Optimize::SGD(ui, g.ui, learningRate);
-    Optimize::SGD(ug, g.ug, learningRate);
-    Optimize::SGD(uf, g.uf, learningRate);
-    Optimize::SGD(uo, g.uo, learningRate);
+    Optimize::SGD(wi, g.wi, lr);
+    Optimize::SGD(wg, g.wg, lr);
+    Optimize::SGD(wf, g.wf, lr);
+    Optimize::SGD(wo, g.wo, lr);
 
-    Optimize::SGD(bi, g.bi, learningRate);
-    Optimize::SGD(bg, g.bg, learningRate);
-    Optimize::SGD(bf, g.bf, learningRate);
-    Optimize::SGD(bo, g.bo, learningRate);
+    Optimize::SGD(ui, g.ui, lr);
+    Optimize::SGD(ug, g.ug, lr);
+    Optimize::SGD(uf, g.uf, lr);
+    Optimize::SGD(uo, g.uo, lr);
+
+    Optimize::SGD(bi, g.bi, lr);
+    Optimize::SGD(bg, g.bg, lr);
+    Optimize::SGD(bf, g.bf, lr);
+    Optimize::SGD(bo, g.bo, lr);
     g.zero();
     return;
 }
 
-void RL::LSTM::RMSProp(float learningRate, float rho, float decay)
+void RL::LSTM::RMSProp(float rho, float lr, float decay, bool clipGrad)
 {
-    Optimize::RMSProp(w, s.w, g.w, learningRate, rho, decay);
-    Optimize::RMSProp(b, s.b, g.b, learningRate, rho, decay);
+    backward(cacheX, cacheE);
+    cacheX.clear();
+    cacheE.clear();
+    Optimize::RMSProp(w, s.w, g.w, lr, rho, decay);
+    Optimize::RMSProp(b, s.b, g.b, lr, rho, decay);
 
-    Optimize::RMSProp(wi, s.wi, g.wi, learningRate, rho, decay);
-    Optimize::RMSProp(wg, s.wg, g.wg, learningRate, rho, decay);
-    Optimize::RMSProp(wf, s.wf, g.wf, learningRate, rho, decay);
-    Optimize::RMSProp(wo, s.wo, g.wo, learningRate, rho, decay);
+    Optimize::RMSProp(wi, s.wi, g.wi, lr, rho, decay);
+    Optimize::RMSProp(wg, s.wg, g.wg, lr, rho, decay);
+    Optimize::RMSProp(wf, s.wf, g.wf, lr, rho, decay);
+    Optimize::RMSProp(wo, s.wo, g.wo, lr, rho, decay);
 
-    Optimize::RMSProp(ui, s.ui, g.ui, learningRate, rho, decay);
-    Optimize::RMSProp(ug, s.ug, g.ug, learningRate, rho, decay);
-    Optimize::RMSProp(uf, s.uf, g.uf, learningRate, rho, decay);
-    Optimize::RMSProp(uo, s.uo, g.uo, learningRate, rho, decay);
+    Optimize::RMSProp(ui, s.ui, g.ui, lr, rho, decay);
+    Optimize::RMSProp(ug, s.ug, g.ug, lr, rho, decay);
+    Optimize::RMSProp(uf, s.uf, g.uf, lr, rho, decay);
+    Optimize::RMSProp(uo, s.uo, g.uo, lr, rho, decay);
 
-    Optimize::RMSProp(bi, s.bi, g.bi, learningRate, rho, decay);
-    Optimize::RMSProp(bg, s.bg, g.bg, learningRate, rho, decay);
-    Optimize::RMSProp(bf, s.bf, g.bf, learningRate, rho, decay);
-    Optimize::RMSProp(bo, s.bo, g.bo, learningRate, rho, decay);
+    Optimize::RMSProp(bi, s.bi, g.bi, lr, rho, decay);
+    Optimize::RMSProp(bg, s.bg, g.bg, lr, rho, decay);
+    Optimize::RMSProp(bf, s.bf, g.bf, lr, rho, decay);
+    Optimize::RMSProp(bo, s.bo, g.bo, lr, rho, decay);
 
     g.zero();
     return;
 }
 
-void RL::LSTM::Adam(float learningRate,  float alpha, float beta, float decay)
+void RL::LSTM::Adam(float alpha, float beta,
+                    float alpha_, float beta_,
+                    float lr, float decay, bool clipGrad)
 {
-    alpha_t *= alpha;
-    beta_t *= beta;
-    Optimize::Adam(w, s.w, v.w, g.w, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(b, s.b, v.b, g.b, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    backward(cacheX, cacheE);
+    cacheX.clear();
+    cacheE.clear();
 
-    Optimize::Adam(wi, s.wi, v.wi, g.wi, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(wg, s.wg, v.wg, g.wg, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(wf, s.wf, v.wf, g.wf, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(wo, s.wo, v.wo, g.wo, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(w, s.w, v.w, g.w, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(b, s.b, v.b, g.b, alpha_, beta_, lr, alpha, beta, decay);
 
-    Optimize::Adam(ui, s.ui, v.ui, g.ui, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(ug, s.ug, v.ug, g.ug, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(uf, s.uf, v.uf, g.uf, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(uo, s.uo, v.uo, g.uo, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(wi, s.wi, v.wi, g.wi, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(wg, s.wg, v.wg, g.wg, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(wf, s.wf, v.wf, g.wf, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(wo, s.wo, v.wo, g.wo, alpha_, beta_, lr, alpha, beta, decay);
 
-    Optimize::Adam(bi, s.bi, v.bi, g.bi, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(bg, s.bg, v.bg, g.bg, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(bf, s.bf, v.bf, g.bf, alpha_t, beta_t, learningRate, alpha, beta, decay);
-    Optimize::Adam(bo, s.bo, v.bo, g.bo, alpha_t, beta_t, learningRate, alpha, beta, decay);
+    Optimize::Adam(ui, s.ui, v.ui, g.ui, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(ug, s.ug, v.ug, g.ug, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(uf, s.uf, v.uf, g.uf, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(uo, s.uo, v.uo, g.uo, alpha_, beta_, lr, alpha, beta, decay);
+
+    Optimize::Adam(bi, s.bi, v.bi, g.bi, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(bg, s.bg, v.bg, g.bg, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(bf, s.bf, v.bf, g.bf, alpha_, beta_, lr, alpha, beta, decay);
+    Optimize::Adam(bo, s.bo, v.bo, g.bo, alpha_, beta_, lr, alpha, beta, decay);
     g.zero();
     return;
 }
@@ -303,8 +308,9 @@ void RL::LSTM::clamp(float c0, float cn)
     return;
 }
 
-void RL::LSTM::copyTo(LSTM &dst)
+void RL::LSTM::copyTo(iLayer *layer)
 {
+    LSTM &dst = *static_cast<LSTM*>(layer);
     dst.wi = wi;
     dst.wg = wg;
     dst.wf = wf;
@@ -325,8 +331,9 @@ void RL::LSTM::copyTo(LSTM &dst)
     return;
 }
 
-void RL::LSTM::softUpdateTo(LSTM &dst, float rho)
+void RL::LSTM::softUpdateTo(iLayer *layer, float rho)
 {
+    LSTM &dst = *static_cast<LSTM*>(layer);
     RL::lerp(dst.wi, wi, rho);
     RL::lerp(dst.wg, wg, rho);
     RL::lerp(dst.wf, wf, rho);
@@ -366,26 +373,15 @@ void RL::LSTM::test()
         }
     }
     std::uniform_int_distribution<int> selectIndex(0, data.size() - 1);
-    auto sample = [&](std::vector<Tensor> &batchData,
-            std::vector<Tensor> &batchTarget, int batchSize){
-        int k = selectIndex(Random::engine);
-        while (k > data.size() - batchSize) {
-            k = selectIndex(Random::engine);
+    for (int i = 0; i < 1000; i++) {
+        lstm.reset();
+        for (int j = 0; j < 16; j++) {
+            int k = selectIndex(Random::engine);
+            Tensor& out = lstm.forward(data[k]);
+            lstm.cacheError(Loss::MSE(out, target[k]));
         }
-        for (int i = 0; i < batchSize; i++) {
-            batchData.push_back(data[k + i]);
-            batchTarget.push_back(target[k + i]);
-        }
-    };
-    for (int i = 0; i < 10000; i++) {
-        std::vector<Tensor> batchData;
-        std::vector<Tensor> batchTarget;
-        sample(batchData, batchTarget, 32);
-        lstm.forward(batchData);
-        lstm.gradient(batchData, batchTarget);
-        lstm.Adam(1e-3);
+        lstm.RMSProp(0.9, 1e-3, 0, true);
     }
-
     lstm.reset();
     for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 10; j++) {

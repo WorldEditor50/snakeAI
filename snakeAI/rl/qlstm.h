@@ -1,7 +1,8 @@
 #ifndef QLSTM_H
 #define QLSTM_H
 #include <deque>
-#include "lstmnet.h"
+#include "lstm.h"
+#include "net.hpp"
 #include "rl_basic.h"
 
 namespace RL {
@@ -20,7 +21,7 @@ public:
     Tensor& eGreedyAction(const Tensor& state);
     Tensor &action(const Tensor &state);
     void reset();
-    void experienceReplay(const Transition& x, std::vector<Tensor> &y);
+    void experienceReplay(const Transition& x);
     void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 32,
@@ -31,8 +32,9 @@ protected:
     float gamma;
     float exploringRate;
     int learningSteps;
-    LstmNet QMainNet;
-    LstmNet QTargetNet;
+    std::shared_ptr<LSTM> lstm;
+    Net QMainNet;
+    Net QTargetNet;
     std::deque<Transition> memories;
 };
 

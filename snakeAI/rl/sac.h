@@ -9,7 +9,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
-#include "bpnn.h"
+#include "net.hpp"
 #include "rl_basic.h"
 #include "parameter.hpp"
 
@@ -21,7 +21,6 @@ class SAC
 public:
     SAC(){}
     explicit SAC(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
-    ~SAC(){}
     void perceive(const Tensor& state,
                   const Tensor& action,
                   const Tensor& nextState,
@@ -47,11 +46,11 @@ protected:
     int learningSteps;
     std::deque<Transition> memories;
     GradValue alpha;
-    BPNN actor;
-    BPNN critic1Net;
-    BPNN critic1TargetNet;
-    BPNN critic2Net;
-    BPNN critic2TargetNet;
+    Net actor;
+    Net critic1Net;
+    Net critic1TargetNet;
+    Net critic2Net;
+    Net critic2TargetNet;
 };
 
 }

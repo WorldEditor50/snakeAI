@@ -23,31 +23,29 @@ public:
     void copyTo(Net& dstNet)
     {
         for (std::size_t i = 0; i < layers.size(); i++) {
-            dstNet.layers[i]->w = layers[i]->w;
-            dstNet.layers[i]->b = layers[i]->b;
+            layers[i]->copyTo(dstNet.layers[i].get());
         }
         return;
     }
     void softUpdateTo(Net& dstNet, float alpha)
     {
         for (std::size_t i = 0; i < layers.size(); i++) {
-            lerp(dstNet.layers[i]->w, layers[i]->w, alpha);
-            lerp(dstNet.layers[i]->b, layers[i]->b, alpha);
+            layers[i]->softUpdateTo(dstNet.layers[i].get(), alpha);
         }
         return;
     }
-    Tensor &forward(const Tensor &x)
+    Tensor &forward(const Tensor &x, bool inference=false)
     {
-        layers[0]->forward(x);
+        layers[0]->forward(x, inference);
         for (std::size_t i = 1; i < layers.size(); i++) {
             Tensor &out = layers[i - 1]->o;
             if ((layers[i - 1]->type == iLayer::LAYER_CONV2D ||
                  layers[i - 1]->type == iLayer::LAYER_MAXPOOLING ||
                  layers[i - 1]->type == iLayer::LAYER_AVGPOOLING)&&
                     layers[i]->type == iLayer::LAYER_FC) {
-                layers[i]->forward(out.flatten());
+                layers[i]->forward(out.flatten(), inference);
             } else {
-                layers[i]->forward(out);
+                layers[i]->forward(out, inference);
             }
         }
         return layers.back()->o;
@@ -65,6 +63,11 @@ public:
                 Tensor e(layers[i - 1]->e.totalSize, 1);
                 layers[i]->backward(e);
                 layers[i - 1]->e.val = e.val;
+            } else if(layers[i - 1]->type == iLayer::LAYER_LSTM &&
+                      layers[i]->type == iLayer::LAYER_FC) {
+                Tensor e(layers[i - 1]->o.totalSize, 1);
+                layers[i]->backward(e);
+                layers[i - 1]->cacheError(e);
             } else {
                 layers[i]->backward(layers[i - 1]->e);
             }
@@ -96,11 +99,11 @@ public:
         }
         return;
     }
+
     void clamp(float c0, float cn)
     {
         for (std::size_t i = 0; i < layers.size(); i++) {
-            Optimize::clamp(layers[i]->w, c0, cn);
-            Optimize::clamp(layers[i]->b, c0, cn);
+            layers[i]->clamp(c0, cn);
         }
         return;
     }

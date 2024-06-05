@@ -8,26 +8,26 @@ RL::DDPG::DDPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
     stateDim = stateDim_;
     actionDim = actionDim_;
     /* actor: a = P(s, theta) */
-    actorP = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+    actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
                   LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                   LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
                   Softmax::_(hiddenDim, actionDim, true));
 
-    actorQ = BPNN(Layer<Tanh>::_(stateDim, hiddenDim,false),
+    actorQ = Net(Layer<Tanh>::_(stateDim, hiddenDim,false),
                   LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
                   Layer<Tanh>::_(hiddenDim, hiddenDim,false),
                   LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
                   Softmax::_(hiddenDim, actionDim, false));
     actorP.copyTo(actorQ);
     /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
-    criticP = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
+    criticP = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                    Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                    Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    criticQ = BPNN(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, false),
+    criticQ = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, false),
                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                    Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
@@ -117,9 +117,9 @@ void RL::DDPG::learn(std::size_t maxMemorySize,
         int k = distribution(Random::engine);
         experienceReplay(memories[k]);
     }
-    actorP.optimize(OPT_NORMRMSPROP, 1e-3, 0.1);
+    actorP.RMSProp(0.9, 1e-3, 0.1);
     actorP.clamp(-1, 1);
-    criticP.optimize(OPT_NORMRMSPROP, 1e-3, 0);
+    criticP.RMSProp(0.9, 1e-3, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;
@@ -136,16 +136,16 @@ void RL::DDPG::learn(std::size_t maxMemorySize,
 
 void RL::DDPG::save(const std::string& actorPara, const std::string& criticPara)
 {
-    actorP.save(actorPara);
-    criticP.save(criticPara);
+    //actorP.save(actorPara);
+    //criticP.save(criticPara);
     return;
 }
 
 void RL::DDPG::load(const std::string& actorPara, const std::string& criticPara)
 {
-    actorP.load(actorPara);
-    actorP.copyTo(actorQ);
-    criticP.load(criticPara);
-    criticP.copyTo(criticQ);
+    //actorP.load(actorPara);
+    //actorP.copyTo(actorQ);
+    //criticP.load(criticPara);
+    //criticP.copyTo(criticQ);
     return;
 }

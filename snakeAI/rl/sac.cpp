@@ -9,32 +9,32 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.01*std::log(0.01);
-    actor = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
+    actor = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
                  Softmax::_(hiddenDim, actionDim, true));
 
     int criticStateDim = stateDim;
-    critic1Net = BPNN(Layer<Tanh>::_(criticStateDim, hiddenDim, true),
+    critic1Net = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true),
                       TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                       Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                       TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                       Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    critic1TargetNet = BPNN(Layer<Tanh>::_(criticStateDim, hiddenDim, false),
+    critic1TargetNet = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, false),
                             TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                             Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                             TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                             Layer<Sigmoid>::_(hiddenDim, actionDim, false));
 
-    critic2Net = BPNN(Layer<Tanh>::_(criticStateDim, hiddenDim, true),
+    critic2Net = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true),
                       TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                       Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                       TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
                       Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    critic2TargetNet = BPNN(Layer<Tanh>::_(criticStateDim, hiddenDim, false),
+    critic2TargetNet = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, false),
                             TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                             Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                             TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
@@ -99,13 +99,15 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         } else {
             qTarget = x.reward + gamma*nextValue;
         }
-        Tensor qTarget1 = critic1Net.forward(x.state);
+        Tensor out1 = critic1Net.forward(x.state);
+        Tensor qTarget1 = out1;
         qTarget1[i] = qTarget;
-        critic1Net.backward(Loss::MSE(critic1Net.output(), qTarget1));
+        critic1Net.backward(Loss::MSE(out1, qTarget1));
         critic1Net.gradient(x.state, qTarget1);
-        Tensor qTarget2 = critic2Net.forward(x.state);
+        Tensor out2 = critic2Net.forward(x.state);
+        Tensor qTarget2 = out2;
         qTarget2[i] = qTarget;
-        critic2Net.backward(Loss::MSE(critic2Net.output(), qTarget2));
+        critic2Net.backward(Loss::MSE(out2, qTarget2));
         critic2Net.gradient(x.state, qTarget2);
     }
     /* train policy net */
@@ -147,7 +149,7 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         experienceReplay(memories[k]);
     }
     //actor.optimize(OPT_NORMRMSPROP, 1e-2);
-    actor.optimize(OPT_NORMRMSPROP, 1e-3, 0.1);
+    actor.RMSProp(0.9, 1e-3, 0.1);
     actor.clamp(-1, 1);
     alpha.RMSProp(0.9, 1e-5, 0);
     //alpha.clamp(0.1, 1.2);
@@ -155,8 +157,8 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
     std::cout<<"alpha:";
     alpha.val.printValue();
 #endif
-    critic1Net.optimize(OPT_NORMRMSPROP, 1e-3, 0);
-    critic2Net.optimize(OPT_NORMRMSPROP, 1e-3, 0);
+    critic1Net.RMSProp(0.9, 1e-3, 0);
+    critic2Net.RMSProp(0.9, 1e-3, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;
@@ -172,18 +174,18 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
 
 void RL::SAC::save()
 {
-    actor.save("sac_actor");
-    critic1Net.save("sca_critic1");
-    critic2Net.save("sca_critic2");
+    //actor.save("sac_actor");
+    //critic1Net.save("sca_critic1");
+    //critic2Net.save("sca_critic2");
     return;
 }
 
 void RL::SAC::load()
 {
-    actor.load("sac_actor");
-    critic1Net.load("sca_critic1");
-    critic2Net.load("sca_critic2");
-    critic1Net.copyTo(critic1TargetNet);
-    critic2Net.copyTo(critic2TargetNet);
+    //actor.load("sac_actor");
+    //critic1Net.load("sca_critic1");
+    //critic2Net.load("sca_critic2");
+    //critic1Net.copyTo(critic1TargetNet);
+    //critic2Net.copyTo(critic2TargetNet);
     return;
 }

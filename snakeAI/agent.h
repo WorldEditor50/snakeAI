@@ -24,7 +24,7 @@ private:
     RL::Tensor state;
     RL::Tensor nextState;
     RL::DQN dqn;
-    RL::BPNN bpnn;
+    RL::Net bpnn;
     RL::DPG dpg;
     RL::DDPG ddpg;
     RL::PPO ppo;

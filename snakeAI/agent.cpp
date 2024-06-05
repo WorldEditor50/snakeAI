@@ -11,10 +11,10 @@ Agent::Agent(Environment& env_, Snake &s):
     ddpg = RL::DDPG(stateDim, 16, 4);
     ppo = RL::PPO(stateDim, 16, 4);
     sac = RL::SAC(stateDim, 16, 4);
-    bpnn = RL::BPNN(RL::Layer<RL::Sigmoid>::_(stateDim, 16, true),
-                    RL::Layer<RL::Sigmoid>::_(16, 16, true),
-                    RL::Layer<RL::Sigmoid>::_(16, 16, true),
-                    RL::Layer<RL::Sigmoid>::_(16, 4, true));
+    bpnn = RL::Net(RL::Layer<RL::Sigmoid>::_(stateDim, 16, true),
+                   RL::Layer<RL::Sigmoid>::_(16, 16, true),
+                   RL::Layer<RL::Sigmoid>::_(16, 16, true),
+                   RL::Layer<RL::Sigmoid>::_(16, 4, true));
     qlstm = RL::QLSTM(stateDim, 16, 4);
     drpg = RL::DRPG(stateDim, 16, 4);
     convpg = RL::ConvPG(stateDim, 16, 4);
@@ -35,7 +35,7 @@ Agent::~Agent()
     dqn.save("./dqn");
     dpg.save("./dpg");
     ddpg.save("./ddpg_actor", "./ddpg_critic");
-    bpnn.save("./bpnn");
+    //bpnn.save("./bpnn");
     ppo.save("./ppo_actor", "./ppo_critic");
 }
 
@@ -230,9 +230,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
     observe(state, x, y, xt, yt);
     RL::Tensor state_ = state;
     if (trainFlag == true) {
-        std::vector<RL::Tensor> states;
-        std::vector<RL::Tensor> actions;
-        std::vector<float> rewards;
+        std::vector<RL::Step> steps;
         float total = 0;
         for (std::size_t i = 0; i < 16; i++) {
             int xi = xn;
@@ -244,9 +242,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
             observe(nextState, xn, yn, xt, yt);
             float r = env.reward0(xi, yi, xn, yn, xt, yt);
             /* sample */
-            states.push_back(state);
-            actions.push_back(a);
-            rewards.push_back(r);
+            steps.push_back(RL::Step(state, a, r));
             total += r;
             if (env.map(xn, yn) == OBJ_BLOCK || (xn == xt && yn == yt)) {
                 break;
@@ -255,7 +251,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        drpg.reinforce(states, actions, rewards, 1e-3);
+        drpg.reinforce(steps, 1e-3);
     }
     /* making decision */
     state_.reshape(1, 118, 118);
@@ -482,12 +478,11 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
     int xn = x;
     int yn = y;
     float m = 0;
-    RL::Tensor& action = bpnn.output();
     if (trainFlag == true) {
         observe(state, xn, yn, xt, yt);
         for (std::size_t i = 0; i < 128; i++) {
             const RL::Tensor &out = bpnn.forward(state);
-            direct1 = action.argmax();
+            direct1 = out.argmax();
             direct2 = astarAction(xn, yn, xt, yt, totalReward);
             if (direct1 != direct2) {
                 RL::Tensor target(4, 1);
@@ -505,13 +500,11 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
             observe(state, xn, yn, xt, yt);
         }
         if (m > 0) {
-            bpnn.optimize(RL::OPT_RMSPROP, 0.01);
+            bpnn.RMSProp(0.9, 1e-3, 0.1);
         }
     }
     observe(state, x, y, xt, yt);
-    bpnn.forward(state);
-    direct1 = action.argmax();
-    bpnn.show();
+    direct1 = bpnn.forward(state).argmax();
     return direct1;
 }
 

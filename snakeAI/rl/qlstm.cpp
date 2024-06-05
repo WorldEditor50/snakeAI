@@ -1,4 +1,5 @@
 #include "qlstm.h"
+#include "lstm.h"
 
 RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t actionDim_)
 {
@@ -6,11 +7,12 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    QMainNet = LstmNet(LSTM(stateDim_, hiddenDim_, hiddenDim_, true),
-                       TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, true));
-    QTargetNet = LstmNet(LSTM(stateDim_, hiddenDim_, hiddenDim_, false),
-                         TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, false));
-    this->QMainNet.copyTo(QTargetNet);
+    lstm = LSTM::_(stateDim_, hiddenDim_, hiddenDim_, true);
+    QMainNet = Net(lstm,
+                   TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, true));
+    QTargetNet = Net(LSTM::_(stateDim_, hiddenDim_, hiddenDim_, false),
+                     TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, false));
+    QMainNet.copyTo(QTargetNet);
 }
 
 void RL::QLSTM::perceive(Tensor& state,
@@ -39,27 +41,29 @@ RL::Tensor &RL::QLSTM::action(const Tensor &state)
 
 void RL::QLSTM::reset()
 {
-    QMainNet.reset();
+    lstm->reset();
     return;
 }
 
-void RL::QLSTM::experienceReplay(const Transition& x, std::vector<Tensor> &y)
+void RL::QLSTM::experienceReplay(const Transition& x)
 {
     Tensor qTarget(actionDim, 1);
     /* estiTensore q-target: Q-Regression */
     /* select Action to estiTensore q-value */
     int i = x.action.argmax();
-    qTarget = QMainNet.forward(x.state);
-    if (x.done == true) {
+    Tensor out = QMainNet.forward(x.state, false);
+    qTarget = out;
+    if (x.done) {
         qTarget[i] = x.reward;
     } else {
         /* select optimal Action in the QMainNet */
-        int k = QMainNet.forward(x.nextState).argmax();
+        int k = QMainNet.forward(x.nextState, true).argmax();
         /* select value in the QTargetNet */
-        Tensor &v = QTargetNet.forward(x.nextState);
+        Tensor &v = QTargetNet.forward(x.nextState, true);
         qTarget[i] = x.reward + gamma * v[k];
     }
-    y.push_back(qTarget);
+    QMainNet.backward(Loss::MSE(out, qTarget));
+    QMainNet.gradient(x.state, qTarget);
     return;
 }
 
@@ -77,17 +81,13 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
         learningSteps = 0;
     }
     /* experience replay */
-    std::vector<Tensor> x;
-    std::vector<Tensor> y;
     std::uniform_int_distribution<int> uniform(0, memories.size() - 1);
+    lstm->reset();
     for (std::size_t i = 0; i < batchSize; i++) {
         int k = uniform(Random::engine);
-        x.push_back(memories[k].state);
-        experienceReplay(memories[k], y);
+        experienceReplay(memories[k]);
     }
-    QMainNet.forward(x);
-    QMainNet.backward(x, y, Loss::MSE);
-    QMainNet.optimize(learningRate, 0);
+    QMainNet.RMSProp(0.9, learningRate, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;

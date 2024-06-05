@@ -9,7 +9,7 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
-#include "bpnn.h"
+#include "net.hpp"
 #include "rl_basic.h"
 #include  "parameter.hpp"
 
@@ -20,12 +20,10 @@ class PPO
 public:
     PPO(){}
     explicit PPO(int stateDim, int hiddenDim, int actionDim);
-    ~PPO(){}
     Tensor &eGreedyAction(const Tensor &state);
     RL::Tensor &noiseAction(const RL::Tensor &state);
     RL::Tensor &gumbelMax(const RL::Tensor &state);
     Tensor &action(const Tensor &state);
-    Tensor& output(){return actorP.output();}
     void learnWithKLpenalty(std::vector<Step>& trajectory, float learningRate);
     void learnWithClipObjective(std::vector<Step>& x, float learningRate);
     void save(const std::string &actorPara, const std::string &criticPara);
@@ -41,9 +39,9 @@ protected:
     int learningSteps;
     float entropy0;
     GradValue alpha;
-    BPNN actorP;
-    BPNN actorQ;
-    BPNN critic;
+    Net actorP;
+    Net actorQ;
+    Net critic;
 };
 }
 #endif // PPO_H

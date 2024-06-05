@@ -7,18 +7,18 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     totalReward = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    QMainNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                    Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                    Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
-    QTargetNet = BPNN(Layer<Tanh>::_(stateDim, hiddenDim, false),
-                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                      Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                      Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+    QMainNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
+                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                   Layer<Sigmoid>::_(hiddenDim, actionDim, true));
 
+    QTargetNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, false),
+                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                     Layer<Tanh>::_(hiddenDim, hiddenDim, false),
+                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                     Layer<Sigmoid>::_(hiddenDim, actionDim, false));
     QMainNet.copyTo(QTargetNet);
 }
 
@@ -54,7 +54,8 @@ void RL::DQN::experienceReplay(const Transition& x)
     /* estiTensore q-target: Q-Regression */
     /* select Action to estiTensore q-value */
     int i = x.action.argmax();
-    Tensor qTarget = QMainNet.forward(x.state);
+    Tensor out = QMainNet.forward(x.state);
+    Tensor qTarget = out;
     if (x.done == true) {
         qTarget[i] = x.reward;
     } else {
@@ -65,7 +66,6 @@ void RL::DQN::experienceReplay(const Transition& x)
         qTarget[i] = x.reward + gamma * v[k];
     }
     /* train QMainNet */
-    Tensor &out = QMainNet.forward(x.state);
     QMainNet.backward(Loss::MSE(out, qTarget));
     QMainNet.gradient(x.state, qTarget);
     return;
@@ -92,7 +92,7 @@ void RL::DQN::learn(std::size_t maxMemorySize,
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    QMainNet.optimize(OPT_NORMRMSPROP, learningRate, 0);
+    QMainNet.RMSProp(0.9, learningRate, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 3;
@@ -108,13 +108,13 @@ void RL::DQN::learn(std::size_t maxMemorySize,
 
 void RL::DQN::save(const std::string &fileName)
 {
-    QMainNet.save(fileName);
+    //QMainNet.save(fileName);
     return;
 }
 
 void RL::DQN::load(const std::string &fileName)
 {
-    QMainNet.load(fileName);
-    QMainNet.copyTo(QTargetNet);
+    //QMainNet.load(fileName);
+    //QMainNet.copyTo(QTargetNet);
     return;
 }
