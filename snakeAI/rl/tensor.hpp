@@ -246,7 +246,7 @@ public:
         return y;
     }
 
-    void setBlock(const std::vector<int> &offset, const Tensor_ &x)
+    void embedding(const std::vector<int> &offset, const Tensor_ &x)
     {
         std::vector<int> indexs(shape.size(), 0);
         for (std::size_t i = 0; i < x.totalSize; i++) {

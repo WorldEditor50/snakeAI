@@ -1,4 +1,6 @@
 #include "ddpg.h"
+#include "layer.h"
+#include "loss.h"
 
 RL::DDPG::DDPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {

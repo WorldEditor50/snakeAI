@@ -1,5 +1,7 @@
 #include "qlstm.h"
 #include "lstm.h"
+#include "layer.h"
+#include "loss.h"
 
 RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t actionDim_)
 {

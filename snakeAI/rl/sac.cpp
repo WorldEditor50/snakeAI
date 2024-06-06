@@ -1,4 +1,6 @@
 #include "sac.h"
+#include "layer.h"
+#include "loss.h"
 
 RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
 {

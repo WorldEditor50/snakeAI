@@ -1,4 +1,7 @@
 #include "dqn.h"
+#include "layer.h"
+#include "loss.h"
+#include "attention.hpp"
 
 RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
@@ -19,6 +22,7 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                      Layer<Tanh>::_(hiddenDim, hiddenDim, false),
                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
                      Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+
     QMainNet.copyTo(QTargetNet);
 }
 

@@ -3,7 +3,7 @@
 #include "tensor.hpp"
 #include "activate.h"
 #include "util.hpp"
-#include "layer.h"
+#include "ilayer.h"
 
 namespace RL {
 

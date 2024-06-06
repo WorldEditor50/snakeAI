@@ -1,4 +1,8 @@
 #include "dpg.h"
+#include "layer.h"
+#include "loss.h"
+#include "attention.hpp"
+
 RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
     gamma = 0.9;
@@ -10,15 +14,16 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     entropy0 = -0.05*std::log(0.05);
 #if 0
     policyNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
-                     Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
-                     Softmax::_(hiddenDim, actionDim, true));
-#endif
+                    LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
+                    Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                    LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
+                    Softmax::_(hiddenDim, actionDim, true));
+#else
     policyNet = Net(ScaledDotProduct::_(stateDim, hiddenDim, true),
                     Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
                     Softmax::_(hiddenDim, actionDim, true));
+#endif
 }
 
 RL::Tensor &RL::DPG::eGreedyAction(const Tensor &state)

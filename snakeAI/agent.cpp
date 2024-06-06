@@ -1,6 +1,6 @@
 #include "agent.h"
 #include "environment.h"
-
+#include "rl/layer.h"
 Agent::Agent(Environment& env_, Snake &s):
     env(env_), snake(s),
     trainFlag(true)

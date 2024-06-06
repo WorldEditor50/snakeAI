@@ -1,6 +1,8 @@
 #ifndef NET_HPP
 #define NET_HPP
-#include "layer.h"
+#include <memory>
+#include "tensor.hpp"
+#include "ilayer.h"
 
 namespace RL {
 

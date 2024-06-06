@@ -6,7 +6,7 @@
 #include "activate.h"
 #include "optimize.h"
 #include "loss.h"
-#include "layer.h"
+#include "ilayer.h"
 
 namespace RL {
 

@@ -1,6 +1,7 @@
 #include "convdqn.h"
 #include "layer.h"
 #include "conv2d.hpp"
+#include "loss.h"
 
 RL::ConvDQN::ConvDQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
@@ -102,7 +103,7 @@ void RL::ConvDQN::learn(std::size_t maxMemorySize,
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    QMainNet.RMSProp(0.9, learningRate, 0);
+    QMainNet.RMSProp(0.9, 1e-2, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;

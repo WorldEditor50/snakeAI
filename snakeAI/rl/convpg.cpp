@@ -1,4 +1,7 @@
 #include "convpg.h"
+#include "layer.h"
+#include "conv2d.hpp"
+#include "loss.h"
 
 RL::ConvPG::ConvPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {

@@ -1,7 +1,5 @@
 #ifndef CONVPG_H
 #define CONVPG_H
-
-
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -11,8 +9,6 @@
 #include <ctime>
 #include <cstdlib>
 #include "net.hpp"
-#include "layer.h"
-#include "conv2d.hpp"
 #include "rl_basic.h"
 #include "parameter.hpp"
 

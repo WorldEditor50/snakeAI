@@ -1,4 +1,6 @@
 #include "ppo.h"
+#include "layer.h"
+#include "loss.h"
 
 RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
 {

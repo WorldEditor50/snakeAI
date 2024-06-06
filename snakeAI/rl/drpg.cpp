@@ -1,4 +1,6 @@
 #include "drpg.h"
+#include "layer.h"
+#include "loss.h"
 
 RL::DRPG::DRPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
