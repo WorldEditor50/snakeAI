@@ -152,8 +152,8 @@ void RL::GRU::backward(const std::vector<RL::Tensor> &x, const std::vector<RL::T
         */
         Tensor _h = t > 0 ? states[t - 1].h : Tensor(hiddenDim, 1);
         for (std::size_t i = 0; i < Ug.shape[0]; i++) {
-            delta.g[i] = delta.h[i] * states[t].z[i] * Tanh::d(states[t].g[i]);
-            delta.z[i] = delta.h[i] * (states[t].g[i] - _h[i]) * Sigmoid::d(states[t].z[i]);
+            delta.g[i] = delta.h[i] * states[t].z[i] * Tanh::df(states[t].g[i]);
+            delta.z[i] = delta.h[i] * (states[t].g[i] - _h[i]) * Sigmoid::df(states[t].z[i]);
         }
         Tensor dhr(hiddenDim, 1);
         for (std::size_t i = 0; i < Ug.shape[0]; i++) {
@@ -162,14 +162,14 @@ void RL::GRU::backward(const std::vector<RL::Tensor> &x, const std::vector<RL::T
             }
         }
         for (std::size_t i = 0; i < Ug.shape[0]; i++) {
-            delta.r[i] = delta.h[i] * dhr[i] * _h[i] *Sigmoid::d(states[t].r[i]);
+            delta.r[i] = delta.h[i] * dhr[i] * _h[i] *Sigmoid::df(states[t].r[i]);
         }
         /* gradient */
         for (std::size_t i = 0; i < W.shape[0]; i++) {
             for (std::size_t j = 0; j < W.shape[1]; j++) {
-                d.W(i, j) += E[t][i] * Linear::d(states[t].y[i]) * states[t].h[j];
+                d.W(i, j) += E[t][i] * Linear::df(states[t].y[i]) * states[t].h[j];
             }
-            d.B[i] += E[t][i] * Linear::d(states[t].y[i]);
+            d.B[i] += E[t][i] * Linear::df(states[t].y[i]);
         }
         for (std::size_t i = 0; i < Wr.shape[0]; i++) {
             for (std::size_t j = 0; j < Wr.shape[1]; j++) {

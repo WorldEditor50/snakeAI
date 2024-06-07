@@ -190,7 +190,7 @@ public:
     {
         Tensor dy(o.shape);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Fn::d(o[i]) * e[i];
+            dy[i] = Fn::df(o[i]) * e[i];
         }
         /* db */
         if (bias == true) {

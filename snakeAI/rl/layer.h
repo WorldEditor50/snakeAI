@@ -165,7 +165,7 @@ public:
     {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Fn::d(o[i]) * e[i];
+            dy[i] = Fn::df(o[i]) * e[i];
         }
         Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
@@ -178,12 +178,14 @@ public:
 class Softmax : public iFcLayer
 {
 public:
+    Tensor z;
+public:
     Softmax() {}
     ~Softmax(){}
     explicit Softmax(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
         :iFcLayer(inputDim, outputDim, trainFlag)
     {
-
+        z = Tensor(outputDim, 1);
     }
 
     static std::shared_ptr<Softmax> _(std::size_t inputDim, std::size_t outputDim, bool tarinFlag)
@@ -192,18 +194,29 @@ public:
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
-        Tensor::MM::ikkj(o, w, x);
-        o += b;
-        return RL::softmax(o);
+        Tensor::MM::ikkj(z, w, x);
+        z += b;
+        o = FnSoftmax::f(z);
+        return o;
     }
 
     void gradient(const RL::Tensor &x, const Tensor &y) override
     {
+#if 0
+        Tensor J = FnSoftmax::jacobian(o);
+        Tensor dy(outputDim, 1);
+        Tensor dLoss(outputDim, 1);
+        for (std::size_t i = 0; i < outputDim; i++) {
+            dLoss[i] = -y[i]/(o[i] + 1e-8);
+        }
+        Tensor::MM::ikkj(dy, J, dLoss);
+#else
         Tensor dy = o - y;
+#endif
         Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
-        o.zero();
+        z.zero();
         return;
     }
 
@@ -239,7 +252,7 @@ public:
     {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Gelu::d(op[i]) * e[i];
+            dy[i] = Gelu::df(op[i]) * e[i];
         }
         Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
@@ -280,7 +293,7 @@ public:
     {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Swish::d(op[i]) * e[i];
+            dy[i] = Swish::df(op[i]) * e[i];
         }
         Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
@@ -449,7 +462,7 @@ public:
     {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Fn::d(o[i])*e[i];
+            dy[i] = Fn::df(o[i])*e[i];
         }
         Tensor dx(inputDim, 1);
         for (std::size_t i = 0; i < dx.totalSize; i++) {
@@ -516,7 +529,7 @@ public:
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             float d = o2[i];//(o2[i] - u)*gamma;
-            dy[i] = (1 - d*d)*(1 - 1.0/float(outputDim))*Fn::d(o2[i])*gamma*e[i];
+            dy[i] = (1 - d*d)*(1 - 1.0/float(outputDim))*Fn::df(o2[i])*gamma*e[i];
         }
         Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
@@ -625,7 +638,7 @@ public:
     {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            float error = Fn::d(o[i])*e[i];
+            float error = Fn::df(o[i])*e[i];
             float d = o2[i];
             dy[i] = (1 - d*d)*error;
             g.b[i] += error;

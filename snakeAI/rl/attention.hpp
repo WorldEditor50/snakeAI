@@ -37,7 +37,7 @@ public:
     Tensor k;
     Tensor v;
     Tensor qk;
-    Tensor fqk;
+    Tensor z;
 
     ScaledDotProductGrad g;
     ScaledDotProductGrad gv;
@@ -52,16 +52,13 @@ public:
         wq = Tensor(outputDim, inputDim);
         wk = Tensor(outputDim, inputDim);
         wv = Tensor(outputDim, inputDim);
-        Random::uniform(wq, -1, 1);
-        Random::uniform(wk, -1, 1);
-        Random::uniform(wv, -1, 1);
         q = Tensor(outputDim, 1);
         k = Tensor(outputDim, 1);
         v = Tensor(outputDim, 1);
         o = Tensor(outputDim, 1);
         e = Tensor(outputDim, 1);
         qk = Tensor(outputDim, outputDim);
-        fqk = Tensor(outputDim, outputDim);
+        z = Tensor(outputDim, outputDim);
         if (trainFlag_) {
             g.wq = Tensor(outputDim, inputDim);
             g.wk = Tensor(outputDim, inputDim);
@@ -87,8 +84,8 @@ public:
         Tensor::MM::ikjk(qk, q, k);
         float d = std::sqrt(outputDim);
         qk /= d;
-        fqk = softmax_(qk);
-        Tensor::MM::ikkj(o, fqk, v);
+        z = FnSoftmax::f(qk);
+        Tensor::MM::ikkj(o, z, v);
         return o;
     }
 
@@ -106,41 +103,48 @@ public:
             q = Wq*x
             k = Wk*x
             v = Wv*x
-            o = f(qk/d)*v
+            z = qk^T/d = Wq*x * (Wk*x)^T/d = Wq*x*(x^T*Wk^T)/d
+            o = softmax(z)*v
 
-            dq = df(qk/d)*qk/d*k*v
-            dk = df(qk/d)*qk/d*q*v
-            dv = I
-            dWq = dq*e*x
-            dWk = dk*e*x
-            dWv = f(qk/d)*e*x
+            do/dz = dSoftmax(z)*v
+            dz/dq = k^T/d
+            dz/dk^T = q/d
+            dz/dk = q^T/d
+            dq/dWq = x^T
+            dk/dWk = x^T
+            do/dWq = (do/dz)*(dz/dq)*(dq/dWq) = dSoftmax(z)*(v*k^T/d)*x^T
+            do/dWk = (do/dz)*(dz/dk)*(dk/dWk) = dSoftmax(z)*(v*q^T/d)*x^T
+            do/dWv = (do/dv)*(dv/dWv) = sofmax(z)*x^T
         */
 
-        /* softmax jacobi */
-        Tensor dqk(outputDim, outputDim);
-        for (std::size_t i = 0; i < outputDim; i++) {
-            for (std::size_t j = 0; j < outputDim; j++) {
-                if (i == j) {
-                    dqk(i, j) = fqk(i, j)*(1 - fqk(i, j));
-                } else {
-                    dqk(i, j) = -fqk(i, j)*fqk(i, j);
-                }
-            }
-        }
-        dqk *= qk;
-        Tensor dq(outputDim, 1);
-        Tensor dk(outputDim, 1);
-        Tensor::MM::ikkj(dq, dqk, k);
-        Tensor::MM::ikkj(dk, dqk, q);
-        dq *= v;
-        dk *= v;
-        dq *= e;
-        dk *= e;
-        Tensor dv(outputDim, 1);
-        Tensor::MM::ikkj(dv, fqk, e);
-        Tensor::MM::ikjk(g.wq, dq, x);
-        Tensor::MM::ikjk(g.wk, dk, x);
-        Tensor::MM::ikjk(g.wv, dv, x);
+        float d = std::sqrt(outputDim);
+        /* softmax jacobian */
+        Tensor J = FnSoftmax::jacobian(z);
+        Tensor vk(outputDim, outputDim);
+        Tensor::MM::ikjk(vk, v, k);
+        Tensor jvk(outputDim*outputDim, 1);
+        vk.reshape(outputDim*outputDim, 1);
+        Tensor::MM::ikkj(jvk, J, vk);
+
+        Tensor vq(outputDim, outputDim);
+        Tensor::MM::ikjk(vq, v, q);
+        Tensor jvq(outputDim*outputDim, 1);
+        vq.reshape(outputDim*outputDim, 1);
+        Tensor::MM::ikkj(jvq, J, vq);
+
+        jvq /= d;
+        jvk /= d;
+        Tensor dWq(outputDim, 1);
+        Tensor dWk(outputDim, 1);
+        Tensor dWv(outputDim, 1);
+        jvk.reshape(outputDim, outputDim);
+        jvq.reshape(outputDim, outputDim);
+        Tensor::MM::ikkj(dWq, jvk, e);
+        Tensor::MM::ikkj(dWk, jvq, e);
+        Tensor::MM::ikkj(dWv, z, e);
+        Tensor::MM::ikjk(g.wq, dWq, x);
+        Tensor::MM::ikjk(g.wk, dWk, x);
+        Tensor::MM::ikjk(g.wv, dWv, x);
 
         q.zero();
         k.zero();
@@ -242,7 +246,6 @@ public:
         :inputDim(inputDim_),outputDim(outputDim_)
     {
         w = Tensor(outputDim, outputDim);
-        Random::uniform(w, -1, 1);
         for (int i = 0; i < N; i++) {
             dotProduct[i] = ScaledDotProduct(inputDim, outputDim/N, trainFlag);
         }

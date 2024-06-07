@@ -12,9 +12,7 @@ RL::ConvDQN::ConvDQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t a
     actionDim = actionDim_;
     QMainNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, true),
                    MaxPooling2d::_(4, 24, 24, 2, 2),
-                   Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 1, 1, true, true),
-                   MaxPooling2d::_(4, 12, 12, 2, 2),
-                   Conv2d<Sigmoid>::_(4, 6, 6, 4, 3, 1, 1, true, true),
+                   Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 3, 0, true, true),
                    MaxPooling2d::_(4, 4, 4, 2, 2),
                    Layer<Tanh>::_(4*2*2, hiddenDim, true),
                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
@@ -22,9 +20,7 @@ RL::ConvDQN::ConvDQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t a
 
     QTargetNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, false),
                      MaxPooling2d::_(4, 24, 24, 2, 2),
-                     Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 1, 1, true, false),
-                     MaxPooling2d::_(4, 12, 12, 2, 2),
-                     Conv2d<Sigmoid>::_(4, 6, 6, 4, 3, 1, 1, true, false),
+                     Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 3, 0, true, false),
                      MaxPooling2d::_(4, 4, 4, 2, 2),
                      Layer<Tanh>::_(4*2*2, hiddenDim, false),
                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
@@ -103,7 +99,7 @@ void RL::ConvDQN::learn(std::size_t maxMemorySize,
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    QMainNet.RMSProp(0.9, 1e-2, 0);
+    QMainNet.RMSProp(0.9, learningRate, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;

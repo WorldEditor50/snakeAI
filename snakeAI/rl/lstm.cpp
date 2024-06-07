@@ -153,11 +153,11 @@ void RL::LSTM::backwardAtTime(int t,
     Tensor f_ = t < states.size() - 1 ? states[t + 1].f : Tensor(hiddenDim, 1);
     Tensor _c = t > 0 ? states[t - 1].c : Tensor(hiddenDim, 1);
     for (std::size_t i = 0; i < delta.o.size(); i++) {
-        delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::d(states[t].c[i]) + delta_.c[i] * f_[i];
-        delta.o[i] = delta.h[i] * Tanh::f(states[t].c[i]) * Sigmoid::d(states[t].o[i]);
-        delta.g[i] = delta.c[i] * states[t].i[i] * Tanh::d(states[t].g[i]);
-        delta.i[i] = delta.c[i] * states[t].g[i] * Sigmoid::d(states[t].i[i]);
-        delta.f[i] = delta.c[i] * _c[i] * Sigmoid::d(states[t].f[i]);
+        delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::df(states[t].c[i]) + delta_.c[i] * f_[i];
+        delta.o[i] = delta.h[i] * Tanh::f(states[t].c[i]) * Sigmoid::df(states[t].o[i]);
+        delta.g[i] = delta.c[i] * states[t].i[i] * Tanh::df(states[t].g[i]);
+        delta.i[i] = delta.c[i] * states[t].g[i] * Sigmoid::df(states[t].i[i]);
+        delta.f[i] = delta.c[i] * _c[i] * Sigmoid::df(states[t].f[i]);
     }
     /* gradient */
     for (std::size_t i = 0; i < w.shape[0]; i++) {

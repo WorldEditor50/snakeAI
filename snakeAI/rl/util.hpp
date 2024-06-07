@@ -300,19 +300,6 @@ inline Tensor& softmax(Tensor &x)
     x /= s;
     return x;
 }
-inline Tensor softmax_(const Tensor &x)
-{
-    Tensor y(x);
-    float s = 0;
-    float maxValue = x.max();
-    y -= maxValue;
-    for (std::size_t i = 0; i < y.size(); i++) {
-        y[i] = std::exp(x[i]);
-        s += y[i];
-    }
-    y /= s;
-    return y;
-}
 
 inline Tensor& gumbelSoftmax(Tensor &x, float tau)
 {
