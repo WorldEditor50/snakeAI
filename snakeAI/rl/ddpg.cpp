@@ -14,13 +14,13 @@ RL::DDPG::DDPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
                   LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                   LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
-                  Softmax::_(hiddenDim, actionDim, true));
+                  Layer<Softmax>::_(hiddenDim, actionDim, true));
 
     actorQ = Net(Layer<Tanh>::_(stateDim, hiddenDim,false),
                   LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
                   Layer<Tanh>::_(hiddenDim, hiddenDim,false),
                   LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
-                  Softmax::_(hiddenDim, actionDim, false));
+                  Layer<Softmax>::_(hiddenDim, actionDim, false));
     actorP.copyTo(actorQ);
     /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
     criticP = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),

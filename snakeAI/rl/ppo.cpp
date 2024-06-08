@@ -18,22 +18,22 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
     entropy0 = -0.04*std::log(0.04);
 
     actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                  Softmax::_(hiddenDim, actionDim, true));
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                 Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                 Layer<Softmax>::_(hiddenDim, actionDim, true));
 
     actorQ = Net(Layer<Tanh>::_(stateDim, hiddenDim, false),
-                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                  Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                  Softmax::_(hiddenDim, actionDim, false));
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                 Layer<Tanh>::_(hiddenDim, hiddenDim, false),
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
+                 Layer<Softmax>::_(hiddenDim, actionDim, false));
 
     critic = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
-                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                  Layer<Linear>::_(hiddenDim, actionDim, true));
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                 Layer<Tanh>::_(hiddenDim, hiddenDim, true),
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
+                 Layer<Linear>::_(hiddenDim, actionDim, true));
 
 }
 
@@ -102,7 +102,7 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
         critic.gradient(criticState, r);
         /* actor */
         Tensor& q = trajectory[t].action;
-        const Tensor& p = actorP.forward(trajectory[t].state);
+        Tensor p = actorP.forward(trajectory[t].state);
         float kl = p[k] * std::log(p[k]/q[k] + 1e-9);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         q[k] *= ratio*advantage - beta*kl;
@@ -117,8 +117,8 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
     } else if (KLexpect <= delta / 1.5) {
         beta /= 2;
     }
-    actorP.RMSProp(0.9, learningRate, 0.1);
-    critic.RMSProp(0.9, 1e-3, 0.01);
+    actorP.RMSProp(learningRate, 0.9, 0.1);
+    critic.RMSProp(1e-3, 0.9, 0.01);
     /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.01 ? 0.01 : exploringRate;
@@ -167,18 +167,18 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
         Tensor& q = trajectory[t].action;
         alpha.g[k] += -q[k]*std::log(q[k] + 1e-8) - entropy0;
         /* actor */
-        const Tensor& p = actorP.forward(trajectory[t].state);
+        Tensor p = actorP.forward(trajectory[t].state);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
         q[k] *= ratio * adv;
         actorP.backward(Loss::CrossEntropy(p, q));
         actorP.gradient(trajectory[t].state, q);
     }
-    actorP.RMSProp(0.9, learningRate, 0.1);
+    actorP.RMSProp(learningRate, 0.9, 0.1);
     actorP.clamp(-1, 1);
-    critic.RMSProp(0.9, 1e-3, 0.01);
+    critic.RMSProp(1e-3, 0.9, 0.01);
 
-    alpha.RMSProp(0.9, 1e-4, 0);
+    alpha.RMSProp(1e-4, 0.9, 0);
 #if 1
     std::cout<<"alpha:";
     alpha.val.printValue();

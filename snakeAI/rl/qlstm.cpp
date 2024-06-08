@@ -9,6 +9,8 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
+    h = Tensor(hiddenDim_, 1);
+    c = Tensor(hiddenDim_, 1);
     lstm = LSTM::_(stateDim_, hiddenDim_, hiddenDim_, true);
     QMainNet = Net(lstm,
                    TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, true));
@@ -32,13 +34,21 @@ void RL::QLSTM::perceive(Tensor& state,
 
 RL::Tensor& RL::QLSTM::eGreedyAction(const Tensor &state)
 {
-    Tensor& out = QMainNet.forward(state);
+    Tensor& out = QMainNet.forward(state, true);
     return eGreedy(out, exploringRate, false);
+}
+
+RL::Tensor& RL::QLSTM::noiseAction(const Tensor &state)
+{
+    Tensor& out = QMainNet.forward(state, true);
+    return noise(out, exploringRate);
 }
 
 RL::Tensor &RL::QLSTM::action(const Tensor &state)
 {
-    return QMainNet.forward(state);
+    lstm->h = h;
+    lstm->c = c;
+    return QMainNet.forward(state, true);
 }
 
 void RL::QLSTM::reset()
@@ -74,6 +84,8 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
                     std::size_t batchSize,
                     float learningRate)
 {
+    h = lstm->h;
+    c = lstm->c;
     if (memories.size() < batchSize) {
         return;
     }
@@ -89,7 +101,7 @@ void RL::QLSTM::learn(std::size_t maxMemorySize,
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    QMainNet.RMSProp(0.9, learningRate, 0);
+    QMainNet.RMSProp(learningRate, 0.9, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;

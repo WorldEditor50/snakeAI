@@ -15,7 +15,7 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
-                 Softmax::_(hiddenDim, actionDim, true));
+                 Layer<Softmax>::_(hiddenDim, actionDim, true));
 
     int criticStateDim = stateDim;
     critic1Net = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true),
@@ -151,16 +151,15 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         experienceReplay(memories[k]);
     }
     //actor.optimize(OPT_NORMRMSPROP, 1e-2);
-    actor.RMSProp(0.9, 1e-3, 0.1);
+    actor.RMSProp(1e-3, 0.9, 0.1);
     actor.clamp(-1, 1);
-    alpha.RMSProp(0.9, 1e-5, 0);
-    //alpha.clamp(0.1, 1.2);
+    alpha.RMSProp(1e-4, 0.9, 0);
 #if 1
     std::cout<<"alpha:";
     alpha.val.printValue();
 #endif
-    critic1Net.RMSProp(0.9, 1e-3, 0);
-    critic2Net.RMSProp(0.9, 1e-3, 0);
+    critic1Net.RMSProp(1e-3, 0.9, 0);
+    critic2Net.RMSProp(1e-3, 0.9, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;

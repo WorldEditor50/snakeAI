@@ -18,9 +18,9 @@ public:
     GradValue(const GradValue &r):val(r.val),g(r.g),v(r.v){}
     inline float operator[](int index) const {return val.val[index];}
     inline float& operator[](int index) {return val.val[index];}
-    void RMSProp(float rho, float learningRate, float decay)
+    void RMSProp(float lr, float rho, float decay)
     {
-        Optimize::RMSProp(val, v, g, learningRate, rho, decay, true);
+        Optimize::RMSProp(val, v, g, lr, rho, decay, true);
         g.zero();
         return;
     }

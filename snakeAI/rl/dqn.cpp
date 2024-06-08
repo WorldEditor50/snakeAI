@@ -96,7 +96,7 @@ void RL::DQN::learn(std::size_t maxMemorySize,
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    QMainNet.RMSProp(0.9, learningRate, 0);
+    QMainNet.RMSProp(learningRate, 0.9, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 3;

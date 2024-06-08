@@ -230,7 +230,7 @@ void RL::LSTM::SGD(float lr)
     return;
 }
 
-void RL::LSTM::RMSProp(float rho, float lr, float decay, bool clipGrad)
+void RL::LSTM::RMSProp(float lr, float rho, float decay, bool clipGrad)
 {
     backward(cacheX, cacheE);
     cacheX.clear();
@@ -257,9 +257,9 @@ void RL::LSTM::RMSProp(float rho, float lr, float decay, bool clipGrad)
     return;
 }
 
-void RL::LSTM::Adam(float alpha, float beta,
+void RL::LSTM::Adam(float lr, float alpha, float beta,
                     float alpha_, float beta_,
-                    float lr, float decay, bool clipGrad)
+                    float decay, bool clipGrad)
 {
     backward(cacheX, cacheE);
     cacheX.clear();

@@ -84,15 +84,15 @@ public:
         Tensor::MM::kikj(ei, w, e);
         return;
     }
-    virtual void SGD(float learningRate) override
+    virtual void SGD(float lr) override
     {
-        Optimize::SGD(w, g.w, learningRate, true);
-        Optimize::SGD(b, g.b, learningRate, true);
+        Optimize::SGD(w, g.w, lr, true);
+        Optimize::SGD(b, g.b, lr, true);
         g.zero();
         return;
     }
 
-    virtual void RMSProp(float rho, float lr, float decay, bool clipGrad) override
+    virtual void RMSProp(float lr, float rho, float decay, bool clipGrad) override
     {
         Optimize::RMSProp(w, v.w, g.w, lr, rho, decay, clipGrad);
         Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
@@ -100,9 +100,9 @@ public:
         return;
     }
 
-    virtual void Adam(float alpha, float beta,
+    virtual void Adam(float lr, float alpha, float beta,
                       float alpha_, float beta_,
-                      float lr, float decay, bool clipGrad) override
+                      float decay, bool clipGrad) override
     {
         Optimize::Adam(w, v.w, m.w, g.w,
                        alpha_, beta_, lr,
@@ -175,29 +175,27 @@ public:
     }
 };
 
-class Softmax : public iFcLayer
+template<>
+class Layer<Softmax> : public iFcLayer
 {
 public:
-    Tensor z;
-public:
-    Softmax() {}
-    ~Softmax(){}
-    explicit Softmax(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
+    Layer() {}
+    ~Layer(){}
+    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
         :iFcLayer(inputDim, outputDim, trainFlag)
     {
-        z = Tensor(outputDim, 1);
+
     }
 
-    static std::shared_ptr<Softmax> _(std::size_t inputDim, std::size_t outputDim, bool tarinFlag)
+    static std::shared_ptr<Layer> _(std::size_t inputDim, std::size_t outputDim, bool tarinFlag)
     {
-        return std::make_shared<Softmax>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<Layer>(inputDim, outputDim, tarinFlag);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
-        Tensor::MM::ikkj(z, w, x);
-        z += b;
-        o = FnSoftmax::f(z);
-        return o;
+        Tensor::MM::ikkj(o, w, x);
+        o += b;
+        return softmax(o);
     }
 
     void gradient(const RL::Tensor &x, const Tensor &y) override
@@ -216,27 +214,28 @@ public:
         Tensor::MM::ikjk(g.w, dy, x);
         g.b += dy;
         e.zero();
-        z.zero();
+        o.zero();
         return;
     }
 
 };
 
-class GeluLayer : public iFcLayer
+template<>
+class Layer<Gelu> : public iFcLayer
 {
 public:
     Tensor op;
 public:
-    GeluLayer(){}
-    ~GeluLayer(){}
-    explicit GeluLayer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
+    Layer(){}
+    ~Layer(){}
+    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
         :iFcLayer(inputDim, outputDim, trainFlag),op(outputDim, 1){}
 
-    static std::shared_ptr<GeluLayer> _(std::size_t inputDim,
+    static std::shared_ptr<Layer> _(std::size_t inputDim,
                                     std::size_t outputDim,
                                     bool tarinFlag)
     {
-        return std::make_shared<GeluLayer>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<Layer>(inputDim, outputDim, tarinFlag);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
@@ -263,21 +262,22 @@ public:
 
 };
 
-class SwishLayer : public iFcLayer
+template<>
+class Layer<Swish> : public iFcLayer
 {
 public:
     Tensor op;
 public:
-    SwishLayer(){}
-    ~SwishLayer(){}
-    explicit SwishLayer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
+    Layer(){}
+    ~Layer(){}
+    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
         :iFcLayer(inputDim, outputDim, trainFlag),op(outputDim, 1){}
 
-    static std::shared_ptr<SwishLayer> _(std::size_t inputDim,
+    static std::shared_ptr<Layer> _(std::size_t inputDim,
                                     std::size_t outputDim,
                                     bool tarinFlag)
     {
-        return std::make_shared<SwishLayer>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<Layer>(inputDim, outputDim, tarinFlag);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {

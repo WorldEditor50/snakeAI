@@ -84,7 +84,7 @@ public:
         Tensor::MM::ikjk(qk, q, k);
         float d = std::sqrt(outputDim);
         qk /= d;
-        z = FnSoftmax::f(qk);
+        z = Softmax::f(qk);
         Tensor::MM::ikkj(o, z, v);
         return o;
     }
@@ -119,7 +119,7 @@ public:
 
         float d = std::sqrt(outputDim);
         /* softmax jacobian */
-        Tensor J = FnSoftmax::jacobian(z);
+        Tensor J = Softmax::jacobian(z);
         Tensor vk(outputDim, outputDim);
         Tensor::MM::ikjk(vk, v, k);
         Tensor jvk(outputDim*outputDim, 1);
@@ -164,7 +164,7 @@ public:
         return;
     }
 
-    void RMSProp(float rho, float lr, float decay, bool clipGrad) override
+    void RMSProp(float lr, float rho, float decay, bool clipGrad) override
     {
         Optimize::RMSProp(wq, gv.wq, g.wq, lr, rho, decay, clipGrad);
         Optimize::RMSProp(wk, gv.wk, g.wk, lr, rho, decay, clipGrad);
@@ -173,9 +173,9 @@ public:
         return;
     }
 
-     void Adam(float alpha, float beta,
+     void Adam(float lr, float alpha, float beta,
                float alpha_, float beta_,
-               float lr, float decay, bool clipGrad) override
+               float decay, bool clipGrad) override
     {
         Optimize::Adam(wq, gv.wq, gm.wq, g.wq,
                        alpha_, beta_, lr,
@@ -302,7 +302,7 @@ public:
         return;
     }
 
-    void RMSProp(float rho, float lr, float decay, bool clipGrad)
+    void RMSProp(float lr, float rho, float decay, bool clipGrad) override
     {
         Optimize::RMSProp(w, v.w, g.w, lr, rho, decay, clipGrad);
         for (int i = 0; i < N; i++) {
@@ -312,9 +312,9 @@ public:
         return;
     }
 
-     void Adam(float alpha, float beta,
+     void Adam(float lr, float alpha, float beta,
                float alpha_, float beta_,
-               float lr, float decay, bool clipGrad)
+               float decay, bool clipGrad) override
     {
         Optimize::Adam(w, v.w, m.w, g.w,
                        alpha_, beta_, lr,

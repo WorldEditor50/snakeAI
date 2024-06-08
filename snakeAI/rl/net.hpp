@@ -12,30 +12,20 @@ public:
     using FnLoss = std::function<Tensor(const Tensor&, const Tensor&)>;
     using Layers = std::vector<std::shared_ptr<iLayer> >;
 protected:
-    float alpha1_t;
-    float alpha2_t;
+    float alpha_;
+    float beta_;
     Layers layers;
 public:
-    Net(){}
+    Net():alpha_(1),beta_(1){}
     virtual ~Net(){}
     template<typename ...TLayer>
-    explicit Net(TLayer&&...layer):layers({layer...}){}
-    explicit Net(const Layers &layers_):layers(layers_){}
-    Net(const Net &r):layers(r.layers){}
-    void copyTo(Net& dstNet)
-    {
-        for (std::size_t i = 0; i < layers.size(); i++) {
-            layers[i]->copyTo(dstNet.layers[i].get());
-        }
-        return;
-    }
-    void softUpdateTo(Net& dstNet, float alpha)
-    {
-        for (std::size_t i = 0; i < layers.size(); i++) {
-            layers[i]->softUpdateTo(dstNet.layers[i].get(), alpha);
-        }
-        return;
-    }
+    explicit Net(TLayer&&...layer)
+        :layers({layer...}),alpha_(1),beta_(1){}
+    explicit Net(const Layers &layers_)
+        :layers(layers_),alpha_(1),beta_(1){}
+    Net(const Net &r)
+        :layers(r.layers),alpha_(1),beta_(1){}
+
     Tensor &forward(const Tensor &x, bool inference=false)
     {
         layers[0]->forward(x, inference);
@@ -94,10 +84,18 @@ public:
         return;
     }
 
-    void RMSProp(float rho, float learningRate, float decay)
+    void RMSProp(float lr, float rho, float decay)
     {
         for (std::size_t i = 0; i < layers.size(); i++) {
-            layers[i]->RMSProp(rho, learningRate, decay, true);
+            layers[i]->RMSProp(lr, rho, decay, true);
+        }
+        return;
+    }
+
+    void Adam(float lr, float alpha=0.99, float beta=0.9, float decay=0)
+    {
+        for (std::size_t i = 0; i < layers.size(); i++) {
+            layers[i]->Adam(lr, alpha, beta, alpha_, beta_, decay, true);
         }
         return;
     }
@@ -110,6 +108,20 @@ public:
         return;
     }
 
+    void copyTo(Net& dstNet)
+    {
+        for (std::size_t i = 0; i < layers.size(); i++) {
+            layers[i]->copyTo(dstNet.layers[i].get());
+        }
+        return;
+    }
+    void softUpdateTo(Net& dstNet, float alpha)
+    {
+        for (std::size_t i = 0; i < layers.size(); i++) {
+            layers[i]->softUpdateTo(dstNet.layers[i].get(), alpha);
+        }
+        return;
+    }
 };
 
 }

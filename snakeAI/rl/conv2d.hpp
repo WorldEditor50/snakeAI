@@ -1,7 +1,9 @@
 #ifndef CONV2D_HPP
 #define CONV2D_HPP
+#include <memory>
 #include "tensor.hpp"
 #include "activate.h"
+#include "optimize.h"
 #include "util.hpp"
 #include "ilayer.h"
 
@@ -227,15 +229,15 @@ public:
         return;
     }
 
-    void SGD(float learningRate) override
+    void SGD(float lr) override
     {
-        Optimize::SGD(kernels, g.kernels, learningRate, true);
-        Optimize::SGD(b, g.b, learningRate, true);
+        Optimize::SGD(kernels, g.kernels, lr, true);
+        Optimize::SGD(b, g.b, lr, true);
         g.zero();
         return;
     }
 
-    void RMSProp(float rho, float lr, float decay, bool clipGrad) override
+    void RMSProp(float lr, float rho, float decay, bool clipGrad) override
     {
         Optimize::RMSProp(kernels, v.kernels, g.kernels, lr, rho, decay, clipGrad);
         Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
@@ -243,9 +245,9 @@ public:
         return;
     }
 
-    void Adam(float alpha, float beta,
-                      float alpha_, float beta_,
-                      float lr, float decay, bool clipGrad) override
+    void Adam(float lr, float alpha, float beta,
+              float alpha_, float beta_,
+              float decay, bool clipGrad) override
     {
         Optimize::Adam(kernels, v.kernels, m.kernels, g.kernels,
                        alpha_, beta_, lr,
@@ -358,10 +360,6 @@ public:
         mask.zero();
         return;
     }
-    void gradient(const Tensor &x, const Tensor &) override{}
-    void SGD(float learningRate) override {}
-    void RMSProp(float rho, float learningRate, float decay, bool) override {}
-    void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay, bool) override{}
 };
 
 class AvgPooling2d: public iConv2d
@@ -436,10 +434,6 @@ public:
         }
         return;
     }
-    void gradient(const Tensor &x, const Tensor &) override{}
-    void SGD(float learningRate) override {}
-    void RMSProp(float rho, float learningRate, float decay, bool) override {}
-    void Adam(float alpha, float beta, float alpha_t, float beta_t,float learningRate, float decay, bool) override{}
 };
 
 }

@@ -17,12 +17,11 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
                     Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
-                    Softmax::_(hiddenDim, actionDim, true));
+                    Layer<Softmax>::_(hiddenDim, actionDim, true));
 #else
     policyNet = Net(ScaledDotProduct::_(stateDim, hiddenDim, true),
-                    Layer<Tanh>::_(hiddenDim, hiddenDim, true),
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
-                    Softmax::_(hiddenDim, actionDim, true));
+                    Layer<Softmax>::_(hiddenDim, actionDim, true));
 #endif
 }
 
@@ -67,13 +66,13 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
         policyNet.backward(Loss::CrossEntropy(out, x[i].action));
         policyNet.gradient(x[i].state, x[i].action);
     }
-    alpha.RMSProp(0.9, 1e-4, 0);
+    alpha.RMSProp(1e-4, 0.9, 0);
 #if 1
     std::cout<<"alpha:";
     alpha.val.printValue();
 #endif
-    //policyNet.optimize(OPT_NORMRMSPROP, 1e-2);
-    policyNet.RMSProp(0.9, learningRate, 0.1);
+    //policyNet.RMSProp(0.9, 1e-3, 0);
+    policyNet.RMSProp(learningRate, 0.9, 0.1);
     policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;

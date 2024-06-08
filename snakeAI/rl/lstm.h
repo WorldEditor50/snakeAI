@@ -181,11 +181,11 @@ public:
     void backward(const std::vector<Tensor> &x, const std::vector<Tensor> &E);
     void cacheError(const Tensor &e) override;
     /* optimize */
-    void SGD(float learningRate) override;
-    virtual void RMSProp(float rho, float lr, float decay, bool clipGrad) override;
-    void Adam(float alpha, float beta,
+    void SGD(float lr) override;
+    virtual void RMSProp(float lr, float rho, float decay, bool clipGrad) override;
+    void Adam(float lr, float alpha, float beta,
               float alpha_, float beta_,
-              float lr, float decay, bool clipGrad) override;
+              float decay, bool clipGrad) override;
     void clamp(float c0, float cn);
     /* parameter */
     void copyTo(iLayer* layer);

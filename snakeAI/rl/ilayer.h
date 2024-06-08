@@ -29,11 +29,11 @@ public:
     virtual void gradient(const Tensor& x, const Tensor&){}
     virtual void backward(Tensor &ei){}
     virtual void cacheError(const Tensor &e){}
-    virtual void SGD(float learningRate){}
-    virtual void RMSProp(float rho, float lr, float decay, bool clipGrad){}
-    virtual void Adam(float alpha, float beta,
+    virtual void SGD(float lr){}
+    virtual void RMSProp(float lr, float rho, float decay, bool clipGrad){}
+    virtual void Adam(float lr, float alpha, float beta,
                       float alpha_, float beta_,
-                      float lr, float decay, bool clipGrad){}
+                      float decay, bool clipGrad){}
     virtual void clamp(float c0, float cn){}
     virtual void copyTo(iLayer* layer){}
     virtual void softUpdateTo(iLayer* layer, float alpha){}

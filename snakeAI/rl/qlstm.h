@@ -19,6 +19,7 @@ public:
                   float reward,
                   bool done);
     Tensor& eGreedyAction(const Tensor& state);
+    Tensor& noiseAction(const Tensor &state);
     Tensor &action(const Tensor &state);
     void reset();
     void experienceReplay(const Transition& x);
@@ -32,6 +33,8 @@ protected:
     float gamma;
     float exploringRate;
     int learningSteps;
+    Tensor h;
+    Tensor c;
     std::shared_ptr<LSTM> lstm;
     Net QMainNet;
     Net QTargetNet;

@@ -57,10 +57,10 @@ struct Gelu {
     }
 };
 
-struct FnSoftmax {
+struct Softmax {
     inline static Tensor f(const Tensor &x)
     {
-        Tensor y(x);
+        Tensor y = x;
         float s = 0;
         float maxValue = x.max();
         y -= maxValue;
