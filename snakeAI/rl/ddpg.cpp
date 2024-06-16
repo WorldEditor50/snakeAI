@@ -10,30 +10,30 @@ RL::DDPG::DDPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
     stateDim = stateDim_;
     actionDim = actionDim_;
     /* actor: a = P(s, theta) */
-    actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
-                  Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
-                  Layer<Softmax>::_(hiddenDim, actionDim, true));
+    actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
+                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, true),
+                  Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, true),
+                  Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 
-    actorQ = Net(Layer<Tanh>::_(stateDim, hiddenDim,false),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
-                  Layer<Tanh>::_(hiddenDim, hiddenDim,false),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, false),
-                  Layer<Softmax>::_(hiddenDim, actionDim, false));
+    actorQ = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
+                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, false),
+                  Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
+                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, false),
+                  Layer<Softmax>::_(hiddenDim, actionDim, true, false));
     actorP.copyTo(actorQ);
     /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
-    criticP = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
-                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                   Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                   Layer<Sigmoid>::_(hiddenDim, actionDim, true));
+    criticP = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true, true),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                  Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                  Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
-    criticQ = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, false),
-                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                   Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                   Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+    criticQ = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true, false),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                  Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
+                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                  Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
     criticP.copyTo(criticQ);
 }
 

@@ -16,9 +16,9 @@ RL::ConvPG::ConvPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t act
                     MaxPooling2d::_(2, 24, 24, 2, 2),
                     Conv2d<Sigmoid>::_(2, 12, 12, 4, 3, 3, 0, true, true),
                     MaxPooling2d::_(4, 4, 4, 2, 2),
-                    Layer<Sigmoid>::_(4*2*2, hiddenDim, true),
-                    LayerNorm<Tanh, LN::Post>::_(hiddenDim, hiddenDim, true),
-                    Layer<Softmax>::_(hiddenDim, actionDim, true));
+                    Layer<Sigmoid>::_(4*2*2, hiddenDim, true, true),
+                    LayerNorm<Tanh, LN::Post>::_(hiddenDim, hiddenDim, true, true),
+                    Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 }
 
 RL::Tensor &RL::ConvPG::eGreedyAction(const Tensor &state)

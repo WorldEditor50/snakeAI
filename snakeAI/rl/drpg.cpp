@@ -12,9 +12,9 @@ RL::DRPG::DRPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
     h = Tensor(hiddenDim, 1);
     c = Tensor(hiddenDim, 1);
     policyNet = Net(lstm,
-                    Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                    LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
-                    Layer<Softmax>::_(hiddenDim, actionDim, true));
+                    Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                    LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, true),
+                    Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 }
 
 RL::Tensor &RL::DRPG::eGreedyAction(const Tensor &state)

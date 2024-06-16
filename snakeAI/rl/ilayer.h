@@ -10,6 +10,7 @@ public:
     enum Type {
         LAYER_FC = 0,
         LAYER_LSTM,
+        LAYER_CONCAT,
         LAYER_CONV2D,
         LAYER_MAXPOOLING,
         LAYER_AVGPOOLING,
@@ -17,6 +18,8 @@ public:
     };
 public:
     int type;
+    std::vector<int> preLayers;
+    std::vector<int> nextLayers;
     Tensor o;
     Tensor e;
 public:

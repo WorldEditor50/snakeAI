@@ -11,10 +11,10 @@ Agent::Agent(Environment& env_, Snake &s):
     ddpg = RL::DDPG(stateDim, 16, 4);
     ppo = RL::PPO(stateDim, 16, 4);
     sac = RL::SAC(stateDim, 16, 4);
-    bpnn = RL::Net(RL::Layer<RL::Sigmoid>::_(stateDim, 16, true),
-                   RL::Layer<RL::Sigmoid>::_(16, 16, true),
-                   RL::Layer<RL::Sigmoid>::_(16, 16, true),
-                   RL::Layer<RL::Sigmoid>::_(16, 4, true));
+    bpnn = RL::Net(RL::Layer<RL::Sigmoid>::_(stateDim, 16, true, true),
+                   RL::Layer<RL::Sigmoid>::_(16, 16, true, true),
+                   RL::Layer<RL::Sigmoid>::_(16, 16, true, true),
+                   RL::Layer<RL::Sigmoid>::_(16, 4, true, true));
     qlstm = RL::QLSTM(stateDim, 16, 4);
     drpg = RL::DRPG(stateDim, 16, 4);
     convpg = RL::ConvPG(stateDim, 16, 4);
@@ -156,10 +156,10 @@ int Agent::qlstmAction(int x, int y, int xt, int yt, float &totalReward)
     RL::Tensor state_ = state;
     if (trainFlag == true) {
         float total = 0;
-        for (std::size_t i = 0; i < 256; i++) {
+        for (std::size_t i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
-            RL::Tensor& a = qlstm.eGreedyAction(state);
+            RL::Tensor& a = qlstm.noiseAction(state);
             int k = a.argmax();
             simulateMove(xn, yn, k);
             float r = env.reward0(xi, yi, xn, yn, xt, yt);
@@ -236,7 +236,7 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
             int xi = xn;
             int yi = yn;
             /* move */
-            RL::Tensor &a = drpg.noiseAction(state);
+            RL::Tensor &a = drpg.gumbelMax(state);
             int k = a.argmax();
             simulateMove(xn, yn, k);
             observe(nextState, xn, yn, xt, yt);
@@ -341,7 +341,7 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        convdqn.learn(8092, 256, 32, 1e-3);
+        convdqn.learn(8092, 256, 64, 1e-3);
     }
     /* making decision */
     RL::Tensor& a = convdqn.action(state_);

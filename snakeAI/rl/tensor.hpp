@@ -50,21 +50,21 @@ public:
         return;
     }
     /* contruct with shape */
-    explicit Tensor_(const Shape &shape_):totalSize(1),shape(shape_)
+    explicit Tensor_(const Shape &shape_)
+        :totalSize(1),shape(shape_)
     {
         initParams(shape, sizes, totalSize);
         val = std::vector<T, Alloc<T>>(totalSize, T(0));
     }
 
-    explicit Tensor_(const Shape &shape_, const std::vector<T, Alloc<T>> &val_):
-        totalSize(1),shape(shape_),val(val_)
+    explicit Tensor_(const Shape &shape_, const std::vector<T, Alloc<T>> &val_)
+        :totalSize(1),shape(shape_),val(val_)
     {
         initParams(shape, sizes, totalSize);
     }
 
-
-    explicit Tensor_(const std::initializer_list<int> &shape_, const std::initializer_list<T> &val_):
-        totalSize(1),shape(shape_),val(val_)
+    explicit Tensor_(const std::initializer_list<int> &shape_, const std::initializer_list<T> &val_)
+        :totalSize(1),shape(shape_),val(val_)
     {
         initParams(shape, sizes, totalSize);
     }
@@ -83,7 +83,8 @@ public:
 
     /* construct with shape */
     template<typename ...Dim>
-    explicit Tensor_(Dim ...dim):totalSize(1),shape({int(dim)...})
+    explicit Tensor_(Dim ...dim)
+        :totalSize(1),shape({int(dim)...})
     {
         initParams(shape, sizes, totalSize);
         val = std::vector<T, Alloc<T> >(totalSize, T(0));

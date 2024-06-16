@@ -72,9 +72,9 @@ public:
         }
     }
 
-    static std::shared_ptr<ScaledDotProduct> _(int inputDim, int outputDim, bool tarinFlag)
+    static std::shared_ptr<ScaledDotProduct> _(int inputDim, int outputDim, bool withGrad)
     {
-        return std::make_shared<ScaledDotProduct>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<ScaledDotProduct>(inputDim, outputDim, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
@@ -258,9 +258,9 @@ public:
             m.w = Tensor(outputDim, outputDim);
         }
     }
-    static std::shared_ptr<Attention> _(int inputDim, int outputDim, bool tarinFlag)
+    static std::shared_ptr<Attention> _(int inputDim, int outputDim, bool withGrad)
     {
-        return std::make_shared<Attention>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<Attention>(inputDim, outputDim, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {

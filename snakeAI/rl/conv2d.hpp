@@ -15,6 +15,7 @@ inline void conv2d(Tensor &y, const Tensor &kernels, const Tensor &x, int stride
     for (int n = 0; n < y.shape[0]; n++) {
         for (int i = 0; i < y.shape[1]; i++) {
             for (int j = 0; j < y.shape[2]; j++) {
+                float &yi = y(n, i, j);
                 /* kernels */
                 for (int c = 0; c < kernels.shape[1]; c++) {
                     for (int h = 0; h < kernels.shape[2]; h++) {
@@ -27,7 +28,7 @@ inline void conv2d(Tensor &y, const Tensor &kernels, const Tensor &x, int stride
                                 continue;
                             }
                             /* sum up all convolution result */
-                            y(n, i, j) += kernels(n, c, h, k)*x(c, row, col);
+                            yi += kernels(n, c, h, k)*x(c, row, col);
                         }
                     }
                 }
@@ -149,7 +150,7 @@ public:
         /* conv */
         conv2d(o, kernels, x, stride, padding);
         /* bias */
-        if (bias == true) {
+        if (bias) {
             o += b;
         }
         /* activate */
@@ -232,7 +233,9 @@ public:
     void SGD(float lr) override
     {
         Optimize::SGD(kernels, g.kernels, lr, true);
-        Optimize::SGD(b, g.b, lr, true);
+        if (bias) {
+            Optimize::SGD(b, g.b, lr, true);
+        }
         g.zero();
         return;
     }
@@ -240,7 +243,9 @@ public:
     void RMSProp(float lr, float rho, float decay, bool clipGrad) override
     {
         Optimize::RMSProp(kernels, v.kernels, g.kernels, lr, rho, decay, clipGrad);
-        Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
+        if (bias) {
+            Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
+        }
         g.zero();
         return;
     }
@@ -252,9 +257,11 @@ public:
         Optimize::Adam(kernels, v.kernels, m.kernels, g.kernels,
                        alpha_, beta_, lr,
                        alpha, beta, decay, clipGrad);
-        Optimize::Adam(b, v.b, m.b, g.b,
-                       alpha_, beta_, lr,
-                       alpha, beta, decay, clipGrad);
+        if (bias) {
+            Optimize::Adam(b, v.b, m.b, g.b,
+                           alpha_, beta_, lr,
+                           alpha, beta, decay, clipGrad);
+        }
         g.zero();
         return;
     }
@@ -262,7 +269,9 @@ public:
     void clamp(float c0, float cn) override
     {
         Optimize::clamp(kernels, c0, cn);
-        Optimize::clamp(b, c0, cn);
+        if (bias) {
+            Optimize::clamp(b, c0, cn);
+        }
         return;
     }
 
@@ -270,14 +279,18 @@ public:
     {
         Conv2d *pLayer = static_cast<Conv2d*>(layer);
         pLayer->kernels = kernels;
-        pLayer->b = b;
+        if (bias) {
+            pLayer->b = b;
+        }
         return;
     }
     virtual void softUpdateTo(iLayer* layer, float alpha) override
     {
         Conv2d *pLayer = static_cast<Conv2d*>(layer);
         lerp(pLayer->kernels, kernels, alpha);
-        lerp(pLayer->b, b, alpha);
+        if (bias) {
+            lerp(pLayer->b, b, alpha);
+        }
         return;
     }
 };

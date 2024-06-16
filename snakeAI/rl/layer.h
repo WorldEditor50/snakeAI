@@ -37,6 +37,7 @@ public:
 public:
     std::size_t inputDim;
     std::size_t outputDim;
+    bool bias;
     Tensor w;
     Tensor b;
     FcGrad g;
@@ -44,15 +45,15 @@ public:
     FcGrad m;
 public:
     iFcLayer(){}
-    iFcLayer(std::size_t inputDim_, std::size_t outputDim_, bool trainFlag)
-        :inputDim(inputDim_), outputDim(outputDim_)
+    iFcLayer(std::size_t inputDim_, std::size_t outputDim_, bool bias_, bool withGrad)
+        :inputDim(inputDim_), outputDim(outputDim_), bias(bias_)
     {
         type = iLayer::LAYER_FC;
         w = Tensor(outputDim, inputDim);
         b = Tensor(outputDim, 1);
         o = Tensor(outputDim, 1);
         e = Tensor(outputDim, 1);
-        if (trainFlag == true) {
+        if (withGrad) {
             g = FcGrad(outputDim, inputDim);
             v = FcGrad(outputDim, inputDim);
             m = FcGrad(outputDim, inputDim);
@@ -66,14 +67,18 @@ public:
     virtual Tensor& forward(const Tensor& x, bool inference=false)
     {
         Tensor::MM::ikkj(o, w, x);
-        o += b;
+        if (bias) {
+            o += b;
+        }
         return o;
     }
 
     virtual void gradient(const Tensor& x, const Tensor&)
     {
         Tensor::MM::ikjk(g.w, e, x);
-        g.b += e;
+        if (bias) {
+            g.b += e;
+        }
         e.zero();
         o.zero();
         return;
@@ -87,7 +92,9 @@ public:
     virtual void SGD(float lr) override
     {
         Optimize::SGD(w, g.w, lr, true);
-        Optimize::SGD(b, g.b, lr, true);
+        if (bias) {
+            Optimize::SGD(b, g.b, lr, true);
+        }
         g.zero();
         return;
     }
@@ -95,7 +102,9 @@ public:
     virtual void RMSProp(float lr, float rho, float decay, bool clipGrad) override
     {
         Optimize::RMSProp(w, v.w, g.w, lr, rho, decay, clipGrad);
-        Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
+        if (bias) {
+            Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
+        }
         g.zero();
         return;
     }
@@ -107,30 +116,38 @@ public:
         Optimize::Adam(w, v.w, m.w, g.w,
                        alpha_, beta_, lr,
                        alpha, beta, decay, clipGrad);
-        Optimize::Adam(b, v.b, m.b, g.b,
-                       alpha_, beta_, lr,
-                       alpha, beta, decay, clipGrad);
+        if (bias) {
+            Optimize::Adam(b, v.b, m.b, g.b,
+                           alpha_, beta_, lr,
+                           alpha, beta, decay, clipGrad);
+        }
         g.zero();
         return;
     }
     virtual void clamp(float c0, float cn) override
     {
         Optimize::clamp(w, c0, cn);
-        Optimize::clamp(b, c0, cn);
+        if (bias) {
+            Optimize::clamp(b, c0, cn);
+        }
         return;
     }
     virtual void copyTo(iLayer* layer) override
     {
         iFcLayer *pLayer = static_cast<iFcLayer*>(layer);
         pLayer->w = w;
-        pLayer->b = b;
+        if (bias) {
+            pLayer->b = b;
+        }
         return;
     }
     virtual void softUpdateTo(iLayer* layer, float alpha) override
     {
         iFcLayer *pLayer = static_cast<iFcLayer*>(layer);
         lerp(pLayer->w, w, alpha);
-        lerp(pLayer->b, b, alpha);
+        if (bias) {
+            lerp(pLayer->b, b, alpha);
+        }
         return;
     }
 };
@@ -143,18 +160,21 @@ public:
     virtual ~Layer(){}
     static std::shared_ptr<Layer> _(std::size_t inputDim,
                                     std::size_t outputDim,
-                                    bool tarinFlag = true)
+                                    bool bias,
+                                    bool withGrad)
     {
-        return std::make_shared<Layer>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<Layer>(inputDim, outputDim, bias, withGrad);
     }
 
-    Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
-        :iFcLayer(inputDim, outputDim, trainFlag){}
+    Layer(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_){}
 
     Tensor& forward(const Tensor& x, bool inference=false) override
     {
         Tensor::MM::ikkj(o, w, x);
-        o += b;
+        if (bias) {
+            o += b;
+        }
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Fn::f(o[i]);
         }
@@ -168,7 +188,9 @@ public:
             dy[i] = Fn::df(o[i]) * e[i];
         }
         Tensor::MM::ikjk(g.w, dy, x);
-        g.b += dy;
+        if (bias) {
+            g.b += dy;
+        }
         e.zero();
         o.zero();
         return;
@@ -181,20 +203,25 @@ class Layer<Softmax> : public iFcLayer
 public:
     Layer() {}
     ~Layer(){}
-    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
-        :iFcLayer(inputDim, outputDim, trainFlag)
+    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_)
     {
 
     }
 
-    static std::shared_ptr<Layer> _(std::size_t inputDim, std::size_t outputDim, bool tarinFlag)
+    static std::shared_ptr<Layer> _(std::size_t inputDim,
+                                    std::size_t outputDim,
+                                    bool bias,
+                                    bool withGrad)
     {
-        return std::make_shared<Layer>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<Layer>(inputDim, outputDim, bias, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(o, w, x);
-        o += b;
+        if (bias) {
+            o += b;
+        }
         return softmax(o);
     }
 
@@ -212,7 +239,9 @@ public:
         Tensor dy = o - y;
 #endif
         Tensor::MM::ikjk(g.w, dy, x);
-        g.b += dy;
+        if (bias) {
+            g.b += dy;
+        }
         e.zero();
         o.zero();
         return;
@@ -228,19 +257,22 @@ public:
 public:
     Layer(){}
     ~Layer(){}
-    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
-        :iFcLayer(inputDim, outputDim, trainFlag),op(outputDim, 1){}
+    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_),op(outputDim, 1){}
 
     static std::shared_ptr<Layer> _(std::size_t inputDim,
                                     std::size_t outputDim,
-                                    bool tarinFlag)
+                                    bool bias,
+                                    bool withGrad)
     {
-        return std::make_shared<Layer>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<Layer>(inputDim, outputDim, bias, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(op, w, x);
-        op += b;
+        if (bias) {
+            op += b;
+        }
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Gelu::f(op[i]);
         }
@@ -254,7 +286,9 @@ public:
             dy[i] = Gelu::df(op[i]) * e[i];
         }
         Tensor::MM::ikjk(g.w, dy, x);
-        g.b += dy;
+        if (bias) {
+            g.b += dy;
+        }
         e.zero();
         o.zero();
         return;
@@ -270,19 +304,22 @@ public:
 public:
     Layer(){}
     ~Layer(){}
-    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool trainFlag)
-        :iFcLayer(inputDim, outputDim, trainFlag),op(outputDim, 1){}
+    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_),op(outputDim, 1){}
 
     static std::shared_ptr<Layer> _(std::size_t inputDim,
                                     std::size_t outputDim,
-                                    bool tarinFlag)
+                                    bool bias,
+                                    bool withGrad)
     {
-        return std::make_shared<Layer>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<Layer>(inputDim, outputDim, bias, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(op, w, x);
-        op += b;
+        if (bias) {
+            op += b;
+        }
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Swish::f(op[i]);
         }
@@ -296,7 +333,9 @@ public:
             dy[i] = Swish::df(op[i]) * e[i];
         }
         Tensor::MM::ikjk(g.w, dy, x);
-        g.b += dy;
+        if (bias) {
+            g.b += dy;
+        }
         e.zero();
         o.zero();
         return;
@@ -308,27 +347,28 @@ template<typename Fn>
 class Dropout : public Layer<Fn>
 {
 public:
-    bool trainFlag;
+    bool withGrad;
     float p;
     Tensor mask;
 public:
     Dropout(){}
     ~Dropout(){}
-    explicit Dropout(std::size_t inputDim, std::size_t outputDim,
-                          bool trainFlag_, float p_)
-        :Layer<Fn>(inputDim, outputDim, trainFlag_),
-          trainFlag(trainFlag_), p(p_), mask(outputDim, 1){}
+    explicit Dropout(std::size_t inputDim, std::size_t outputDim, bool bias_,
+                          bool withGrad_, float p_)
+        :Layer<Fn>(inputDim, outputDim, bias_, withGrad_),
+          withGrad(withGrad_), p(p_), mask(outputDim, 1){}
 
     static std::shared_ptr<Dropout> _(std::size_t inputDim,
                                       std::size_t outputDim,
-                                      bool tarinFlag, float p_)
+                                      bool bias,
+                                      bool withGrad, float p)
     {
-        return std::make_shared<Dropout>(inputDim, outputDim, tarinFlag, p_);
+        return std::make_shared<Dropout>(inputDim, outputDim, bias, withGrad, p);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Layer<Fn>::forward(x);
-        if (trainFlag == true) {
+        if (withGrad == true) {
             std::bernoulli_distribution bernoulli(p);
             for (std::size_t i = 0; i < Layer<Fn>::o.size(); i++) {
                 mask[i] = bernoulli(Random::engine) / (1 - p);
@@ -340,7 +380,7 @@ public:
 
     void backward(Tensor& ei) override
     {
-        if (trainFlag == true) {
+        if (withGrad == true) {
             Layer<Fn>::e *= mask;
         }
         Layer<Fn>::backward(ei);
@@ -366,17 +406,18 @@ public:
 public:
     LayerNorm(){}
     ~LayerNorm(){}
-    explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iFcLayer(inputDim, outputDim, trainFlag_), gamma(1)
+    explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_), gamma(1)
     {
         op = Tensor(outputDim, 1);
     }
 
     static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
                                         std::size_t outputDim,
-                                        bool tarinFlag)
+                                        bool bias,
+                                        bool withGrad)
     {
-        return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<LayerNorm>(inputDim, outputDim, bias, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
@@ -384,8 +425,14 @@ public:
         u = op.mean();
         float sigma = op.variance(u);
         gamma = 1.0/std::sqrt(sigma + 1e-9);
-        for (std::size_t i = 0; i < o.size(); i++) {
-            o[i] = Fn::f((op[i] - u)*gamma + b[i]);
+        if (bias) {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o[i] = Fn::f((op[i] - u)*gamma + b[i]);
+            }
+        } else {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o[i] = Fn::f((op[i] - u)*gamma);
+            }
         }
         return o;
     }
@@ -403,7 +450,9 @@ public:
             float error = Fn::d(o[i])*e[i];
             float d = (op[i] - u)*gamma;
             dy[i] = (1.0 - 1.0/float(outputDim))*(1 - d*d)*gamma*error;
-            g.b[i] += error;
+            if (bias) {
+                g.b[i] += error;
+            }
         }
         Tensor::MM::ikjk(g.w, dy, x);
         e.zero();
@@ -424,8 +473,8 @@ public:
 public:
     LayerNorm(){}
     ~LayerNorm(){}
-    explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iFcLayer(inputDim, outputDim, trainFlag_), gamma(1)
+    explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_), gamma(1)
     {
         x_ = Tensor(inputDim, 1);
         op = Tensor(outputDim, 1);
@@ -433,9 +482,10 @@ public:
 
     static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
                                         std::size_t outputDim,
-                                        bool tarinFlag)
+                                        bool bias,
+                                        bool withGrad)
     {
-        return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<LayerNorm>(inputDim, outputDim, bias, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
@@ -446,8 +496,14 @@ public:
             x_[i] = (x[i] - u)*gamma;
         }
         Tensor::MM::ikkj(op, w, x_);
-        for (std::size_t i = 0; i < o.size(); i++) {
-            o[i] = Fn::f(op[i] + b[i]);
+        if (bias) {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o[i] = Fn::f(op[i] + b[i]);
+            }
+        } else {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o[i] = Fn::f(op[i]);
+            }
         }
         return o;
     }
@@ -471,7 +527,9 @@ public:
             dx[i] = (1 - 1.0/float(inputDim))*(1 - d*d)*gamma*d;
         }
         Tensor::MM::ikjk(g.w, dy, dx);
-        g.b += dy;
+        if (bias) {
+            g.b += dy;
+        }
         e.zero();
         op.zero();
         return;
@@ -490,8 +548,8 @@ public:
 public:
     LayerNorm(){}
     ~LayerNorm(){}
-    explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iFcLayer(inputDim, outputDim, trainFlag_), gamma(1)
+    explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_), gamma(1)
     {
         o1 = Tensor(outputDim, 1);
         o2 = Tensor(outputDim, 1);
@@ -499,15 +557,22 @@ public:
 
     static std::shared_ptr<LayerNorm> _(std::size_t inputDim,
                                         std::size_t outputDim,
-                                        bool tarinFlag)
+                                        bool bias,
+                                        bool withGrad)
     {
-        return std::make_shared<LayerNorm>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<LayerNorm>(inputDim, outputDim, bias, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(o1, w, x);
-        for (std::size_t i = 0; i < o.size(); i++) {
-            o2[i] = Fn::f(o1[i] + b[i]);
+        if (bias) {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o2[i] = Fn::f(o1[i] + b[i]);
+            }
+        } else {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o2[i] = Fn::f(o1[i]);
+            }
         }
         u = o2.mean();
         float sigma = o2.variance(u);
@@ -532,7 +597,9 @@ public:
             dy[i] = (1 - d*d)*(1 - 1.0/float(outputDim))*Fn::df(o2[i])*gamma*e[i];
         }
         Tensor::MM::ikjk(g.w, dy, x);
-        g.b += dy;
+        if (bias) {
+            g.b += dy;
+        }
         e.zero();
         o1.zero();
         return;
@@ -550,25 +617,32 @@ public:
 public:
     RMSNorm(){}
     ~RMSNorm(){}
-    explicit RMSNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iFcLayer(inputDim, outputDim, trainFlag_), gamma(1)
+    explicit RMSNorm(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_), gamma(1)
     {
         op = Tensor(outputDim, 1);
     }
 
     static std::shared_ptr<RMSNorm> _(std::size_t inputDim,
                                       std::size_t outputDim,
-                                      bool tarinFlag)
+                                      bool bias,
+                                      bool withGrad)
     {
-        return std::make_shared<RMSNorm>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<RMSNorm>(inputDim, outputDim, bias, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(op, w, x);
         float sigma = op.variance(0);
         gamma = 1.0/std::sqrt(sigma + 1e-9);
-        for (std::size_t i = 0; i < o.size(); i++) {
-            o[i] = Fn::f(gamma*op[i] + b[i]);
+        if (bias) {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o[i] = Fn::f(gamma*op[i] + b[i]);
+            }
+        } else {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o[i] = Fn::f(gamma*op[i]);
+            }
         }
         return o;
     }
@@ -586,7 +660,9 @@ public:
             float error = Fn::d(o[i])*e[i];
             float d = op[i]*gamma;
             dy[i] = (1 - d*d)*gamma*error;
-            g.b[i] += error;
+            if (bias) {
+                g.b[i] += error;
+            }
         }
         Tensor::MM::ikjk(g.w, dy, x);
         e.zero();
@@ -605,25 +681,32 @@ public:
 public:
     TanhNorm(){}
     ~TanhNorm(){}
-    explicit TanhNorm(std::size_t inputDim, std::size_t outputDim, bool trainFlag_)
-        :iFcLayer(inputDim, outputDim, trainFlag_)
+    explicit TanhNorm(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_)
     {
         o1 = Tensor(outputDim, 1);
         o2 = Tensor(outputDim, 1);
     }
 
     static std::shared_ptr<TanhNorm> _(std::size_t inputDim,
-                                        std::size_t outputDim,
-                                        bool tarinFlag)
+                                       std::size_t outputDim,
+                                       bool bias,
+                                       bool withGrad)
     {
-        return std::make_shared<TanhNorm>(inputDim, outputDim, tarinFlag);
+        return std::make_shared<TanhNorm>(inputDim, outputDim, bias, withGrad);
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(o1, w, x);
         o2 = RL::tanh(o1);
-        for (std::size_t i = 0; i < o.size(); i++) {
-            o[i] = Fn::f(o2[i] + b[i]);
+        if (bias) {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o[i] = Fn::f(o2[i] + b[i]);
+            }
+        } else {
+            for (std::size_t i = 0; i < o.size(); i++) {
+                o[i] = Fn::f(o2[i]);
+            }
         }
         return o;
     }
@@ -641,7 +724,9 @@ public:
             float error = Fn::df(o[i])*e[i];
             float d = o2[i];
             dy[i] = (1 - d*d)*error;
-            g.b[i] += error;
+            if (bias) {
+                g.b[i] += error;
+            }
         }
         Tensor::MM::ikjk(g.w, dy, x);
         e.zero();
@@ -650,6 +735,44 @@ public:
     }
 
 };
+
+class Concat : public iFcLayer
+{
+public:
+    Tensor x_;
+public:
+    Concat(){}
+    explicit Concat(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_)
+    {
+
+    }
+
+    static std::shared_ptr<Concat> _(std::size_t inputDim,
+                                     std::size_t outputDim,
+                                     bool bias,
+                                     bool withGrad)
+    {
+        return std::make_shared<Concat>(inputDim, outputDim, bias, withGrad);
+    }
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
+    {
+        return o;
+    }
+
+    void backward(Tensor &ei) override
+    {
+
+        return;
+    }
+
+    void gradient(const Tensor& x, const Tensor&) override
+    {
+
+        return;
+    }
+};
+
 
 }
 #endif // LAYER_H

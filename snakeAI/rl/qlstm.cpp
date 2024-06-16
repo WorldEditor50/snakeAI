@@ -13,9 +13,9 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
     c = Tensor(hiddenDim_, 1);
     lstm = LSTM::_(stateDim_, hiddenDim_, hiddenDim_, true);
     QMainNet = Net(lstm,
-                   TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, true));
+                   TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, true, true));
     QTargetNet = Net(LSTM::_(stateDim_, hiddenDim_, hiddenDim_, false),
-                     TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, false));
+                     TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, true, false));
     QMainNet.copyTo(QTargetNet);
 }
 

@@ -20,8 +20,8 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                     Layer<Softmax>::_(hiddenDim, actionDim, true));
 #else
     policyNet = Net(ScaledDotProduct::_(stateDim, hiddenDim, true),
-                    LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true),
-                    Layer<Softmax>::_(hiddenDim, actionDim, true));
+                    LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
+                    Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 #endif
 }
 

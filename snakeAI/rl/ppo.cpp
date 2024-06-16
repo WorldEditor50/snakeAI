@@ -17,23 +17,23 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
     alpha.val.fill(1);
     entropy0 = -0.04*std::log(0.04);
 
-    actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                 Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                 Layer<Softmax>::_(hiddenDim, actionDim, true));
+    actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                 Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                 Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 
-    actorQ = Net(Layer<Tanh>::_(stateDim, hiddenDim, false),
-                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                 Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                 Layer<Softmax>::_(hiddenDim, actionDim, false));
+    actorQ = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                 Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                 Layer<Softmax>::_(hiddenDim, actionDim, true, false));
 
-    critic = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true),
-                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                 Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                 Layer<Linear>::_(hiddenDim, actionDim, true));
+    critic = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true, true),
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                 Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                 Layer<Linear>::_(hiddenDim, actionDim, true, true));
 
 }
 

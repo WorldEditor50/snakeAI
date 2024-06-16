@@ -105,8 +105,7 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Tensor &x, const RL::Tensor &_h,
         state.c[i] = state.f[i] * _c[i] + state.i[i]*state.g[i];
         state.h[i] = state.o[i] * Tanh::f(state.c[i]);
     }
-    //Tensor::Mul::ikkj(state.y, w, state.h);
-    //state.y += b;
+
     for (std::size_t i = 0; i < w.shape[0]; i++) {
         for (std::size_t j = 0; j < w.shape[1]; j++) {
             state.y[i] += w(i, j) * state.h[j];

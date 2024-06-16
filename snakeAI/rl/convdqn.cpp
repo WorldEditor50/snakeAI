@@ -14,17 +14,17 @@ RL::ConvDQN::ConvDQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t a
                    MaxPooling2d::_(4, 24, 24, 2, 2),
                    Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 3, 0, true, true),
                    MaxPooling2d::_(4, 4, 4, 2, 2),
-                   Layer<Tanh>::_(4*2*2, hiddenDim, true),
-                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                   Layer<Sigmoid>::_(hiddenDim, actionDim, true));
+                   Layer<Tanh>::_(4*2*2, hiddenDim, true, true),
+                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                   Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
     QTargetNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, false),
                      MaxPooling2d::_(4, 24, 24, 2, 2),
                      Conv2d<Sigmoid>::_(4, 12, 12, 4, 3, 3, 0, true, false),
                      MaxPooling2d::_(4, 4, 4, 2, 2),
-                     Layer<Tanh>::_(4*2*2, hiddenDim, false),
-                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                     Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+                     Layer<Tanh>::_(4*2*2, hiddenDim, true, false),
+                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                     Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
 
     QMainNet.copyTo(QTargetNet);
 }

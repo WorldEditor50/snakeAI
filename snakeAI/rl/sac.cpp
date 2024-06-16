@@ -11,36 +11,36 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.01*std::log(0.01);
-    actor = Net(Layer<Tanh>::_(stateDim, hiddenDim, true),
-                 LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
-                 Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                 LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true),
-                 Layer<Softmax>::_(hiddenDim, actionDim, true));
+    actor = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
+                LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, true),
+                Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, true),
+                Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 
     int criticStateDim = stateDim;
-    critic1Net = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true),
-                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                      Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                      Layer<Sigmoid>::_(hiddenDim, actionDim, true));
+    critic1Net = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true, true),
+                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                     Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                     Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
-    critic1TargetNet = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, false),
-                            TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                            Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                            TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                            Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+    critic1TargetNet = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true, false),
+                           TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                           Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
+                           TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                           Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
 
-    critic2Net = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true),
-                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                      Layer<Tanh>::_(hiddenDim, hiddenDim, true),
-                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true),
-                      Layer<Sigmoid>::_(hiddenDim, actionDim, true));
+    critic2Net = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true, true),
+                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                     Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                     Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
-    critic2TargetNet = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, false),
-                            TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                            Layer<Tanh>::_(hiddenDim, hiddenDim, false),
-                            TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, false),
-                            Layer<Sigmoid>::_(hiddenDim, actionDim, false));
+    critic2TargetNet = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true, false),
+                           TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                           Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
+                           TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                           Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
 
     critic1Net.copyTo(critic1TargetNet);
     critic2Net.copyTo(critic2TargetNet);

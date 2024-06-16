@@ -9,11 +9,16 @@ namespace RL {
 class Net
 {
 public:
+    struct Connection {
+        int from;
+        int to;
+    };
     using FnLoss = std::function<Tensor(const Tensor&, const Tensor&)>;
     using Layers = std::vector<std::shared_ptr<iLayer> >;
 protected:
     float alpha_;
     float beta_;
+    std::vector<Connection> connections;
     Layers layers;
 public:
     Net():alpha_(1),beta_(1){}
@@ -24,7 +29,7 @@ public:
     explicit Net(const Layers &layers_)
         :layers(layers_),alpha_(1),beta_(1){}
     Net(const Net &r)
-        :layers(r.layers),alpha_(1),beta_(1){}
+        :layers(r.layers),connections(r.connections),alpha_(1),beta_(1){}
 
     Tensor &forward(const Tensor &x, bool inference=false)
     {
