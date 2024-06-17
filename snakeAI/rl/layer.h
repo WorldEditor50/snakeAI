@@ -676,16 +676,17 @@ template<typename Fn>
 class TanhNorm : public iFcLayer
 {
 public:
+    float r;
     Tensor o1;
     Tensor o2;
 public:
     TanhNorm(){}
-    ~TanhNorm(){}
     explicit TanhNorm(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
         :iFcLayer(inputDim, outputDim, bias_, withGrad_)
     {
         o1 = Tensor(outputDim, 1);
         o2 = Tensor(outputDim, 1);
+        r = 1.0 - 1.0/float(outputDim);
     }
 
     static std::shared_ptr<TanhNorm> _(std::size_t inputDim,
@@ -695,16 +696,18 @@ public:
     {
         return std::make_shared<TanhNorm>(inputDim, outputDim, bias, withGrad);
     }
+
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
         Tensor::MM::ikkj(o1, w, x);
+        o1 *= r;
         o2 = RL::tanh(o1);
         if (bias) {
-            for (std::size_t i = 0; i < o.size(); i++) {
+            for (std::size_t i = 0; i < o.totalSize; i++) {
                 o[i] = Fn::f(o2[i] + b[i]);
             }
         } else {
-            for (std::size_t i = 0; i < o.size(); i++) {
+            for (std::size_t i = 0; i < o.totalSize; i++) {
                 o[i] = Fn::f(o2[i]);
             }
         }
@@ -721,11 +724,11 @@ public:
     {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            float error = Fn::df(o[i])*e[i];
-            float d = o2[i];
-            dy[i] = (1 - d*d)*error;
+            float d1 = Fn::df(o[i])*e[i];
+            float d2 = o2[i];
+            dy[i] = r*(1 - d2*d2)*d1;
             if (bias) {
-                g.b[i] += error;
+                g.b[i] += d1;
             }
         }
         Tensor::MM::ikjk(g.w, dy, x);

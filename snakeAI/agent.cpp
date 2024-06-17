@@ -197,7 +197,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
         /* exploring environment */
         std::vector<RL::Step> steps;
         float total = 0;
-        for (std::size_t i = 0; i < 16; i++) {
+        for (std::size_t i = 0; i < 32; i++) {
             int xi = xn;
             int yi = yn;
             /* sample */
