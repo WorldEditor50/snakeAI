@@ -14,6 +14,7 @@ public:
         LAYER_CONV2D,
         LAYER_MAXPOOLING,
         LAYER_AVGPOOLING,
+        LAYER_ATTENTION,
         LAYER_SCALEDDOTPRODUCT
     };
 public:
@@ -31,6 +32,7 @@ public:
     }
     virtual void gradient(const Tensor& x, const Tensor&){}
     virtual void backward(Tensor &ei){}
+    virtual void broadcast(){}
     virtual void cacheError(const Tensor &e){}
     virtual void SGD(float lr){}
     virtual void RMSProp(float lr, float rho, float decay, bool clipGrad){}

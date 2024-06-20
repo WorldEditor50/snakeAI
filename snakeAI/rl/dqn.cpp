@@ -10,7 +10,7 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     totalReward = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
-
+#if 1
     QMainNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
                    Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
@@ -22,7 +22,28 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                      Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
                      Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
+#elif 2
+    QMainNet = Net(Attention<8>::_(stateDim, 32, true),
+                   TanhNorm<Sigmoid>::_(32, hiddenDim, true, true),
+                   Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
+    QTargetNet = Net(Attention<8>::_(stateDim, 32, false),
+                     TanhNorm<Sigmoid>::_(32, hiddenDim, true, false),
+                     Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
+
+#else
+    QMainNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
+                   Layer<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                   Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                   Layer<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                   Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
+
+    QTargetNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
+                     Layer<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                     Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
+                     Layer<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                     Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
+#endif
     QMainNet.copyTo(QTargetNet);
 }
 

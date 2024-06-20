@@ -23,13 +23,13 @@ RL::DDPG::DDPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
                   Layer<Softmax>::_(hiddenDim, actionDim, true, false));
     actorP.copyTo(actorQ);
     /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
-    criticP = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true, true),
+    criticP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
                   Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
-    criticQ = Net(Layer<Tanh>::_(stateDim + actionDim, hiddenDim, true, false),
+    criticQ = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
                   Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
@@ -64,32 +64,28 @@ void RL::DDPG::experienceReplay(const Transition& x)
     std::size_t i = x.action.argmax();
     {
         Tensor &ap = actorP.forward(x.state);
-        Tensor sa(stateDim + actionDim, 1);
-        Tensor::concat(0, sa, x.state, ap);
-        Tensor ct = criticP.forward(sa);
+        Tensor ct = criticP.forward(x.state);
         if (x.done == true) {
             ct[i] = x.reward;
         } else {
             Tensor &aq = actorQ.forward(x.nextState);
             int k = aq.argmax();
-            Tensor::concat(0, sa, x.nextState, aq);
-            Tensor &cq = criticQ.forward(sa);
+            Tensor &cq = criticQ.forward(x.nextState);
             ct[k] = x.reward + gamma*cq[k];
         }
-        Tensor::concat(0, sa, x.state, ap);
-        Tensor &cp = criticP.forward(sa);
+        Tensor &cp = criticP.forward(x.state);
         criticP.backward(Loss::MSE(cp, ct));
-        criticP.gradient(sa, ct);
+        criticP.gradient(x.state, ct);
     }
 
     /* train actor */
     {
         Tensor &ap = actorP.forward(x.state);
-        Tensor sa(stateDim + actionDim, 1);
-        Tensor::concat(0, sa, x.state, ap);
-        Tensor& q = criticP.forward(sa);
+        const Tensor &aq = x.action;
+        Tensor& q = criticP.forward(x.state);
         Tensor at(actionDim, 1);
-        at[i] = ap[i]*q[i];
+        float r = ap[i]/(aq[i]+ 1e-8);
+        at[i] = r*q[i];
         actorP.backward(Loss::CrossEntropy(ap, at));
         actorP.gradient(x.state, at);
     }

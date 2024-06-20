@@ -65,6 +65,10 @@ public:
                 Tensor e(layers[i - 1]->o.totalSize, 1);
                 layers[i]->backward(e);
                 layers[i - 1]->cacheError(e);
+            } else if(layers[i - 1]->type == iLayer::LAYER_ATTENTION &&
+                      layers[i]->type == iLayer::LAYER_FC) {
+                layers[i]->backward(layers[i - 1]->e);
+                layers[i - 1]->broadcast();
             } else {
                 layers[i]->backward(layers[i - 1]->e);
             }

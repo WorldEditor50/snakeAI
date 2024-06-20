@@ -99,5 +99,18 @@ struct Softmax {
         return dy;
     }
 };
+
+struct Zeta {
+    inline static float f(float x)
+    {
+        return x/std::sqrt(1 + x*x);
+    }
+
+    inline static float df(float x, float y)
+    {
+        return (1 - y*y)/std::sqrt(1 + x*x);
+    }
+};
+
 }
 #endif // ACTIVATE_H

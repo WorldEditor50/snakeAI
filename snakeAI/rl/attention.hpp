@@ -45,7 +45,7 @@ public:
 public:
     ScaledDotProduct(){}
 
-    explicit ScaledDotProduct(int inputDim_, int outputDim_, bool trainFlag_)
+    explicit ScaledDotProduct(int inputDim_, int outputDim_, bool withGrad_)
         :inputDim(inputDim_),outputDim(outputDim_)
     {
         type = LAYER_SCALEDDOTPRODUCT;
@@ -59,7 +59,7 @@ public:
         e = Tensor(outputDim, 1);
         qk = Tensor(outputDim, outputDim);
         z = Tensor(outputDim, outputDim);
-        if (trainFlag_) {
+        if (withGrad_) {
             g.wq = Tensor(outputDim, inputDim);
             g.wk = Tensor(outputDim, inputDim);
             g.wv = Tensor(outputDim, inputDim);
@@ -224,17 +224,20 @@ public:
     {
     public:
         Tensor w;
+        Tensor b;
     public:
         AttentionGrad(){}
         void zero()
         {
             w.zero();
+            b.zero();
         }
     };
 public:
     int inputDim;
     int outputDim;
     Tensor w;
+    Tensor b;
     Tensor a;
     ScaledDotProduct dotProduct[N];
     AttentionGrad g;
@@ -242,20 +245,25 @@ public:
     AttentionGrad m;
 public:
     Attention(){}
-    explicit Attention(int inputDim_, int outputDim_, bool trainFlag)
+    explicit Attention(int inputDim_, int outputDim_, bool withGrad)
         :inputDim(inputDim_),outputDim(outputDim_)
     {
+        type = LAYER_ATTENTION;
         w = Tensor(outputDim, outputDim);
+        b = Tensor(outputDim, 1);
         for (int i = 0; i < N; i++) {
-            dotProduct[i] = ScaledDotProduct(inputDim, outputDim/N, trainFlag);
+            dotProduct[i] = ScaledDotProduct(inputDim, outputDim/N, withGrad);
         }
         a = Tensor(outputDim, 1);
         o = Tensor(outputDim, 1);
         e = Tensor(outputDim, 1);
-        if (trainFlag) {
+        if (withGrad) {
             g.w = Tensor(outputDim, outputDim);
             v.w = Tensor(outputDim, outputDim);
             m.w = Tensor(outputDim, outputDim);
+            g.b = Tensor(outputDim, 1);
+            v.b = Tensor(outputDim, 1);
+            m.b = Tensor(outputDim, 1);
         }
     }
     static std::shared_ptr<Attention> _(int inputDim, int outputDim, bool withGrad)
@@ -270,21 +278,40 @@ public:
             a.embedding({i*unit, 0}, out);
         }
         Tensor::MM::ikkj(o, w, a);
+        o += b;
+        for (std::size_t i = 0; i < o.totalSize; i++) {
+            o[i] = Tanh::f(o[i]);
+        }
         return o;
     }
 
     void backward(Tensor &ei) override
     {
+        for (int i = 0; i < N; i++) {
+            dotProduct[i].backward(ei);
+        }
+        return;
+    }
 
+    void broadcast() override
+    {
+        int unit = outputDim/N;
+        for (int i = 0; i < N; i++) {
+            dotProduct[i].e = e.block({unit*i, 0}, {unit, 1});
+        }
         return;
     }
 
     void gradient(const Tensor& x, const Tensor&y) override
     {
-        g.w = e*a;
+        Tensor dy(outputDim, 1);
+        for (std::size_t i = 0; i < dy.totalSize; i++) {
+            dy[i] = Tanh::df(o[i])*e[i];
+        }
+        Tensor::MM::ikjk(g.w, dy, a);
+        g.b += dy;
         int unit = outputDim/N;
         for (int i = 0; i < N; i++) {
-            dotProduct[i].e = e.block({unit*i, 0}, {unit, 1});
             dotProduct[i].gradient(x, y);
         }
         o.zero();
@@ -292,9 +319,10 @@ public:
         return;
     }
 
-    void SGD(float learningRate)
+    void SGD(float learningRate) override
     {
         Optimize::SGD(w, g.w, learningRate);
+        Optimize::SGD(b, g.b, learningRate);
         for (int i = 0; i < N; i++) {
             dotProduct[i].SGD(learningRate);
         }
@@ -305,6 +333,7 @@ public:
     void RMSProp(float lr, float rho, float decay, bool clipGrad) override
     {
         Optimize::RMSProp(w, v.w, g.w, lr, rho, decay, clipGrad);
+        Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
         for (int i = 0; i < N; i++) {
             dotProduct[i].RMSProp(rho, lr, decay, clipGrad);
         }
@@ -312,11 +341,14 @@ public:
         return;
     }
 
-     void Adam(float lr, float alpha, float beta,
-               float alpha_, float beta_,
-               float decay, bool clipGrad) override
+    void Adam(float lr, float alpha, float beta,
+              float alpha_, float beta_,
+              float decay, bool clipGrad) override
     {
         Optimize::Adam(w, v.w, m.w, g.w,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        Optimize::Adam(b, v.b, m.b, g.b,
                        alpha_, beta_, lr,
                        alpha, beta, decay, clipGrad);
         for (int i = 0; i < N; i++) {
@@ -331,25 +363,29 @@ public:
      void clamp(float c0, float cn) override
      {
          Optimize::clamp(w, c0, cn);
+         Optimize::clamp(b, c0, cn);
          for (int i = 0; i < N; i++) {
              dotProduct[i].clamp(c0, cn);
          }
          return;
      }
 
-     virtual void copyTo(iLayer* layer) override
+     void copyTo(iLayer* layer) override
      {
          Attention *pLayer = static_cast<Attention*>(layer);
          pLayer->w = w;
+         pLayer->b = b;
          for (int i = 0; i < N; i++) {
             dotProduct[i].copyTo(&pLayer->dotProduct[i]);
          }
          return;
      }
-     virtual void softUpdateTo(iLayer* layer, float alpha) override
+
+     void softUpdateTo(iLayer* layer, float alpha) override
      {
          Attention *pLayer = static_cast<Attention*>(layer);
          lerp(pLayer->w, w, alpha);
+         lerp(pLayer->b, b, alpha);
          for (int i = 0; i < N; i++) {
              dotProduct[i].softUpdateTo(&pLayer->dotProduct[i], alpha);
          }
