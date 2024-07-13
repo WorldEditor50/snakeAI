@@ -19,11 +19,9 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
                     Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 #else
-    policyNet = Net(Layer<Tanh>::_(stateDim, 8, true, true),
-                    LayerNorm<Sigmoid, LN::Post>::_(8, 4, true, true),
-                    Attention<8>::_(4, 32, true),
-                    LayerNorm<Sigmoid, LN::Post>::_(32, 32, true, true),
-                    Layer<Softmax>::_(32, actionDim, true, true));
+    policyNet = Net(Attention<16>::_(4, 4, true),
+                    LayerNorm<Sigmoid, LN::Post>::_(16*4, hiddenDim, true, true),
+                    Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 #endif
 }
 

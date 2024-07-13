@@ -1,7 +1,7 @@
 #include "util.hpp"
 
-std::default_random_engine RL::Random::engine(std::random_device{}());
 std::random_device RL::Random::device;
+std::default_random_engine RL::Random::engine(RL::Random::device());
 std::mt19937 RL::Random::generator(RL::Random::device());
 
 void RL::zscore(Tensor &x)

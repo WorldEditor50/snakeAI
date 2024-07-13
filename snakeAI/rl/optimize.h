@@ -11,7 +11,7 @@ inline void SGD(Tensor &w, Tensor &dw,
                 float lr, float decay=0, bool clipGrad=true)
 {
     if (clipGrad) {
-        dw /= dw.norm2();
+        dw /= dw.norm2() + 1e-8;
     }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         w[i] = (1 - decay)*w[i] - lr*dw[i];
@@ -24,7 +24,7 @@ inline void SGDM(Tensor &w, Tensor &m, Tensor &dw,
                  float decay=0, float clipGrad=true)
 {
     if (clipGrad) {
-        dw /= dw.norm2();
+        dw /= dw.norm2() + 1e-8;
     }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         m[i] = (1 - decay)*m[i] - dw[i]*alpha;
@@ -37,7 +37,7 @@ inline void Adagrad(Tensor &w, Tensor &r, Tensor &dw,
                     float lr, float decay=0, float clipGrad=true)
 {
     if (clipGrad) {
-        dw /= dw.norm2();
+        dw /= dw.norm2() + 1e-8;
     }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         r[i] += dw[i]*dw[i];
@@ -50,7 +50,7 @@ inline void AdaDelta(Tensor &w, Tensor &v, Tensor &delta, Tensor &dwPrime, Tenso
                      float lr, float rho, float decay = 0, bool clipGrad=true)
 {
     if (clipGrad) {
-        dw /= dw.norm2();
+        dw /= dw.norm2() + 1e-8;
     }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         v[i] = rho * v[i] + (1 - rho) * dw[i] * dw[i];
@@ -66,7 +66,7 @@ inline void RMSProp(Tensor &w, Tensor &v, Tensor &dw,
                     float decay = 0, bool clipGrad=true)
 {
     if (clipGrad) {
-        dw /= dw.norm2();
+        dw /= dw.norm2() + 1e-8;
     }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         v[i] = rho*v[i] + (1 - rho)*dw[i]*dw[i];
@@ -81,7 +81,7 @@ inline void Adam(Tensor &w, Tensor &v, Tensor &m, Tensor &dw,
                  float decay = 0, bool clipGrad=true)
 {
     if (clipGrad) {
-        dw /= dw.norm2();
+        dw /= dw.norm2() + 1e-8;
     }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         m[i] = alpha * m[i] + (1 - alpha) * dw[i];
