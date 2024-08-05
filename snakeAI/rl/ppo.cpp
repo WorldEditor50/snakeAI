@@ -15,7 +15,7 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
 
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = -0.04*std::log(0.04);
+    entropy0 = -0.08*std::log(0.08);
 
     actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
@@ -175,7 +175,7 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
         actorP.gradient(trajectory[t].state, q);
     }
     actorP.RMSProp(learningRate, 0.9, 0.1);
-    actorP.clamp(-1, 1);
+    //actorP.clamp(-1, 1);
     critic.RMSProp(1e-3, 0.9, 0.01);
 
     alpha.RMSProp(1e-4, 0.9, 0);

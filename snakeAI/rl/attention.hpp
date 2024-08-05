@@ -95,6 +95,7 @@ public:
 public:
     int inputDim;
     int outputDim;
+    bool withMask;
     Tensor wq;
     Tensor wk;
     Tensor wv;
@@ -103,15 +104,15 @@ public:
     Tensor v;
     Tensor qk;
     Tensor z;
-
+    Tensor mask;
     ScaledDotProductGrad g;
     ScaledDotProductGrad gv;
     ScaledDotProductGrad gm;
 public:
     ScaledDotProduct(){}
 
-    explicit ScaledDotProduct(int inputDim_, int outputDim_, bool withGrad_)
-        :inputDim(inputDim_),outputDim(outputDim_)
+    explicit ScaledDotProduct(int inputDim_, int outputDim_, bool withGrad_, bool withMask_=false)
+        :inputDim(inputDim_),outputDim(outputDim_),withMask(withMask_)
     {
         type = LAYER_SCALEDDOTPRODUCT;
         wq = Tensor(outputDim, inputDim);
@@ -123,6 +124,7 @@ public:
         o = Tensor(outputDim, 1);
         e = Tensor(outputDim, 1);
         qk = Tensor(outputDim, outputDim);
+        mask = upTriangle(outputDim, outputDim);
         z = Tensor(outputDim, outputDim);
         if (withGrad_) {
             g.wq = Tensor(outputDim, inputDim);
@@ -147,6 +149,9 @@ public:
         Tensor::MM::ikkj(k, wk, x);
         Tensor::MM::ikkj(v, wv, x);
         Tensor::MM::ikjk(qk, q, k);
+        if (withMask) {
+            qk *= mask;
+        }
         float d = std::sqrt(outputDim);
         qk /= d;
         z = Softmax::f(qk);
@@ -204,6 +209,10 @@ public:
         Tensor dWv(outputDim, 1);
         jvk.reshape(outputDim, outputDim);
         jvq.reshape(outputDim, outputDim);
+        if (withMask) {
+            jvk *= mask;
+            jvq *= mask;
+        }
         Tensor::MM::ikkj(dWq, jvk, e);
         Tensor::MM::ikkj(dWk, jvq, e);
         Tensor::MM::ikkj(dWv, z, e);

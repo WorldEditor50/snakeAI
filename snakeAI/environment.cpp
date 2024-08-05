@@ -279,24 +279,11 @@ float Environment::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
         return -1;
     }
     if (xn == xt && yn == yt) {
-        return 1;
+        return 16;
     }
-    float d1 = std::sqrt((xi - xt) * (xi - xt) + (yi - yt) * (yi - yt));
-    float d2 = std::sqrt((xn - xt) * (xn - xt) + (yn - yt) * (yn - yt));
-    float r = (1 - 2*d2 + d2*d2)/(1 - d2 + d2*d2);
-    if (d2 - d1 > 0) {
-        r *= -1;
-    }
+    float d1 = (xi - xt)*(xi - xt) + (yi - yt)*(yi - yt);
+    float d2 = (xn - xt)*(xn - xt) + (yn - yt)*(yn - yt);
+    float r = std::sqrt(d1) - std::sqrt(d2);
     return r;
 }
 
-float Environment::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
-{
-    if (map(xn, yn) == OBJ_BLOCK) {
-        return -1;
-    }
-    if (xn == xt && yn == yt) {
-        return 1;
-    }
-    return 0.01;
-}

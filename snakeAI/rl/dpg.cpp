@@ -11,7 +11,7 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     actionDim = actionDim_;
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = -0.05*std::log(0.05);
+    entropy0 = -0.08*std::log(0.08);
 #if 0
     policyNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
@@ -71,9 +71,8 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
     std::cout<<"alpha:";
     alpha.val.printValue();
 #endif
-    //policyNet.RMSProp(1e-3, 0.9, 0);
     policyNet.RMSProp(learningRate, 0.9, 0.1);
-    policyNet.clamp(-1, 1);
+    //policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;

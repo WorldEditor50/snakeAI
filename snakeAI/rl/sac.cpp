@@ -123,7 +123,7 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         float q = std::min(q1[i], q2[i]);
 
         Tensor loss(actionDim, 1);
-#if 1
+#if 0
         /* importance sampling */
         float r = prob[i]/(sampleProb[i] + 1e-8);
         loss[i] = r*(0.9*q - alpha[i]*std::log(r) + std::log(sampleProb[i]));
@@ -160,9 +160,7 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    //actor.RMSProp(1e-3, 0.9, 0);
     actor.RMSProp(1e-3, 0.9, 0.1);
-    actor.clamp(-1, 1);
     alpha.RMSProp(1e-4, 0.9, 0);
 #if 1
     std::cout<<"alpha:";

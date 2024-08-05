@@ -19,7 +19,6 @@ class DPG
 public:
     DPG(){}
     explicit DPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
-    ~DPG(){}
     Tensor &eGreedyAction(const Tensor &state);
     Tensor &noiseAction(const Tensor &state);
     Tensor &gumbelMax(const RL::Tensor &state);

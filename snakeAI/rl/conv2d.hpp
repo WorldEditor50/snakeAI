@@ -15,23 +15,24 @@ inline void conv2d(Tensor &y, const Tensor &kernels, const Tensor &x, int stride
     for (int n = 0; n < y.shape[0]; n++) {
         for (int i = 0; i < y.shape[1]; i++) {
             for (int j = 0; j < y.shape[2]; j++) {
-                float &yi = y(n, i, j);
+                float ynij = y(n, i, j);
                 /* kernels */
-                for (int c = 0; c < kernels.shape[1]; c++) {
-                    for (int h = 0; h < kernels.shape[2]; h++) {
-                        for (int k = 0; k < kernels.shape[3]; k++) {
+                for (int k = 0; k < kernels.shape[1]; k++) {
+                    for (int u = 0; u < kernels.shape[2]; u++) {
+                        for (int v = 0; v < kernels.shape[3]; v++) {
                             /* map to input  */
-                            int row = h + i*stride - padding;
-                            int col = k + j*stride - padding;
-                            if (row < 0 || row >= x.shape[1] ||
-                                    col < 0 || col >= x.shape[2]) {
+                            int ui = u + i*stride - padding;
+                            int vj = v + j*stride - padding;
+                            if (ui < 0 || ui >= x.shape[1] ||
+                                    vj < 0 || vj >= x.shape[2]) {
                                 continue;
                             }
                             /* sum up all convolution result */
-                            yi += kernels(n, c, h, k)*x(c, row, col);
+                            ynij += kernels(n, k, u, v)*x(k, ui, vj);
                         }
                     }
                 }
+                y(n, i, j) = ynij;
             }
         }
     }

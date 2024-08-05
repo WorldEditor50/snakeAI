@@ -116,7 +116,7 @@ void RL::DDPG::learn(std::size_t maxMemorySize,
         experienceReplay(memories[k]);
     }
     actorP.RMSProp(0.9, 1e-3, 0.1);
-    actorP.clamp(-1, 1);
+    //actorP.clamp(-1, 1);
     criticP.RMSProp(0.9, 1e-3, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {

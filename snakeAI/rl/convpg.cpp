@@ -68,7 +68,7 @@ void RL::ConvPG::reinforce(std::vector<Step>& x, float learningRate)
     alpha.val.printValue();
 #endif
     policyNet.RMSProp(learningRate, 0.9, 0.1);
-    policyNet.clamp(-1, 1);
+    //policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;

@@ -3,6 +3,8 @@
 #include <cmath>
 #include <vector>
 #include <functional>
+#include <fstream>
+#include <string>
 #include <iostream>
 #include <assert.h>
 namespace RL {
@@ -11,14 +13,21 @@ template<typename T, template<typename Ti> class Alloc=std::allocator>
 class Tensor_
 {
 public:
+    using ValueType = T;
+    using Vector = std::vector<T, Alloc<T> >;
+    using Shape = std::vector<int>;
+    using Size = std::vector<int>;
+    using iterator = typename Vector::iterator;
+    using const_iterator = typename Vector::const_iterator;
     class SubTensor
     {
     public:
         Tensor_ *pointer;
         std::size_t pos;
+        std::size_t totalSize;
     public:
-        SubTensor():pointer(nullptr),pos(0){}
-        SubTensor(const SubTensor &r):pointer(r.pointer),pos(r.pos){}
+        SubTensor():pointer(nullptr),pos(0),totalSize(0){}
+        SubTensor(const SubTensor &r):pointer(r.pointer),pos(r.pos),totalSize(r.totalSize){}
         SubTensor& operator=(const SubTensor &r)
         {
             if (this == &r) {
@@ -26,6 +35,7 @@ public:
             }
             pointer = r.pointer;
             pos = r.pos;
+            totalSize = r.totalSize;
             return *this;
         }
         inline void operator=(const Tensor_ &x)
@@ -42,14 +52,169 @@ public:
             }
             return;
         }
+
+        inline void operator=(T x)
+        {
+            for (std::size_t i = 0; i < totalSize; i++) {
+                pointer->val[i + pos] = x;
+            }
+            return;
+        }
+
+        inline void operator+=(const Tensor_ &x)
+        {
+            for (std::size_t i = 0; i < x.totalSize; i++) {
+                pointer->val[i + pos] += x.val[i];
+            }
+            return;
+        }
+
+        inline void operator-=(const Tensor_ &x)
+        {
+            for (std::size_t i = 0; i < x.totalSize; i++) {
+                pointer->val[i + pos] -= x.val[i];
+            }
+            return;
+        }
+
+        inline void operator*=(const Tensor_ &x)
+        {
+            for (std::size_t i = 0; i < x.totalSize; i++) {
+                pointer->val[i + pos] *= x.val[i];
+            }
+            return;
+        }
+
+        inline void operator/=(const Tensor_ &x)
+        {
+            for (std::size_t i = 0; i < x.totalSize; i++) {
+                pointer->val[i + pos] /= x.val[i];
+            }
+            return;
+        }
+
+        inline void operator+=(T x)
+        {
+            for (std::size_t i = 0; i < totalSize; i++) {
+                pointer->val[i + pos] += x;
+            }
+            return;
+        }
+
+        inline void operator-=(T x)
+        {
+            for (std::size_t i = 0; i < totalSize; i++) {
+                pointer->val[i + pos] -= x;
+            }
+            return;
+        }
+
+        inline void operator*=(T x)
+        {
+            for (std::size_t i = 0; i < totalSize; i++) {
+                pointer->val[i + pos] *= x;
+            }
+            return;
+        }
+
+        inline void operator/=(T x)
+        {
+            for (std::size_t i = 0; i < totalSize; i++) {
+                pointer->val[i + pos] /= x;
+            }
+            return;
+        }
+
+        inline T sum() const
+        {
+            T s = 0;
+            for (std::size_t i = 0; i < totalSize; i++) {
+                s += pointer->val[i + pos];
+            }
+            return s;
+        }
+
+        inline T mean() const
+        {
+            T s = 0;
+            for (std::size_t i = 0; i < totalSize; i++) {
+                s += pointer->val[i + pos];
+            }
+            return s/T(totalSize);
+        }
+
+        inline T variance(T u) const
+        {
+            T s = 0;
+            for (std::size_t i = 0; i < totalSize; i++) {
+                float d = pointer->val[i + pos] - u;
+                s += d*d;
+            }
+            return s/T(totalSize);
+        }
+
+        inline T max() const
+        {
+            T maxVal = 0;
+            for (std::size_t i = 0; i < totalSize; i++) {
+                T val = pointer->val[i + pos];
+                if (maxVal < val) {
+                    maxVal = val;
+                }
+            }
+            return maxVal;
+        }
+
+        inline std::size_t argmax() const
+        {
+            T maxVal = 0;
+            std::size_t index = 0;
+            for (std::size_t i = 0; i < totalSize; i++) {
+                T val = pointer->val[i + pos];
+                if (maxVal < val) {
+                    maxVal = val;
+                    index = i;
+                }
+            }
+            return index;
+        }
+
+        inline T min() const
+        {
+            T minVal = 0;
+            for (std::size_t i = 0; i < totalSize; i++) {
+                T val = pointer->val[i + pos];
+                if (minVal > val) {
+                    minVal = val;
+                }
+            }
+            return minVal;
+        }
+
+        inline std::size_t argmin() const
+        {
+            T minVal = 0;
+            std::size_t index = 0;
+            for (std::size_t i = 0; i < totalSize; i++) {
+                T val = pointer->val[i + pos];
+                if (minVal > val) {
+                    minVal = val;
+                    index = i;
+                }
+            }
+            return index;
+        }
+        inline T norm2() const
+        {
+            T s = 0;
+            for (std::size_t i = 0; i < totalSize; i++) {
+                T val = pointer->val[i + pos];
+                s += val*val;
+            }
+            return std::sqrt(s);
+        }
     };
 
-    using ValueType = T;
-    using Vector = std::vector<T, Alloc<T> >;
-    using Shape = std::vector<int>;
-    using Size = std::vector<int>;
-    using iterator = typename Vector::iterator;
-    using const_iterator = typename Vector::const_iterator;
 protected:
     SubTensor subTensor;
 public:
@@ -92,14 +257,17 @@ public:
         val = std::vector<T, Alloc<T>>(totalSize, T(0));
     }
 
-    explicit Tensor_(const Shape &shape_, const std::vector<T, Alloc<T>> &val_)
-        :totalSize(1),shape(shape_),val(val_)
+    explicit Tensor_(const Shape &shape_,
+                     const std::vector<T, Alloc<T>> &val_):
+        totalSize(1),shape(shape_),val(val_)
     {
         initParams(shape, sizes, totalSize);
     }
 
-    explicit Tensor_(const std::initializer_list<int> &shape_, const std::initializer_list<T> &val_)
-        :totalSize(1),shape(shape_),val(val_)
+
+    explicit Tensor_(const std::initializer_list<int> &shape_,
+                     const std::initializer_list<T> &val_):
+        totalSize(1),shape(shape_),val(val_)
     {
         initParams(shape, sizes, totalSize);
     }
@@ -118,8 +286,7 @@ public:
 
     /* construct with shape */
     template<typename ...Dim>
-    explicit Tensor_(Dim ...dim)
-        :totalSize(1),shape({int(dim)...})
+    explicit Tensor_(Dim ...dim):totalSize(1),shape({int(dim)...})
     {
         initParams(shape, sizes, totalSize);
         val = std::vector<T, Alloc<T> >(totalSize, T(0));
@@ -271,6 +438,7 @@ public:
     {
         subTensor.pointer = this;
         subTensor.pos = posOf(index...);
+        subTensor.totalSize = size(index...);
         return subTensor;
     }
 
@@ -340,7 +508,7 @@ public:
 
     /* visit */
     template<typename ...Index>
-    inline int posOf(Index ...index) const
+    inline std::size_t posOf(Index ...index) const
     {
         int indexs[] = {index...};
         std::size_t pos = 0;
@@ -416,9 +584,18 @@ public:
         return *this;
     }
 
+    template<typename ...Index>
+    Tensor_ view(Index ...index) const
+    {
+        Tensor_ x = *this;
+        x.shape = {index...};
+        x.initParams(x.shape, x.sizes, x.totalSize);
+        return x;
+    }
+
     Tensor_ flatten() const
     {
-        Tensor_ x(totalSize, 1);
+        Tensor_ x(totalSize);
         x.val = val;
         return x;
     }
@@ -460,51 +637,15 @@ public:
 
     Tensor_ tr() const
     {
-        int r = shape[0];
-        int c = shape[1];
-        Tensor_ y(c, r);
-        for (int i = 0; i < r; i++) {
-            for (int j = 0; j < c; j++) {
-                y.val[j*c + i] = val[i*c + j];
+        int rows = shape[0];
+        int cols = shape[1];
+        Tensor_ y(cols, rows);
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                y(j, i) = val[i*cols + j];
             }
         }
         return y;
-    }
-
-    Tensor_ row(int i) const
-    {
-        Tensor_ r(shape[1]);
-        int pos = i*shape[1];
-        for (int j = 0; j < shape[1]; j++) {
-            r[j] = val[j + pos];
-        }
-        return r;
-    }
-
-    void row(int i, const Tensor_ &r)
-    {
-        int pos = i*shape[1];
-        for (int j = 0; j < shape[1]; j++) {
-            val[j + pos] = r[j];
-        }
-        return;
-    }
-
-    Tensor_ column(int j) const
-    {
-        Tensor_ c(shape[0]);
-        for (int i = 0; i < shape[0]; i++) {
-            c[i] = val[i*shape[1] + j];
-        }
-        return c;
-    }
-
-    void column(int j, const Tensor_ &c)
-    {
-        for (int i = 0; i < shape[0]; i++) {
-            val[i*shape[1] + j] = c[i];
-        }
-        return;
     }
 
     /* operator */
@@ -645,18 +786,6 @@ public:
     }
 
     /* statistics */
-    template<typename ...Index>
-    T sum(Index ...index) const
-    {
-        std::size_t totalsize = size(index...);
-        std::size_t pos = posOf(index...);
-        T s = 0;
-        for (std::size_t i = 0; i < totalsize; i++) {
-            s += val[i + pos];
-        }
-        return s;
-    }
-
     T sum() const
     {
         T s = 0;
@@ -666,29 +795,10 @@ public:
         return s;
     }
 
-    template<typename ...Index>
-    T mean(Index ...index) const
-    {
-        T N = T(size(index...));
-        return sum(index...)/N;
-    }
-
     T mean() const
     {
         T s = sum();
         return s/T(totalSize);
-    }
-
-    template<typename ...Index>
-    T variance(T u, Index ...index) const
-    {
-        T N = T(size(index...));
-        std::size_t pos = posOf(index...);
-        T s = 0;
-        for (std::size_t i = 0; i < N; i++) {
-            s += (val[i + pos] - u)*(val[i + pos] - u);
-        }
-        return s/N;
     }
 
     T variance(T u) const
@@ -700,19 +810,6 @@ public:
         return s/T(totalSize);
     }
 
-    template<typename ...Index>
-    T max(Index ...index) const
-    {
-        std::size_t N = size(index...);
-        std::size_t pos = posOf(index...);
-        T value = val[0];
-        for (std::size_t i = 0; i < N; i++) {
-            if (value < val[i + pos]) {
-                value = val[i + pos];
-            }
-        }
-        return value;
-    }
     T max() const
     {
         T value = val[0];
@@ -724,19 +821,6 @@ public:
         return value;
     }
 
-    template<typename ...Index>
-    T min(Index ...index) const
-    {
-        std::size_t N = size(index...);
-        std::size_t pos = posOf(index...);
-        T value = val[0];
-        for (std::size_t i = 0; i < N; i++) {
-            if (value > val[i + pos]) {
-                value = val[i + pos];
-            }
-        }
-        return value;
-    }
     T min() const
     {
         T value = val[0];
@@ -748,26 +832,10 @@ public:
         return value;
     }
 
-    template<typename ...Index>
-    std::size_t argmax(Index ...index) const
-    {
-        std::size_t N = size(index...);
-        std::size_t pos = posOf(index...);
-        T value = val[0];
-        std::size_t index_ = 0;
-        for (std::size_t i = 0; i < N; i++) {
-            if (value < val[i + pos]) {
-                value = val[i + pos];
-                index_ = i;
-            }
-        }
-        return index_ + pos;
-    }
-
-    int argmax() const
+    std::size_t argmax() const
     {
         T value = val[0];
-        int index = 0;
+        std::size_t index = 0;
         for (std::size_t i = 0; i < val.size(); i++) {
             if (value < val[i]) {
                 value = val[i];
@@ -777,26 +845,10 @@ public:
         return index;
     }
 
-    template<typename ...Index>
-    std::size_t argmin(Index ...index) const
-    {
-        std::size_t N = size(index...);
-        std::size_t pos = posOf(index...);
-        T value = val[0];
-        std::size_t index_ = 0;
-        for (std::size_t i = 0; i < N; i++) {
-            if (value > val[i + pos]) {
-                value = val[i + pos];
-                index_ = i;
-            }
-        }
-        return index_ + pos;
-    }
-
-    int argmin() const
+    std::size_t argmin() const
     {
         T value = val[0];
-        int index = 0;
+        std::size_t index = 0;
         for (std::size_t i = 0; i < val.size(); i++) {
             if (value > val[i]) {
                 value = val[i];
@@ -836,88 +888,12 @@ public:
     struct MM {
         inline static void ikkj(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
         {
-            std::size_t rows = x.shape[0];
-            std::size_t cols = x.shape[1];
-            std::size_t cols1 = x1.shape[1];
-            std::size_t cols2 = x2.shape[1];
-            for (std::size_t i = 0; i < rows; i++) {
-                for (std::size_t k = 0; k < cols1; k++) {
-                    float val1 = x1.val[i*cols1 + k];
-                    for (std::size_t j = 0; j < cols; j++) {
-                        /* x(i, j) = x1(i, k) * x2(k, j) */
-                        x.val[i*cols + j] += val1*x2.val[k*cols2 + j];
-                    }
-                }
-            }
-            return;
-        }
-
-        inline static void kikj(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
-        {
-            std::size_t rows = x.shape[0];
-            std::size_t cols = x.shape[1];
-            std::size_t rows1 = x1.shape[0];
-            std::size_t cols1 = x1.shape[1];
-            std::size_t cols2 = x2.shape[1];
-            /* transpose x1 */
-            for (std::size_t i = 0; i < rows; i++) {
-                for (std::size_t k = 0; k < rows1; k++) {
-                    float val1 = x1.val[k*cols1 + i];
-                    for (std::size_t j = 0; j < cols; j++) {
-                        /* x(i, j) = x1(k, i)^T * x2(k, j) */
-                        x.val[i*cols + j] += val1*x2.val[k*cols2 + j];
-                    }
-                }
-            }
-            return;
-        }
-
-        inline static void ikjk(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
-        {
-            std::size_t rows = x.shape[0];
-            std::size_t cols = x.shape[1];
-            std::size_t cols1 = x1.shape[1];
-            std::size_t rows2 = x2.shape[0];
-            /* transpose x2 */
-            for (std::size_t i = 0; i < rows; i++) {
-                for (std::size_t k = 0; k < cols1; k++) {
-                    float val1 = x1.val[i*cols1 + k];
-                    for (std::size_t j = 0; j < cols; j++) {
-                        /* x(i, j) = x1(i, k) * x2(j, k)^T */
-                        x.val[i*cols + j] += val1*x2.val[k*rows2 + j];
-                    }
-                }
-            }
-            return;
-        }
-
-        inline static void kijk(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
-        {
-            std::size_t rows = x.shape[0];
-            std::size_t cols = x.shape[1];
-            std::size_t rows1 = x1.shape[0];
-            std::size_t rows2 = x2.shape[0];
-            /* transpose x1, x2 */
-            for (std::size_t i = 0; i < rows; i++) {
-                for (std::size_t k = 0; k < rows1; k++) {
-                    float val1 = x1.val[i*rows1 + k];
-                    for (std::size_t j = 0; j < cols; j++) {
-                        /* x(i, j) = x1(k, i)^T * x2(j, k)^T */
-                        x.val[i*cols + j] += val1 * x2.val[k*rows2 + j];
-                    }
-                }
-            }
-            return;
-        }
-    };
-    struct MM0 {
-        inline static void ikkj(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
-        {
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[1]; k++) {
+                    T x1ik = x1(i, k);
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
                         /* x(i, j) = x1(i, k) * x2(k, j) */
-                        x.val[i*x.shape[1] + j] += x1.val[i*x1.shape[1] + k]*x2.val[k*x2.shape[1] + j];
+                        x(i, j) += x1ik*x2(k, j);
                     }
                 }
             }
@@ -929,9 +905,10 @@ public:
             /* transpose x1 */
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[0]; k++) {
+                    T x1ki= x1(k, i);
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
                         /* x(i, j) = x1(k, i)^T * x2(k, j) */
-                        x.val[i*x.shape[1] + j] += x1.val[k*x1.shape[1] + i]*x2.val[k*x2.shape[1] + j];
+                        x(i, j) += x1ki*x2(k, j);
                     }
                 }
             }
@@ -943,9 +920,10 @@ public:
             /* transpose x2 */
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[1]; k++) {
+                    T x1ik = x1(i, k);
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
                         /* x(i, j) = x1(i, k) * x2(j, k)^T */
-                        x.val[i*x.shape[1] + j] += x1.val[i*x1.shape[1] + k]*x2.val[j*x2.shape[1] + k];
+                        x(i, j) += x1ik*x2(j, k);
                     }
                 }
             }
@@ -957,79 +935,77 @@ public:
             /* transpose x1, x2 */
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[0]; k++) {
+                    T x1ki = x1ki;
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
                         /* x(i, j) = x1(k, i)^T * x2(j, k)^T */
-                        x.val[i*x.shape[1] + j] += x1.val[k*x1.shape[1] + i] * x2.val[j*x2.shape[1] + k];
-                    }
-                }
-            }
-            return;
-        }
-    };
-
-    struct BMM {
-        /* x:[batch, rows, cols] */
-        inline static void ikkj(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
-        {
-            for (std::size_t n = 0; n < x.shape[0]; n++) {
-                for (std::size_t i = 0; i < x.shape[1]; i++) {
-                    for (std::size_t k = 0; k < x1.shape[2]; k++) {
-                        for (std::size_t j = 0; j < x.shape[2]; j++) {
-                            /* x(n, i, j) = x1(n, i, k) * x2(n, k, j) */
-                            x(n, i, j) += x1(n, i, k)*x2(n, k, j);
-                        }
+                        x(i, j) += x1ki*x2(j, k);
                     }
                 }
             }
             return;
         }
 
-        inline static void kikj(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
+        inline static Tensor_ ikkj(const Tensor_ &x1, const Tensor_ &x2)
         {
+            Tensor_ x(x1.shape[0], x2.shape[1]);
+            for (std::size_t i = 0; i < x.shape[0]; i++) {
+                for (std::size_t k = 0; k < x1.shape[1]; k++) {
+                    T x1ik = x1(i, k);
+                    for (std::size_t j = 0; j < x.shape[1]; j++) {
+                        /* x(i, j) = x1(i, k) * x2(k, j) */
+                        x(i, j) += x1ik*x2(k, j);
+                    }
+                }
+            }
+            return x;
+        }
+
+        inline static Tensor_ kikj(const Tensor_ &x1, const Tensor_ &x2)
+        {
+            Tensor_ x(x1.shape[1], x2.shape[1]);
             /* transpose x1 */
-            for (std::size_t n = 0; n < x.shape[0]; n++) {
-                for (std::size_t i = 0; i < x.shape[1]; i++) {
-                    for (std::size_t k = 0; k < x1.shape[1]; k++) {
-                        for (std::size_t j = 0; j < x.shape[2]; j++) {
-                            /* x(n, i, j) = x1(n, k, i)^T * x2(n, k, j) */
-                            x(n, i, j) += x1(n, k, i)*x2(n, k, j);
-                        }
+            for (std::size_t i = 0; i < x.shape[0]; i++) {
+                for (std::size_t k = 0; k < x1.shape[0]; k++) {
+                    T x1ki= x1(k, i);
+                    for (std::size_t j = 0; j < x.shape[1]; j++) {
+                        /* x(i, j) = x1(k, i)^T * x2(k, j) */
+                        x(i, j) += x1ki*x2(k, j);
                     }
                 }
             }
-            return;
+            return x;
         }
 
-        inline static void ikjk(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
+        inline static Tensor_ ikjk(const Tensor_ &x1, const Tensor_ &x2)
         {
+            Tensor_ x(x1.shape[0], x2.shape[0]);
             /* transpose x2 */
-            for (std::size_t n = 0; n < x.shape[0]; n++) {
-                for (std::size_t i = 0; i < x.shape[1]; i++) {
-                    for (std::size_t k = 0; k < x1.shape[2]; k++) {
-                        for (std::size_t j = 0; j < x.shape[2]; j++) {
-                            /* x(n, i, j) = x1(n, i, k) * x2(n, j, k)^T */
-                            x(n, i, j) += x1(n, i, k)*x2(n, j, k);
-                        }
+            for (std::size_t i = 0; i < x.shape[0]; i++) {
+                for (std::size_t k = 0; k < x1.shape[1]; k++) {
+                    T x1ik = x1(i, k);
+                    for (std::size_t j = 0; j < x.shape[1]; j++) {
+                        /* x(i, j) = x1(i, k) * x2(j, k)^T */
+                        x(i, j) += x1ik*x2(j, k);
                     }
                 }
             }
-            return;
+            return x;
         }
 
-        inline static void kijk(Tensor_ &x, const Tensor_ &x1, const Tensor_ &x2)
+        inline static Tensor_ kijk(const Tensor_ &x1, const Tensor_ &x2)
         {
+            Tensor_ x(x1.shape[1], x2.shape[0]);
             /* transpose x1, x2 */
-            for (std::size_t n = 0; n < x.shape[0]; n++) {
-                for (std::size_t i = 0; i < x.shape[1]; i++) {
-                    for (std::size_t k = 0; k < x1.shape[1]; k++) {
-                        for (std::size_t j = 0; j < x.shape[2]; j++) {
-                            /* x(n, i, j) = x1(n, k, i)^T * x2(n, j, k)^T */
-                            x(n, i, j) += x1(n, k, i) * x2(n, j, k);
-                        }
+            for (std::size_t i = 0; i < x.shape[0]; i++) {
+                for (std::size_t k = 0; k < x1.shape[0]; k++) {
+                    T x1ki = x1ki;
+                    for (std::size_t j = 0; j < x.shape[1]; j++) {
+                        /* x(i, j) = x1(k, i)^T * x2(j, k)^T */
+                        x(i, j) += x1ki*x2(j, k);
                     }
                 }
             }
-            return;
+            return x;
         }
     };
 
@@ -1037,6 +1013,11 @@ public:
     inline static Tensor_ concat(int dim, const Arg & ...args)
     {
         std::vector<Tensor_> xi = {args...};
+        return concats(dim, xi);
+    }
+
+    inline static Tensor_ concats(int dim, const std::vector<Tensor_> &xi)
+    {
         std::vector<int> newShape(xi[0].shape.size(), 0);
         for (std::size_t i = 0; i < xi.size(); i++) {
             newShape[dim] += xi[i].shape[dim];
@@ -1049,7 +1030,7 @@ public:
         Tensor_ x = Tensor_(newShape);
         int offset = 0;
         for (std::size_t i = 0; i < xi.size(); i++) {
-            Tensor_ &x_ = xi[i];
+            const Tensor_ &x_ = xi[i];
             /* set value */
             std::vector<int> indexs(x.shape.size(), 0);
             for (std::size_t j = 0; j < x_.totalSize; j++) {
@@ -1110,6 +1091,21 @@ public:
         return;
     }
 
+    void printValue2D() const
+    {
+        std::cout<<"[";
+        for (std::size_t i = 0; i < shape[0]; i++) {
+            for (std::size_t j = 0; j < shape[1]; j++) {
+                std::cout<<val[i*shape[1] + j];
+                if (i < totalSize - 1) {
+                    std::cout<<",";
+                }
+            }
+            std::cout<<std::endl;
+        }
+        std::cout<<"]"<<std::endl;
+        return;
+    }
     void printShape() const
     {
         std::cout<<"(";
@@ -1122,13 +1118,41 @@ public:
         std::cout<<")"<<std::endl;
         return;
     }
+
+    void save(const std::string &fileName) const
+    {
+        std::fstream file(fileName, std::ios::out);
+        if (!file.is_open()) {
+            return;
+        }
+        for (std::size_t i = 0; i < totalSize; i++) {
+            file<<val[i]<<" ";
+        }
+        std::cout<<std::endl;
+        file.close();
+        return;
+    }
+
+    void load(const std::string &fileName) const
+    {
+        std::fstream file(fileName, std::ios::in);
+        if (!file.is_open()) {
+            return;
+        }
+        for (std::size_t i = 0; i < totalSize; i++) {
+            file>>val[i];
+        }
+        file.close();
+        return;
+    }
 };
 
 using Tensorc  = Tensor_<char>;
+using Tensoru8 = Tensor_<unsigned char>;
 using Tensori  = Tensor_<int>;
 using Tensorf  = Tensor_<float>;
 using Tensord  = Tensor_<double>;
 using Tensor   = Tensorf;
 
-}
-#endif // TENSOR_HPP
+} // RL
+#endif // TENSOR_H

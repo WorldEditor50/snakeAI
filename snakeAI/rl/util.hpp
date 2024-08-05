@@ -188,6 +188,28 @@ inline Tensor cos(const Tensor& x)
     return y;
 }
 
+inline Tensor upTriangle(int rows, int cols)
+{
+    Tensor x(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = i + 1; j < cols; j++) {
+            x(i, j) = 1;
+        }
+    }
+    return x;
+}
+
+inline Tensor lowTriangle(int rows, int cols)
+{
+    Tensor x(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < i; j++) {
+            x(i, j) = 1;
+        }
+    }
+    return x;
+}
+
 /* exponential moving average */
 inline void lerp(Tensor &s, const Tensor s_, float r)
 {
