@@ -12,9 +12,9 @@
 #include "net.hpp"
 #include "rl_basic.h"
 #include "parameter.hpp"
+#include "annealing.hpp"
 
 namespace RL {
-
 
 class SAC
 {
@@ -45,6 +45,7 @@ protected:
     float exploringRate;
     int learningSteps;
     std::deque<Transition> memories;
+    ExpAnnealing annealing;
     GradValue alpha;
     Net actor;
     Net critic1Net;

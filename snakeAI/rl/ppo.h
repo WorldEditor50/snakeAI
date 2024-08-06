@@ -11,7 +11,8 @@
 #include <cstdlib>
 #include "net.hpp"
 #include "rl_basic.h"
-#include  "parameter.hpp"
+#include "parameter.hpp"
+#include "annealing.hpp"
 
 namespace RL {
 
@@ -39,6 +40,7 @@ protected:
     int learningSteps;
     float entropy0;
     GradValue alpha;
+    ExpAnnealing annealing;
     Net actorP;
     Net actorQ;
     Net critic;

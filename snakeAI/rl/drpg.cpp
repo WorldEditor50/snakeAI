@@ -68,7 +68,6 @@ void RL::DRPG::reinforce(std::vector<Step>& x, float learningRate)
         policyNet.gradient(x[i].state, x[i].action);
     }
     policyNet.RMSProp(learningRate, 0.9, 0.1);
-    policyNet.clamp(-1, 1);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.25 ? 0.25 : exploringRate;
     return;

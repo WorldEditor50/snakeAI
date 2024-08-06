@@ -1,6 +1,7 @@
 #include "sac.h"
 #include "layer.h"
 #include "loss.h"
+#include "attention.hpp"
 
 RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
 {
@@ -8,37 +9,26 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
+    annealing = ExpAnnealing(8e-3, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.08*std::log(0.08);
+
     actor = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
-                TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
-                Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
-                TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
                 Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 
-    int criticStateDim = stateDim;
-    critic1Net = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true, true),
+    critic1Net = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
-                     Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
+                     Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
+    critic2Net = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
                      Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
-    critic1TargetNet = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true, false),
-                           TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
-                           Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
+    critic1TargetNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
                            TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
                            Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
-
-    critic2Net = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true, true),
-                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
-                     Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
-                     TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
-                     Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
-
-    critic2TargetNet = Net(Layer<Tanh>::_(criticStateDim, hiddenDim, true, false),
-                           TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
-                           Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
+    critic2TargetNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
                            TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
                            Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
 
@@ -115,20 +105,17 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
     /* train policy net */
     {
         const Tensor &sampleProb = x.action;
-        const Tensor& prob = actor.forward(x.state);
-        //const Tensor &prob = x.action;
-        //int i = prob.argmax();
+        //const Tensor& prob = actor.forward(x.state);
         Tensor& q1 = critic1Net.forward(x.state);
         Tensor& q2 = critic2Net.forward(x.state);
         float q = std::min(q1[i], q2[i]);
-
         Tensor loss(actionDim, 1);
 #if 0
         /* importance sampling */
         float r = prob[i]/(sampleProb[i] + 1e-8);
         loss[i] = r*(0.9*q - alpha[i]*std::log(r) + std::log(sampleProb[i]));
 #else
-        loss[i] = prob[i]*(q - alpha[i]*std::log(prob[i]));
+        loss[i] = sampleProb[i]*(q - alpha[i]*std::log(sampleProb[i] + 1e-8));
 #endif
         actor.backward(loss);
         actor.gradient(x.state, loss);
@@ -160,7 +147,7 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    actor.RMSProp(1e-3, 0.9, 0.1);
+    actor.RMSProp(1e-3, 0.9, annealing.step());
     alpha.RMSProp(1e-4, 0.9, 0);
 #if 1
     std::cout<<"alpha:";
@@ -170,13 +157,13 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
     critic2Net.RMSProp(1e-3, 0.9, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
-        std::size_t k = memories.size() / 4;
+        std::size_t k = memories.size()/4;
         for (std::size_t i = 0; i < k; i++) {
             memories.pop_front();
         }
     }
     exploringRate *= 0.99999;
-    exploringRate = exploringRate < 0.2 ? 0.2 : exploringRate;
+    exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     learningSteps++;
     return;
 }

@@ -12,7 +12,7 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
     learningSteps = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
-
+    annealing = ExpAnnealing(8e-3, 0.1);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.08*std::log(0.08);
@@ -117,7 +117,7 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
     } else if (KLexpect <= delta / 1.5) {
         beta /= 2;
     }
-    actorP.RMSProp(learningRate, 0.9, 0.1);
+    actorP.RMSProp(learningRate, 0.9, annealing.step());
     critic.RMSProp(1e-3, 0.9, 0.01);
     /* update step */
     exploringRate *= 0.99999;
@@ -174,10 +174,9 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
         actorP.backward(Loss::CrossEntropy(p, q));
         actorP.gradient(trajectory[t].state, q);
     }
-    actorP.RMSProp(learningRate, 0.9, 0.1);
-    //actorP.clamp(-1, 1);
-    critic.RMSProp(1e-3, 0.9, 0.01);
-
+    float decay = annealing.step();
+    actorP.RMSProp(learningRate, 0.9, decay);
+    critic.RMSProp(1e-3, 0.9, 0.1*decay);
     alpha.RMSProp(1e-4, 0.9, 0);
 #if 1
     std::cout<<"alpha:";

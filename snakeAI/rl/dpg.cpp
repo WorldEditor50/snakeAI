@@ -9,6 +9,7 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
+    annealing = ExpAnnealing(4e-3, 0.1);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.08*std::log(0.08);
@@ -67,13 +68,12 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
         policyNet.gradient(x[i].state, x[i].action);
     }
     alpha.RMSProp(1e-4, 0.9, 0);
-#if 1
+#if 0
     std::cout<<"alpha:";
     alpha.val.printValue();
 #endif
-    policyNet.RMSProp(learningRate, 0.9, 0.1);
-    //policyNet.clamp(-1, 1);
-    exploringRate *= 0.9999;
+    policyNet.RMSProp(learningRate, 0.9, annealing.step());
+    exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;
 }
