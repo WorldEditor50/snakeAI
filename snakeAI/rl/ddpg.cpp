@@ -11,27 +11,19 @@ RL::DDPG::DDPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
     actionDim = actionDim_;
     /* actor: a = P(s, theta) */
     actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, true),
-                  Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, true),
-                  Layer<Softmax>::_(hiddenDim, actionDim, true, true));
+                 LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, true),
+                 Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 
     actorQ = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, false),
-                  Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
-                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, false),
-                  Layer<Softmax>::_(hiddenDim, actionDim, true, false));
+                 LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, false),
+                 Layer<Softmax>::_(hiddenDim, actionDim, true, false));
     actorP.copyTo(actorQ);
     /* critic: Q(S, A, α, β) = V(S, α) + A(S, A, β) */
     criticP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
-                  Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),
-                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
                   Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
     criticQ = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
-                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
-                  Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
                   TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
                   Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
     criticP.copyTo(criticQ);
@@ -53,6 +45,12 @@ RL::Tensor& RL::DDPG::noiseAction(const Tensor &state)
     return noise(out);
 }
 
+RL::Tensor &RL::DDPG::gumbelMax(const RL::Tensor &state)
+{
+    Tensor& out = actorP.forward(state);
+    return RL::gumbelSoftmax(out, exploringRate);
+}
+
 RL::Tensor& RL::DDPG::action(const Tensor &state)
 {
     return actorP.forward(state);
@@ -61,9 +59,8 @@ RL::Tensor& RL::DDPG::action(const Tensor &state)
 void RL::DDPG::experienceReplay(const Transition& x)
 {
     /* train critic */
-    std::size_t i = x.action.argmax();
     {
-        Tensor &ap = actorP.forward(x.state);
+        std::size_t i = x.action.argmax();
         Tensor ct = criticP.forward(x.state);
         if (x.done == true) {
             ct[i] = x.reward;
@@ -81,13 +78,13 @@ void RL::DDPG::experienceReplay(const Transition& x)
     /* train actor */
     {
         Tensor &ap = actorP.forward(x.state);
-        const Tensor &aq = x.action;
         Tensor& q = criticP.forward(x.state);
-        Tensor at(actionDim, 1);
-        float r = ap[i]/(aq[i]+ 1e-8);
-        at[i] = r*q[i];
-        actorP.backward(Loss::CrossEntropy(ap, at));
-        actorP.gradient(x.state, at);
+        Tensor loss(actionDim, 1);
+        for (std::size_t i = 0; i < actionDim; i++) {
+            loss[i] =ap[i]*q[i];
+        }
+        actorP.backward(loss);
+        actorP.gradient(x.state, loss);
     }
 
     return;
@@ -115,7 +112,7 @@ void RL::DDPG::learn(std::size_t maxMemorySize,
         int k = distribution(Random::engine);
         experienceReplay(memories[k]);
     }
-    actorP.RMSProp(0.9, 1e-3, 0.1);
+    actorP.RMSProp(0.9, 1e-2, 0.1);
     criticP.RMSProp(0.9, 1e-3, 0);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
@@ -126,7 +123,7 @@ void RL::DDPG::learn(std::size_t maxMemorySize,
     }
     /* update step */
     exploringRate = exploringRate * 0.99999;
-    exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
+    exploringRate = exploringRate < 0.2 ? 0.2 : exploringRate;
     learningSteps++;
     return;
 }

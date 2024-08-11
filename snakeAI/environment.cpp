@@ -256,21 +256,34 @@ float Environment::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
 float Environment::reward2(const RL::Tensor &map_, int xi, int yi, int xn, int yn, int xt, int yt)
 {
     /* count blocks */
-    float u = 0;
-    int radius = 9;
+    int radius = 8;
+    float u2 = 0;
+    if (xn - radius >= 0 && yn - radius >= 0 &&
+            xn + radius < map_.shape[0] && yn + radius < map_.shape[1]) {
+        RL::Tensor window = map_.block({xn - radius, yn - radius},
+                                        {2*radius, 2*radius});
+        for (std::size_t i = 0; i < window.totalSize; i++) {
+            if (window[i] == OBJ_BLOCK) {
+                u2 += 1;
+            }
+        }
+        u2 /= window.totalSize;
+    }
+    float u1 = 0;
     if (xi - radius >= 0 && yi - radius >= 0 &&
             xi + radius < map_.shape[0] && yi + radius < map_.shape[1]) {
         RL::Tensor window = map_.block({xi - radius, yi - radius},
-                                        {2*radius + 1, 2*radius + 1});
+                                        {2*radius, 2*radius});
         for (std::size_t i = 0; i < window.totalSize; i++) {
             if (window[i] == OBJ_BLOCK) {
-                u += 1;
+                u1 += 1;
             }
         }
-        u /= window.totalSize;
+        u1 /= window.totalSize;
     }
-    float r = reward0(xi, yi, xn, yn, xt, yt);
-    return r*(1 - u);
+    float r1 = reward0(xi, yi, xn, yn, xt, yt);
+    float r2 = (1 - u2)/(1 - u1);
+    return r1*r2;
 }
 
 float Environment::reward3(int xi, int yi, int xn, int yn, int xt, int yt)

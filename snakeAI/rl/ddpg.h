@@ -18,7 +18,6 @@ class DDPG
 {
 public:
     DDPG(){}
-    ~DDPG(){}
     explicit DDPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
     void perceive(const Tensor& state,
                   const Tensor& action,
@@ -26,6 +25,7 @@ public:
                   float reward,
                   bool done);
     Tensor& noiseAction(const Tensor &state);
+    Tensor& gumbelMax(const RL::Tensor &state);
     Tensor& action(const Tensor& state);
     void experienceReplay(const Transition& x);
     void learn(std::size_t maxMemorySize = 4096,

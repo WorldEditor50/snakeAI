@@ -28,7 +28,7 @@ MainWindow::MainWindow(QWidget *parent)
             ui->gamewidget, &GameWidget::setTrainAgent);
     connect(ui->blocksCheckBox, &QCheckBox::clicked,
             this, [=](){
-        ui->gamewidget->setBlocks(200);
+        ui->gamewidget->setBlocks(100);
     });
     /* show reward */
     statisticalWidget = new AxisWidget;

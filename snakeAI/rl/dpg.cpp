@@ -12,7 +12,7 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     annealing = ExpAnnealing(0.01, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = -0.08*std::log(0.08);
+    entropy0 = -0.12*std::log(0.12);
 #if 0
     policyNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
@@ -67,8 +67,8 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
         policyNet.backward(Loss::CrossEntropy(out, x[i].action));
         policyNet.gradient(x[i].state, x[i].action);
     }
-    alpha.RMSProp(1e-4, 0.9, 0);
-#if 0
+    alpha.RMSProp(1e-5, 0.9, 0);
+#if 1
     std::cout<<"alpha:";
     alpha.val.printValue();
 #endif

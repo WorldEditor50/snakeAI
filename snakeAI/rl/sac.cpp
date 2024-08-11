@@ -12,7 +12,7 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     annealing = ExpAnnealing(0.01, 0.12, 1e-4);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = -0.08*std::log(0.08);
+    entropy0 = -0.12*std::log(0.12);
 
     actor = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                 LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),

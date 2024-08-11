@@ -9,12 +9,13 @@ RL::ConvPG::ConvPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t act
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
+    annealing = ExpAnnealing(0.01, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.05*std::log(0.05);
     policyNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, true),
                     MaxPooling2d::_(4, 24, 24, 2, 2),
-                    Conv2d<Sigmoid>::_(4, 12, 12, 8, 3, 3, 0, true, true),
+                    Conv2d<Tanh>::_(4, 12, 12, 8, 3, 3, 0, true, true),
                     MaxPooling2d::_(8, 4, 4, 2, 2),
                     Layer<Sigmoid>::_(8*2*2, hiddenDim, true, true),
                     LayerNorm<Tanh, LN::Post>::_(hiddenDim, hiddenDim, true, true),
@@ -67,7 +68,7 @@ void RL::ConvPG::reinforce(std::vector<Step>& x, float learningRate)
     std::cout<<"alpha:";
     alpha.val.printValue();
 #endif
-    policyNet.RMSProp(learningRate, 0.9, 0.1);
+    policyNet.RMSProp(learningRate, 0.9, annealing.step());
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;

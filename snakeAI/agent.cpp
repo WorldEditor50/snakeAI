@@ -315,7 +315,7 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
     if (trainFlag == true) {
         /* exploring environment */
         float total = 0;
-        for (std::size_t i = 0; i < 128; i++) {
+        for (std::size_t i = 0; i < 32; i++) {
             int xi = xn;
             int yi = yn;
             /* sample */
@@ -341,7 +341,7 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        convdqn.learn(8092, 256, 64, 1e-3);
+        convdqn.learn(4096, 256, 16, 1e-3);
     }
     /* making decision */
     RL::Tensor& a = convdqn.action(state_);
@@ -362,8 +362,8 @@ int Agent::ddpgAction(int x, int y, int xt, int yt, float &totalReward)
         for (std::size_t i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
-            RL::Tensor & a = ddpg.noiseAction(state);
-            int k = a.argmax();
+            RL::Tensor & a = ddpg.gumbelMax(state);
+            int k = RL::Random::categorical(a);
             simulateMove(xn, yn, k);
             r = env.reward0(xi, yi, xn, yn, xt, yt);
             total += r;
@@ -447,6 +447,7 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
             int k = RL::Random::categorical(a);
             simulateMove(xn, yn, k);
             float r = env.reward0(xi, yi, xn, yn, xt, yt);
+            //float r = env.reward2(env.map, xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (env.map(xn, yn) == OBJ_BLOCK) {
