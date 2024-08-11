@@ -9,7 +9,7 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    annealing = ExpAnnealing(4e-3, 0.1);
+    annealing = ExpAnnealing(0.01, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.08*std::log(0.08);

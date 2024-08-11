@@ -26,8 +26,9 @@ public:
 
 class ExpAnnealing
 {
-private:
+public:
     float val;
+private:
     float minVal;
     float maxVal;
     float r;

@@ -9,7 +9,7 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    annealing = ExpAnnealing(8e-3, 0.12);
+    annealing = ExpAnnealing(0.01, 0.12, 1e-4);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.08*std::log(0.08);
@@ -73,9 +73,9 @@ RL::Tensor& RL::SAC::action(const RL::Tensor &state)
 
 void RL::SAC::experienceReplay(const RL::Transition &x)
 {
-    std::size_t i = x.action.argmax();
     /* train critic net */
     {
+        std::size_t i = x.action.argmax();
         /* select action */
         Tensor& nextProb = actor.forward(x.nextState);
         std::size_t k = nextProb.argmax();
@@ -91,6 +91,7 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         } else {
             qTarget = x.reward + gamma*nextValue;
         }
+
         Tensor out1 = critic1Net.forward(x.state);
         Tensor qTarget1 = out1;
         qTarget1[i] = qTarget;
@@ -104,25 +105,21 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
     }
     /* train policy net */
     {
-        const Tensor &sampleProb = x.action;
-        //const Tensor& prob = actor.forward(x.state);
+        const Tensor& prob = actor.forward(x.state);
         Tensor& q1 = critic1Net.forward(x.state);
         Tensor& q2 = critic2Net.forward(x.state);
-        float q = std::min(q1[i], q2[i]);
         Tensor loss(actionDim, 1);
-#if 0
-        /* importance sampling */
-        float r = prob[i]/(sampleProb[i] + 1e-8);
-        loss[i] = r*(0.9*q - alpha[i]*std::log(r) + std::log(sampleProb[i]));
-#else
-        loss[i] = sampleProb[i]*(q - alpha[i]*std::log(sampleProb[i] + 1e-8));
-#endif
+        for (int i = 0; i < actionDim; i++) {
+            float q = std::min(q1[i], q2[i]);
+            loss[i] = prob[i]*(q - alpha[i]*std::log(prob[i] + 1e-8));
+        }
         actor.backward(loss);
         actor.gradient(x.state, loss);
     }
     /* alpha */
     {
         const Tensor& prob = x.action;
+        std::size_t i = prob.argmax();
         alpha.g[i] += -prob[i]*std::log(prob[i] + 1e-8) - entropy0;
     }
     return;
@@ -138,7 +135,7 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         std::cout<<"update target net"<<std::endl;
         /* update */
         critic1Net.softUpdateTo(critic1TargetNet, 1e-3);
-        critic2Net.softUpdateTo(critic2TargetNet, 2e-3);
+        critic2Net.softUpdateTo(critic2TargetNet, 1e-3);
         learningSteps = 0;
     }
     /* experience replay */
@@ -147,10 +144,10 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
-    actor.RMSProp(1e-3, 0.9, annealing.step());
-    alpha.RMSProp(1e-4, 0.9, 0);
+    actor.RMSProp(1e-2, 0.9, annealing.step());
+    alpha.RMSProp(1e-5, 0.9, 0);
 #if 1
-    std::cout<<"alpha:";
+    std::cout<<"annealing:"<<annealing.val<<",alpha:";
     alpha.val.printValue();
 #endif
     critic1Net.RMSProp(1e-3, 0.9, 0);
@@ -163,7 +160,7 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         }
     }
     exploringRate *= 0.99999;
-    exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
+    exploringRate = exploringRate < 0.3 ? 0.3 : exploringRate;
     learningSteps++;
     return;
 }

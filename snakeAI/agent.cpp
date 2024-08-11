@@ -446,7 +446,7 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
             //int k = a.argmax();
             int k = RL::Random::categorical(a);
             simulateMove(xn, yn, k);
-            float r = env.reward3(xi, yi, xn, yn, xt, yt);
+            float r = env.reward0(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (env.map(xn, yn) == OBJ_BLOCK) {
@@ -467,7 +467,7 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
     }
     /* making decision */
     RL::Tensor& a = sac.action(state_);
-    a.printValue();
+    //a.printValue();
     return a.argmax();
 }
 

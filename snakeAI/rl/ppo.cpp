@@ -12,7 +12,7 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
     learningSteps = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    annealing = ExpAnnealing(8e-3, 0.1);
+    annealing = ExpAnnealing(0.01, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.08*std::log(0.08);
