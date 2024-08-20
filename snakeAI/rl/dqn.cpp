@@ -7,7 +7,6 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
 {
     gamma = 0.99;
     exploringRate = 1;
-    totalReward = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
 #if 0
@@ -133,13 +132,13 @@ void RL::DQN::learn(std::size_t maxMemorySize,
 
 void RL::DQN::save(const std::string &fileName)
 {
-    //QMainNet.save(fileName);
+    QMainNet.save(fileName);
     return;
 }
 
 void RL::DQN::load(const std::string &fileName)
 {
-    //QMainNet.load(fileName);
-    //QMainNet.copyTo(QTargetNet);
+    QMainNet.load(fileName);
+    QMainNet.copyTo(QTargetNet);
     return;
 }

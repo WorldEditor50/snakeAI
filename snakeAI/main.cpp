@@ -14,10 +14,7 @@ int main(int argc, char *argv[])
     w.show();
     return a.exec();
 #else
-    //BPNN::test();
-    //Conv2D::test();
-    //Tensorrix::test();
-    //Tensor::test();
+    RL::LSTM::test();
     return 0;
 #endif
 }

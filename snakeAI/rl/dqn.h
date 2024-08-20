@@ -18,7 +18,6 @@ class DQN
 public:
     DQN(){}
     explicit DQN(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
-    ~DQN(){}
     void perceive(const Tensor& state,
                   const Tensor& action,
                   const Tensor& nextState,
@@ -39,7 +38,6 @@ protected:
     std::size_t actionDim;
     float gamma;
     float exploringRate;
-    float totalReward;
     int learningSteps;
     Net QMainNet;
     Net QTargetNet;

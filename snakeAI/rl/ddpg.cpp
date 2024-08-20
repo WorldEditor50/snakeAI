@@ -130,16 +130,16 @@ void RL::DDPG::learn(std::size_t maxMemorySize,
 
 void RL::DDPG::save(const std::string& actorPara, const std::string& criticPara)
 {
-    //actorP.save(actorPara);
-    //criticP.save(criticPara);
+    actorP.save(actorPara);
+    criticP.save(criticPara);
     return;
 }
 
 void RL::DDPG::load(const std::string& actorPara, const std::string& criticPara)
 {
-    //actorP.load(actorPara);
-    //actorP.copyTo(actorQ);
-    //criticP.load(criticPara);
-    //criticP.copyTo(criticQ);
+    actorP.load(actorPara);
+    actorP.copyTo(actorQ);
+    criticP.load(criticPara);
+    criticP.copyTo(criticQ);
     return;
 }

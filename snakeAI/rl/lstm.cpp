@@ -81,16 +81,16 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Tensor &x, const RL::Tensor &_h,
         yt = linear(W*ht + b)
     */
     State state(hiddenDim, outputDim);
-    for (std::size_t i = 0; i < wi.shape[0]; i++) {
-        for (std::size_t j = 0; j < wi.shape[1]; j++) {
+    for (int i = 0; i < wi.shape[0]; i++) {
+        for (int j = 0; j < wi.shape[1]; j++) {
             state.f[i] += wf(i, j) * x[j];
             state.i[i] += wi(i, j) * x[j];
             state.g[i] += wg(i, j) * x[j];
             state.o[i] += wo(i, j) * x[j];
         }
     }
-    for (std::size_t i = 0; i < ui.shape[0]; i++) {
-        for (std::size_t j = 0; j < ui.shape[1]; j++) {
+    for (int i = 0; i < ui.shape[0]; i++) {
+        for (int j = 0; j < ui.shape[1]; j++) {
             state.f[i] += uf(i, j) * _h[j];
             state.i[i] += ui(i, j) * _h[j];
             state.g[i] += ug(i, j) * _h[j];
@@ -106,11 +106,11 @@ RL::LSTM::State RL::LSTM::feedForward(const RL::Tensor &x, const RL::Tensor &_h,
         state.h[i] = state.o[i] * Tanh::f(state.c[i]);
     }
 
-    for (std::size_t i = 0; i < w.shape[0]; i++) {
-        for (std::size_t j = 0; j < w.shape[1]; j++) {
+    for (int i = 0; i < w.shape[0]; i++) {
+        for (int j = 0; j < w.shape[1]; j++) {
             state.y[i] += w(i, j) * state.h[j];
         }
-        state.y[i] = Linear::f(state.y[i] + b[i]);
+        state.y[i] = Tanh::f(state.y[i] + b[i]);
     }
     return state;
 }
@@ -159,11 +159,12 @@ void RL::LSTM::backwardAtTime(int t,
         delta.f[i] = delta.c[i] * _c[i] * Sigmoid::df(states[t].f[i]);
     }
     /* gradient */
-    for (std::size_t i = 0; i < w.shape[0]; i++) {
-        for (std::size_t j = 0; j < w.shape[1]; j++) {
-            g.w(i, j) += E[i] * states[t].y[i] * states[t].h[j];
+    for (int i = 0; i < w.shape[0]; i++) {
+        float error = E[i] * Tanh::df(states[t].y[i]);
+        for (int j = 0; j < w.shape[1]; j++) {
+            g.w(i, j) += error * states[t].h[j];
         }
-        g.b[i] += E[i] * states[t].y[i];
+        g.b[i] += error;
     }
 
     Tensor::MM::ikjk(g.wi, delta.i, x);
@@ -234,23 +235,23 @@ void RL::LSTM::RMSProp(float lr, float rho, float decay, bool clipGrad)
     backward(cacheX, cacheE);
     cacheX.clear();
     cacheE.clear();
-    Optimize::RMSProp(w, s.w, g.w, lr, rho, decay);
-    Optimize::RMSProp(b, s.b, g.b, lr, rho, decay);
+    Optimize::RMSProp(w, s.w, g.w, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(b, s.b, g.b, lr, rho, decay, clipGrad);
 
-    Optimize::RMSProp(wi, s.wi, g.wi, lr, rho, decay);
-    Optimize::RMSProp(wg, s.wg, g.wg, lr, rho, decay);
-    Optimize::RMSProp(wf, s.wf, g.wf, lr, rho, decay);
-    Optimize::RMSProp(wo, s.wo, g.wo, lr, rho, decay);
+    Optimize::RMSProp(wi, s.wi, g.wi, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(wg, s.wg, g.wg, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(wf, s.wf, g.wf, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(wo, s.wo, g.wo, lr, rho, decay, clipGrad);
 
-    Optimize::RMSProp(ui, s.ui, g.ui, lr, rho, decay);
-    Optimize::RMSProp(ug, s.ug, g.ug, lr, rho, decay);
-    Optimize::RMSProp(uf, s.uf, g.uf, lr, rho, decay);
-    Optimize::RMSProp(uo, s.uo, g.uo, lr, rho, decay);
+    Optimize::RMSProp(ui, s.ui, g.ui, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(ug, s.ug, g.ug, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(uf, s.uf, g.uf, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(uo, s.uo, g.uo, lr, rho, decay, clipGrad);
 
-    Optimize::RMSProp(bi, s.bi, g.bi, lr, rho, decay);
-    Optimize::RMSProp(bg, s.bg, g.bg, lr, rho, decay);
-    Optimize::RMSProp(bf, s.bf, g.bf, lr, rho, decay);
-    Optimize::RMSProp(bo, s.bo, g.bo, lr, rho, decay);
+    Optimize::RMSProp(bi, s.bi, g.bi, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(bg, s.bg, g.bg, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(bf, s.bf, g.bf, lr, rho, decay, clipGrad);
+    Optimize::RMSProp(bo, s.bo, g.bo, lr, rho, decay, clipGrad);
 
     g.zero();
     return;
@@ -347,6 +348,64 @@ void RL::LSTM::softUpdateTo(iLayer *layer, float rho)
     RL::lerp(dst.bo, bo, rho);
     RL::lerp(dst.w, w, rho);
     RL::lerp(dst.b, b, rho);
+    return;
+}
+
+void RL::LSTM::write(std::ofstream &file)
+{
+    /* input gate */
+    file<<wi.toString()<<std::endl;
+    file<<ui.toString()<<std::endl;
+    file<<bi.toString()<<std::endl;
+    /* generate */
+    file<<wg.toString()<<std::endl;
+    file<<ug.toString()<<std::endl;
+    file<<bg.toString()<<std::endl;
+    /* forget gate */
+    file<<wf.toString()<<std::endl;
+    file<<uf.toString()<<std::endl;
+    file<<bf.toString()<<std::endl;
+    /* output gate */
+    file<<wo.toString()<<std::endl;
+    file<<uo.toString()<<std::endl;
+    file<<bo.toString()<<std::endl;
+    /* predict */
+    file<<w.toString()<<std::endl;
+    file<<b.toString()<<std::endl;
+    return;
+}
+
+void RL::LSTM::read(std::ifstream &file)
+{
+    auto parse = [](std::ifstream &file, Tensor &w, Tensor &u, Tensor &b)->void
+    {
+        std::string ws;
+        std::getline(file, ws);
+        w = Tensor::fromString(ws);
+        std::string us;
+        std::getline(file, us);
+        u = Tensor::fromString(ws);
+        std::string bs;
+        std::getline(file, bs);
+        b = Tensor::fromString(bs);
+    };
+    /* input gate */
+    parse(file, wi, ui, bi);
+    /* generate */
+    parse(file, wg, ug, bg);
+    /* forget gate */
+    parse(file, wf, uf, bf);
+    /* output gate */
+    parse(file, wo, uo, bf);
+    /* predict */
+    {
+        std::string ws;
+        std::getline(file, ws);
+        w = Tensor::fromString(ws);
+        std::string bs;
+        std::getline(file, bs);
+        b = Tensor::fromString(bs);
+    }
     return;
 }
 

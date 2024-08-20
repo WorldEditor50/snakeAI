@@ -21,13 +21,12 @@ Agent::Agent(Environment& env_, Snake &s):
     convdqn = RL::ConvDQN(stateDim, 16, 4);
     state = RL::Tensor(stateDim, 1);
     nextState = RL::Tensor(stateDim, 1);
-#if 0
     dqn.load("./dqn");
     dpg.load("./dpg");
     ddpg.load("./ddpg_actor", "./ddpg_critic");
     bpnn.load("./bpnn");
     ppo.load("./ppo_actor", "./ppo_critic");
-#endif
+    sac.load();
 }
 
 Agent::~Agent()
@@ -37,6 +36,7 @@ Agent::~Agent()
     ddpg.save("./ddpg_actor", "./ddpg_critic");
     //bpnn.save("./bpnn");
     ppo.save("./ppo_actor", "./ppo_critic");
+    sac.save();
 }
 
 

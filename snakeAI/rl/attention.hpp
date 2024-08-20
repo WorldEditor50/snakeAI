@@ -118,6 +118,9 @@ public:
         wq = Tensor(outputDim, inputDim);
         wk = Tensor(outputDim, inputDim);
         wv = Tensor(outputDim, inputDim);
+        Random::uniform(wq, -1, 1);
+        Random::uniform(wk, -1, 1);
+        Random::uniform(wv, -1, 1);
         q = Tensor(outputDim, 1);
         k = Tensor(outputDim, 1);
         v = Tensor(outputDim, 1);
@@ -161,9 +164,8 @@ public:
 
     void backward(Tensor &ei) override
     {
-        Tensor::MM::kikj(ei, wq, e);
-        Tensor::MM::kikj(ei, wk, e);
-        Tensor::MM::kikj(ei, wv, e);
+        Tensor w = wq + wk + wv;
+        Tensor::MM::kikj(ei, w, e);
         return;
     }
 
@@ -190,20 +192,22 @@ public:
         float d = std::sqrt(outputDim);
         /* softmax jacobian */
         Tensor J = Softmax::jacobian(z);
+        /* dSoftmax(z)*(v*k^T/d) */
         Tensor vk(outputDim, outputDim);
         Tensor::MM::ikjk(vk, v, k);
         Tensor jvk(outputDim*outputDim, 1);
         vk.reshape(outputDim*outputDim, 1);
         Tensor::MM::ikkj(jvk, J, vk);
-
+        jvk /= d;
+        /* dSoftmax(z)*(v*q^T/d) */
         Tensor vq(outputDim, outputDim);
         Tensor::MM::ikjk(vq, v, q);
         Tensor jvq(outputDim*outputDim, 1);
         vq.reshape(outputDim*outputDim, 1);
         Tensor::MM::ikkj(jvq, J, vq);
-
         jvq /= d;
-        jvk /= d;
+
+        /* do/dWq, do/dWk, do/dWv */
         Tensor dWq(outputDim, 1);
         Tensor dWk(outputDim, 1);
         Tensor dWv(outputDim, 1);
@@ -219,7 +223,7 @@ public:
         Tensor::MM::ikjk(g.wq, dWq, x);
         Tensor::MM::ikjk(g.wk, dWk, x);
         Tensor::MM::ikjk(g.wv, dWv, x);
-
+        /* zero */
         q.zero();
         k.zero();
         v.zero();
@@ -229,11 +233,11 @@ public:
         return;
     }
 
-    void SGD(float learningRate) override
+    void SGD(float lr) override
     {
-        Optimize::SGD(wq, g.wq, learningRate);
-        Optimize::SGD(wk, g.wk, learningRate);
-        Optimize::SGD(wv, g.wv, learningRate);
+        Optimize::SGD(wq, g.wq, lr);
+        Optimize::SGD(wk, g.wk, lr);
+        Optimize::SGD(wv, g.wv, lr);
         g.zero();
         return;
     }
@@ -288,6 +292,30 @@ public:
          lerp(pLayer->wv, wv, alpha);
          return;
      }
+
+     virtual void write(std::ofstream &file) override
+     {
+         /* w */
+         file<<wq.toString()<<std::endl;
+         file<<wk.toString()<<std::endl;
+         file<<wv.toString()<<std::endl;
+         return;
+     }
+
+     virtual void read(std::ifstream &file) override
+     {
+         /* w */
+         std::string wqs;
+         std::getline(file, wqs);
+         wq = Tensor::fromString(wqs);
+         std::string wks;
+         std::getline(file, wks);
+         wk = Tensor::fromString(wks);
+         std::string wvs;
+         std::getline(file, wvs);
+         wv = Tensor::fromString(wvs);
+         return;
+     }
 };
 
 template<int N>
@@ -331,6 +359,9 @@ public:
         w1 = Tensor(outputDim, outputDim);
         w2 = Tensor(outputDim, inputDim);
         b = Tensor(outputDim, 1);
+        Random::uniform(w1, -1, 1);
+        Random::uniform(w2, -1, 1);
+        Random::uniform(b, -1, 1);
         for (int i = 0; i < N; i++) {
             dotProduct[i] = ScaledDotProduct(inputDim, unitDim, withGrad);
         }
@@ -370,9 +401,16 @@ public:
 
     void backward(Tensor &ei) override
     {
+        Tensor::MM::kikj(ei, w2, e);
+        Tensor es(e.shape);
         for (int i = 0; i < N; i++) {
-            dotProduct[i].backward(ei);
+            Tensor esi(unitDim, 1);
+            dotProduct[i].backward(esi);
+            for (int j = 0; j < unitDim; j++) {
+                es[unitDim*i + j] += esi[j];
+            }
         }
+        Tensor::MM::kikj(ei, w1, es);
         return;
     }
 
@@ -482,6 +520,37 @@ public:
          return;
      }
 
+     virtual void write(std::ofstream &file) override
+     {
+         /* w */
+         file<<w1.toString()<<std::endl;
+         file<<w2.toString()<<std::endl;
+         /* b */
+         file<<b.toString()<<std::endl;
+         for (int i = 0; i < N; i++) {
+             dotProduct[i].write(file);
+         }
+         return;
+     }
+
+     virtual void read(std::ifstream &file) override
+     {
+         /* w */
+         std::string w1s;
+         std::getline(file, w1s);
+         w1 = Tensor::fromString(w1s);
+         std::string w2s;
+         std::getline(file, w2s);
+         w2 = Tensor::fromString(w2s);
+         std::string bs;
+         std::getline(file, bs);
+         b = Tensor::fromString(bs);
+
+         for (int i = 0; i < N; i++) {
+             dotProduct[i].read(file);
+         }
+         return;
+     }
 };
 }
 #endif // ATTENTION_HPP

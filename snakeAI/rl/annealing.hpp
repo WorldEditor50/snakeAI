@@ -6,6 +6,8 @@ namespace RL {
 
 class CosineAnnealing
 {
+public:
+    float val;
 private:
     float minVal;
     float maxVal;
@@ -17,7 +19,6 @@ public:
         :minVal(minVal_),maxVal(maxVal_),epoch(0),maxEpoch(maxEpoch_){}
     float step()
     {
-        float val = 0;
         val = minVal + 0.5*(maxVal - minVal)*(1 + std::cos(pi*epoch/float(maxEpoch)));
         epoch = (epoch + 1)%maxEpoch;
         return val;
@@ -59,8 +60,7 @@ public:
         :minVal(minVal_),maxVal(maxVal_),T(T_),t(0),maxT(maxT_){}
     float step()
     {
-        float x = std::log(t);
-        float val = minVal + (maxVal - minVal)*std::exp(-0.5*x*x/T);
+        float val = minVal + (maxVal - minVal)*std::tanh(std::exp(-t)*std::cos(t*T));
         t = t < maxT ? t + 1: maxT;
         std::cout<<"annealing:"<<val<<std::endl;
         return val;

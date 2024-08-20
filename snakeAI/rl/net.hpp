@@ -1,6 +1,7 @@
 #ifndef NET_HPP
 #define NET_HPP
 #include <memory>
+#include <fstream>
 #include "tensor.hpp"
 #include "ilayer.h"
 
@@ -130,6 +131,30 @@ public:
             layers[i]->softUpdateTo(dstNet.layers[i].get(), alpha);
         }
         return;
+    }
+
+    int save(const std::string &fileName) const
+    {
+        std::ofstream file(fileName);
+        if (!file.is_open()) {
+            return -1;
+        }
+        for (std::size_t i = 0; i < layers.size(); i++) {
+            layers[i]->write(file);
+        }
+        return 0;
+    }
+
+    int load(const std::string &fileName)
+    {
+        std::ifstream file(fileName);
+        if (!file.is_open()) {
+            return -1;
+        }
+        for (std::size_t i = 0; i < layers.size(); i++) {
+            layers[i]->read(file);
+        }
+        return 0;
     }
 };
 

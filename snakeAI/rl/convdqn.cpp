@@ -10,16 +10,16 @@ RL::ConvDQN::ConvDQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t a
     totalReward = 0;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    QMainNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, true),
+    QMainNet = Net(Conv2d<Sigmoid>::_(1, 118, 118, 4, 5, 5, 1, true, true),
                    MaxPooling2d::_(4, 24, 24, 2, 2),
-                   Conv2d<Tanh>::_(4, 12, 12, 8, 3, 3, 0, true, true),
+                   Conv2d<Sigmoid>::_(4, 12, 12, 8, 3, 3, 0, true, true),
                    MaxPooling2d::_(8, 4, 4, 2, 2),
                    Layer<Sigmoid>::_(8*2*2, hiddenDim, true, true),
                    Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
-    QTargetNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, false),
+    QTargetNet = Net(Conv2d<Sigmoid>::_(1, 118, 118, 4, 5, 5, 1, true, false),
                      MaxPooling2d::_(4, 24, 24, 2, 2),
-                     Conv2d<Tanh>::_(4, 12, 12, 8, 3, 3, 0, true, false),
+                     Conv2d<Sigmoid>::_(4, 12, 12, 8, 3, 3, 0, true, false),
                      MaxPooling2d::_(8, 4, 4, 2, 2),
                      Layer<Sigmoid>::_(8*2*2, hiddenDim, true, false),
                      Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));

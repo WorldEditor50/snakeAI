@@ -294,6 +294,28 @@ public:
         }
         return;
     }
+
+    virtual void write(std::ofstream &file) override
+    {
+        /* kernels */
+        file<<kernels.toString()<<std::endl;
+        /* b */
+        file<<b.toString()<<std::endl;
+        return;
+    }
+
+    virtual void read(std::ifstream &file) override
+    {
+        /* kernels */
+        std::string ws;
+        std::getline(file, ws);
+        kernels = Tensor::fromString(ws);
+        /* b */
+        std::string bs;
+        std::getline(file, bs);
+        b = Tensor::fromString(bs);
+        return;
+    }
 };
 
 class MaxPooling2d: public iConv2d

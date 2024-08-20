@@ -42,6 +42,8 @@ public:
     virtual void clamp(float c0, float cn){}
     virtual void copyTo(iLayer* layer){}
     virtual void softUpdateTo(iLayer* layer, float alpha){}
+    virtual void write(std::ofstream &file){}
+    virtual void read(std::ifstream &file){}
 };
 
 }

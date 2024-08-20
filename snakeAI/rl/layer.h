@@ -150,6 +150,28 @@ public:
         }
         return;
     }
+
+    virtual void write(std::ofstream &file) override
+    {
+        /* w */
+        file<<w.toString()<<std::endl;
+        /* b */
+        file<<b.toString()<<std::endl;
+        return;
+    }
+
+    virtual void read(std::ifstream &file) override
+    {
+        /* w */
+        std::string ws;
+        std::getline(file, ws);
+        w = Tensor::fromString(ws);
+        /* b */
+        std::string bs;
+        std::getline(file, bs);
+        b = Tensor::fromString(bs);
+        return;
+    }
 };
 
 template<typename Fn>
@@ -447,7 +469,7 @@ public:
     {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            float error = Fn::d(o[i])*e[i];
+            float error = Fn::df(o[i])*e[i];
             float d = (op[i] - u)*gamma;
             dy[i] = (1.0 - 1.0/float(outputDim))*(1 - d*d)*gamma*error;
             if (bias) {
@@ -472,7 +494,6 @@ public:
     Tensor op;
 public:
     LayerNorm(){}
-    ~LayerNorm(){}
     explicit LayerNorm(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
         :iFcLayer(inputDim, outputDim, bias_, withGrad_), gamma(1)
     {
@@ -738,44 +759,6 @@ public:
     }
 
 };
-
-class Concat : public iFcLayer
-{
-public:
-    Tensor x_;
-public:
-    Concat(){}
-    explicit Concat(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
-        :iFcLayer(inputDim, outputDim, bias_, withGrad_)
-    {
-
-    }
-
-    static std::shared_ptr<Concat> _(std::size_t inputDim,
-                                     std::size_t outputDim,
-                                     bool bias,
-                                     bool withGrad)
-    {
-        return std::make_shared<Concat>(inputDim, outputDim, bias, withGrad);
-    }
-    Tensor& forward(const RL::Tensor &x, bool inference=false) override
-    {
-        return o;
-    }
-
-    void backward(Tensor &ei) override
-    {
-
-        return;
-    }
-
-    void gradient(const Tensor& x, const Tensor&) override
-    {
-
-        return;
-    }
-};
-
 
 }
 #endif // LAYER_H

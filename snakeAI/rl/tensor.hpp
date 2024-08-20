@@ -4,9 +4,11 @@
 #include <vector>
 #include <functional>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <iostream>
 #include <assert.h>
+
 namespace RL {
 
 template<typename T, template<typename Ti> class Alloc=std::allocator>
@@ -284,6 +286,11 @@ public:
         }
     }
 
+    explicit Tensor_(T x):
+        totalSize(1),shape({1, 1}),val({x})
+    {
+        initParams(shape, sizes, totalSize);
+    }
     /* construct with shape */
     template<typename ...Dim>
     explicit Tensor_(Dim ...dim):totalSize(1),shape({int(dim)...})
@@ -681,6 +688,21 @@ public:
         Tensor_ y(shape);
         for (std::size_t i = 0; i < val.size(); i++) {
             y.val[i] = val[i] / x.val[i];
+        }
+        return y;
+    }
+
+    Tensor_ operator %(const Tensor_ &x) const
+    {
+        Tensor_ y(shape[0], x.shape[1]);
+        for (std::size_t i = 0; i < y.shape[0]; i++) {
+            for (std::size_t k = 0; k < shape[1]; k++) {
+                T vik = val[posOf(i, k)];
+                for (std::size_t j = 0; j < y.shape[1]; j++) {
+                    /* y(i, j) = val(i, k) * x(k, j) */
+                    y(i, j) += vik*x(k, j);
+                }
+            }
         }
         return y;
     }
@@ -1119,31 +1141,69 @@ public:
         return;
     }
 
-    void save(const std::string &fileName) const
+    std::string toString() const
     {
-        std::fstream file(fileName, std::ios::out);
-        if (!file.is_open()) {
-            return;
+        /*
+           shape|val
+           1, 2, 3|4, 5, 2, 1, 8, 5
+        */
+        std::stringstream stream;
+        for (std::size_t i = 0; i < shape.size(); i++) {
+            stream<<shape[i];
+            if (i != shape.size() - 1) {
+                stream<<",";
+            } else {
+                stream<<"|";
+            }
         }
-        for (std::size_t i = 0; i < totalSize; i++) {
-            file<<val[i]<<" ";
+        for (std::size_t i = 0; i < val.size(); i++) {
+            stream<<val[i];
+            if (i < val.size() - 1) {
+                stream<<",";
+            }
         }
-        std::cout<<std::endl;
-        file.close();
-        return;
+        return stream.str();
     }
-
-    void load(const std::string &fileName) const
+    static Tensor_ fromString(const std::string &s)
     {
-        std::fstream file(fileName, std::ios::in);
-        if (!file.is_open()) {
-            return;
+        Tensor_ x;
+        std::string::size_type pos = s.find('|');
+        if (pos == std::string::npos) {
+            return x;
         }
-        for (std::size_t i = 0; i < totalSize; i++) {
-            file>>val[i];
+        auto split = [](const std::string &str)->std::vector<std::string> {
+            std::vector<std::string> elems;
+            std::size_t pos = 0;
+            std::size_t len = str.length();
+            while (pos < len) {
+                int findPos = str.find(',', pos);
+                if (findPos < 0) {
+                    elems.push_back(str.substr(pos, len - pos));
+                    break;
+                }
+                elems.push_back(str.substr(pos, findPos - pos));
+                pos = findPos + 1;
+            }
+            return elems;
+        };
+        /* parse shape */
+        std::string shapeString = s.substr(0, pos);
+        std::vector<std::string> shapeElements = split(shapeString);
+        std::vector<int> shape;
+        for (std::size_t i = 0; i < shapeElements.size(); i++) {
+            int val = std::atoi(shapeElements[i].c_str());
+            shape.push_back(val);
         }
-        file.close();
-        return;
+        /* create */
+        x = Tensor_(shape);
+        /* parse value */
+        std::string valString = s.substr(pos + 1);
+        std::vector<std::string> valElements = split(valString);
+        for (std::size_t i = 0; i < valElements.size(); i++) {
+            float val = std::atof(valElements[i].c_str());
+            x[i] = val;
+        }
+        return x;
     }
 };
 
@@ -1154,5 +1214,5 @@ using Tensorf  = Tensor_<float>;
 using Tensord  = Tensor_<double>;
 using Tensor   = Tensorf;
 
-} // RL
+}
 #endif // TENSOR_H

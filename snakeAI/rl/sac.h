@@ -48,10 +48,10 @@ protected:
     ExpAnnealing annealing;
     GradValue alpha;
     Net actor;
-    Net critic1Net;
-    Net critic1TargetNet;
-    Net critic2Net;
-    Net critic2TargetNet;
+    Net critic1;
+    Net critic1Target;
+    Net critic2;
+    Net critic2Target;
 };
 
 }

@@ -14,7 +14,7 @@ inline void SGD(Tensor &w, Tensor &dw,
         dw /= dw.norm2() + 1e-8;
     }
     for (std::size_t i = 0; i < w.totalSize; i++) {
-        w[i] = (1 - gamma)*w[i] - lr*dw[i];
+        w[i] = (1 - gamma + lr*gamma)*w[i] - lr*dw[i];
     }
     return;
 }
@@ -41,7 +41,7 @@ inline void Adagrad(Tensor &w, Tensor &r, Tensor &dw,
     }
     for (std::size_t i = 0; i < w.totalSize; i++) {
         r[i] += dw[i]*dw[i];
-        w[i] = (1 - gamma)*w[i] - lr*dw[i]/(std::sqrt(r[i]) + 1e-9);
+        w[i] = (1 - gamma + lr*gamma)*w[i] - lr*dw[i]/(std::sqrt(r[i]) + 1e-9);
     }
     return;
 }
@@ -56,7 +56,7 @@ inline void AdaDelta(Tensor &w, Tensor &v, Tensor &delta, Tensor &dwPrime, Tenso
         v[i] = rho * v[i] + (1 - rho) * dw[i] * dw[i];
         delta[i] = rho*delta[i] + (1 - rho)*dwPrime[i]*dwPrime[i];
         dwPrime[i] = std::sqrt((delta[i] + 1e-9)/(v[i] + 1e-9));
-        w[i] = (1 - gamma)*w[i] - lr*dwPrime[i];
+        w[i] = (1 - gamma + lr*gamma)*w[i] - lr*dwPrime[i];
     }
     return;
 }
@@ -105,5 +105,6 @@ inline void clamp(Tensor &w, float c0, float cn)
 }
 
 } // optimizer
+
 } // RL
 #endif // OPTIMIZER_H

@@ -100,8 +100,10 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
         }
         critic.backward(Loss::MSE(v, r));
         critic.gradient(criticState, r);
-        /* actor */
+        /* temperture parameter */
         Tensor& q = trajectory[t].action;
+        alpha.g[k] += (-q[k]*std::log(q[k] + 1e-8) - entropy0)*alpha[k];
+        /* actor */
         Tensor p = actorP.forward(trajectory[t].state);
         float kl = p[k] * std::log(p[k]/q[k] + 1e-9);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
@@ -135,8 +137,8 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
     int end = trajectory.size() - 1;
     Tensor criticState(stateDim + actionDim, 1);
     Tensor::concat(0, criticState,
-                trajectory[end].state,
-                trajectory[end].action);
+                   trajectory[end].state,
+                   trajectory[end].action);
     float r = critic.forward(criticState).max();
     for (int i = end; i >= 0; i--) {
         r = trajectory[i].reward + gamma * r;
@@ -165,7 +167,7 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
         critic.gradient(criticState, r);
         /* temperture parameter */
         Tensor& q = trajectory[t].action;
-        alpha.g[k] += -q[k]*std::log(q[k] + 1e-8) - entropy0;
+        alpha.g[k] += (-q[k]*std::log(q[k] + 1e-8) - entropy0)*alpha[k];
         /* actor */
         Tensor p = actorP.forward(trajectory[t].state);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
@@ -191,15 +193,15 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
 
 void RL::PPO::save(const std::string &actorPara, const std::string &criticPara)
 {
-    //actorP.save(actorPara);
-    //critic.save(criticPara);
+    actorP.save(actorPara);
+    critic.save(criticPara);
     return;
 }
 
 void RL::PPO::load(const std::string &actorPara, const std::string &criticPara)
 {
-    //actorP.load(actorPara);
-    //actorP.copyTo(actorQ);
-    //critic.load(criticPara);
+    actorP.load(actorPara);
+    actorP.copyTo(actorQ);
+    critic.load(criticPara);
     return;
 }

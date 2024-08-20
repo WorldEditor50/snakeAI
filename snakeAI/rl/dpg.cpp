@@ -61,7 +61,7 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
     for (std::size_t i = 0; i < x.size(); i++) {
         const Tensor &prob = x[i].action;
         int k = x[i].action.argmax();
-        alpha.g[k] += -prob[k]*std::log(prob[k] + 1e-8) - entropy0;
+        alpha.g[k] += (-prob[k]*std::log(prob[k] + 1e-8) - entropy0)*alpha[i];
         x[i].action[k] = prob[k]*(discountedReward[i] - u);
         Tensor &out = policyNet.forward(x[i].state);
         policyNet.backward(Loss::CrossEntropy(out, x[i].action));
@@ -80,12 +80,12 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
 
 void RL::DPG::save(const std::string &fileName)
 {
-    //policyNet.save(fileName);
+    policyNet.save(fileName);
     return;
 }
 
 void RL::DPG::load(const std::string &fileName)
 {
-    //policyNet.load(fileName);
+    policyNet.load(fileName);
     return;
 }

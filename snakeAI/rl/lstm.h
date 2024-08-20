@@ -188,8 +188,10 @@ public:
               float decay, bool clipGrad) override;
     void clamp(float c0, float cn);
     /* parameter */
-    void copyTo(iLayer* layer);
-    void softUpdateTo(iLayer* layer, float rho);
+    virtual void copyTo(iLayer* layer);
+    virtual void softUpdateTo(iLayer* layer, float rho);
+    virtual void write(std::ofstream &file) override;
+    virtual void read(std::ifstream &file) override;
     static void test();
 };
 

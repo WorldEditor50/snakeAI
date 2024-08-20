@@ -286,8 +286,8 @@ inline Tensor& eGreedy(Tensor& x, float exploringRate, bool hard)
 
 inline Tensor& noise(Tensor& x)
 {
-    Tensor epsilon(x);
-    uniformRand(epsilon, -1, 1);
+    Tensor epsilon(x.shape);
+    Random::uniform(epsilon, -1, 1);
     x += epsilon;
     float s = x.max();
     x /= s;
@@ -300,8 +300,8 @@ inline Tensor& noise(Tensor& x, float exploringRate)
     std::uniform_real_distribution<float> uniform(0, 1);
     float p = uniform(Random::engine);
     if (p < exploringRate) {
-        Tensor epsilon(x);
-        uniformRand(epsilon, -1, 1);
+        Tensor epsilon(x.shape);
+        Random::uniform(epsilon, -1, 1);
         x += epsilon;
         float s = x.max();
         x /= s;
@@ -325,7 +325,7 @@ inline Tensor& softmax(Tensor &x)
 
 inline Tensor& gumbelSoftmax(Tensor &x, float tau)
 {
-    Tensor epsilon(x);
+    Tensor epsilon(x.shape);
     Random::uniform(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
         epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
@@ -338,7 +338,7 @@ inline Tensor& gumbelSoftmax(Tensor &x, float tau)
 
 inline Tensor& gumbelSoftmax(Tensor &x, const Tensor& tau)
 {
-    Tensor epsilon(x);
+    Tensor epsilon(x.shape);
     Random::uniform(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
         epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
