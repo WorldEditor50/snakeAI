@@ -11,6 +11,7 @@ public:
         LAYER_FC = 0,
         LAYER_LSTM,
         LAYER_CONCAT,
+        LAYER_SCALEDCONCAT,
         LAYER_CONV2D,
         LAYER_MAXPOOLING,
         LAYER_AVGPOOLING,
@@ -26,6 +27,7 @@ public:
 public:
     iLayer(){}
     virtual ~iLayer(){}
+    virtual void initParams(){}
     virtual Tensor& forward(const Tensor& x, bool inference=false)
     {
         return o;

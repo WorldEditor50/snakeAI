@@ -2,6 +2,7 @@
 #include "layer.h"
 #include "loss.h"
 #include "attention.hpp"
+#include "concat.hpp"
 
 RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
 {
@@ -23,6 +24,7 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     policyNet = Net(Attention<16>::_(4, 4, true),
                     LayerNorm<Sigmoid, LN::Post>::_(16*4, hiddenDim, true, true),
                     Layer<Softmax>::_(hiddenDim, actionDim, true, true));
+
 #endif
 }
 

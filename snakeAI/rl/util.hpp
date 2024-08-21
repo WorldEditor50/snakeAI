@@ -287,11 +287,9 @@ inline Tensor& eGreedy(Tensor& x, float exploringRate, bool hard)
 inline Tensor& noise(Tensor& x)
 {
     Tensor epsilon(x.shape);
-    Random::uniform(epsilon, -1, 1);
+    Random::uniform(epsilon, 0, 1);
     x += epsilon;
-    float s = x.max();
-    x /= s;
-    clamp(x, 0, 1);
+    x /= x.max();
     return x;
 }
 
@@ -301,11 +299,9 @@ inline Tensor& noise(Tensor& x, float exploringRate)
     float p = uniform(Random::engine);
     if (p < exploringRate) {
         Tensor epsilon(x.shape);
-        Random::uniform(epsilon, -1, 1);
+        Random::uniform(epsilon, 0, 1);
         x += epsilon;
-        float s = x.max();
-        x /= s;
-        clamp(x, 0, 1);
+        x /= x.max();
     }
     return x;
 }

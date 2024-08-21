@@ -64,6 +64,12 @@ public:
     explicit iFcLayer(const iFcLayer &r)
         :inputDim(r.inputDim), outputDim(r.outputDim){}
     virtual ~iFcLayer(){}
+    virtual void initParams() override
+    {
+        Random::uniform(w, -1, 1);
+        Random::uniform(b, -1, 1);
+        return;
+    }
     virtual Tensor& forward(const Tensor& x, bool inference=false)
     {
         Tensor::MM::ikkj(o, w, x);
