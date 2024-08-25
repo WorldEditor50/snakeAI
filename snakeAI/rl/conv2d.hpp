@@ -158,6 +158,7 @@ public:
         for (std::size_t i = 0; i < o.totalSize; i++) {
             o[i] = Fn::f(o[i]);
         }
+        o /= o.max();
         return o;
     }
 
@@ -194,10 +195,10 @@ public:
     {
         Tensor dy(o.shape);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Fn::df(o[i]) * e[i];
+            dy[i] = Fn::df(o[i])*e[i];
         }
         /* db */
-        if (bias == true) {
+        if (bias) {
             g.b += dy;
         }
         /* dkernel */
@@ -349,6 +350,7 @@ public:
 
     Tensor& forward(const Tensor &x, bool inference=false) override
     {
+        o.zero();
         /* input shape is same as output shape */
         for (int n = 0; n < outChannels; n++) {
             for (int i = 0; i < ho; i++) {
@@ -394,6 +396,7 @@ public:
             }
         }
         mask.zero();
+        e.zero();
         return;
     }
 };
@@ -427,6 +430,7 @@ public:
     Tensor& forward(const Tensor &x, bool inference=false) override
     {
         /* conv */
+        o.zero();
         for (int n = 0; n < outChannels; n++) {
             for (int i = 0; i < ho; i++) {
                 for (int j = 0; j < wo; j++) {
@@ -468,6 +472,7 @@ public:
                 }
             }
         }
+        e.zero();
         return;
     }
 };

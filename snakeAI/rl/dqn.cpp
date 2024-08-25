@@ -22,15 +22,19 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                      Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
                      Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
-
+#elif 0
+    QMainNet = Net(Attention<16>::_(stateDim, 4, true),
+                   TanhNorm<Sigmoid>::_(16*4, hiddenDim, true, true),
+                   Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
+    QTargetNet = Net(Attention<16>::_(stateDim, 4, false),
+                     TanhNorm<Sigmoid>::_(16*4, hiddenDim, true, false),
+                     Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
 #else
-    QMainNet = Net(ScaledConcat<Layer<Sigmoid>, 16>::_(Layer<Sigmoid>(stateDim, 4, true, true),
-                                                       stateDim, 4, true),
+    QMainNet = Net(ScaledConcat<Layer<Sigmoid>, 16>::_(Layer<Sigmoid>(stateDim, 4, true, true), stateDim, 4, true),
                    TanhNorm<Sigmoid>::_(16*4, hiddenDim, true, true),
                    Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
-    QTargetNet = Net(ScaledConcat<Layer<Sigmoid>, 16>::_(Layer<Sigmoid>(stateDim, 4, true, false),
-                                                         stateDim, 4, false),
+    QTargetNet = Net(ScaledConcat<Layer<Sigmoid>, 16>::_(Layer<Sigmoid>(stateDim, 4, true, false), stateDim, 4, false),
                      TanhNorm<Sigmoid>::_(16*4, hiddenDim, true, false),
                      Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
 #endif

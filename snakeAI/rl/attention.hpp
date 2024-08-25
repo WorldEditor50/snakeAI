@@ -390,6 +390,7 @@ public:
             Tensor &out = dotProduct[i].forward(x, inference);
             a.embedding({i*unitDim, 0}, out);
         }
+        //softmax(a);
         Tensor::MM::ikkj(o, w1, a);
         Tensor::MM::ikkj(o, w2, x);
         o += b;

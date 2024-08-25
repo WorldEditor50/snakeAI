@@ -11,7 +11,6 @@
 #include "net.hpp"
 #include "rl_basic.h"
 #include "parameter.hpp"
-#include "annealing.hpp"
 
 namespace RL {
 
@@ -35,7 +34,6 @@ protected:
     float learningRate;
     float entropy0;
     GradValue alpha;
-    ExpAnnealing annealing;
     Net policyNet;
 };
 }

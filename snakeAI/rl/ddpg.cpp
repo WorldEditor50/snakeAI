@@ -81,7 +81,7 @@ void RL::DDPG::experienceReplay(const Transition& x)
         Tensor& q = criticP.forward(x.state);
         Tensor loss(actionDim, 1);
         for (std::size_t i = 0; i < actionDim; i++) {
-            loss[i] =ap[i]*q[i];
+            loss[i] = ap[i]*q[i];
         }
         actorP.backward(loss);
         actorP.gradient(x.state, loss);
@@ -112,8 +112,8 @@ void RL::DDPG::learn(std::size_t maxMemorySize,
         int k = distribution(Random::engine);
         experienceReplay(memories[k]);
     }
-    actorP.RMSProp(0.9, 1e-2, 0.1);
-    criticP.RMSProp(0.9, 1e-3, 0);
+    actorP.RMSProp(0.01, 0.9, 0.01);
+    criticP.RMSProp(1e-3);
     /* reduce memory */
     if (memories.size() > maxMemorySize) {
         std::size_t k = memories.size() / 4;

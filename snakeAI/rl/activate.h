@@ -28,6 +28,27 @@ struct LeakyRelu {
     inline static float df(float y) {return y > 0 ? 1 : 0.01;}
 };
 
+struct Selu {
+    inline static float f(float x)
+    {
+        float y = x;
+        if (y > 1) {
+            y = 1;
+        } else if (y < -1) {
+            y = -1;
+        }
+        return y;
+    }
+    inline static float df(float y)
+    {
+        float dy = 0;
+        if (y >= -1 && y <= 1) {
+            dy = 1;
+        }
+        return dy;
+    }
+};
+
 struct Linear {
     inline static float f(float x) {return x;}
     inline static float df(float) {return 1;}

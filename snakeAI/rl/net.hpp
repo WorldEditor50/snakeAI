@@ -66,8 +66,8 @@ public:
                 Tensor e(layers[i - 1]->o.totalSize, 1);
                 layers[i]->backward(e);
                 layers[i - 1]->cacheError(e);
-            } else if(layers[i - 1]->type == iLayer::LAYER_ATTENTION &&
-                      layers[i - 1]->type == iLayer::LAYER_SCALEDCONCAT &&
+            } else if((layers[i - 1]->type == iLayer::LAYER_ATTENTION ||
+                      layers[i - 1]->type == iLayer::LAYER_SCALEDCONCAT) &&
                       layers[i]->type == iLayer::LAYER_FC) {
                 layers[i]->backward(layers[i - 1]->e);
                 layers[i - 1]->broadcast();
@@ -95,7 +95,7 @@ public:
         return;
     }
 
-    void RMSProp(float lr, float rho, float decay)
+    void RMSProp(float lr, float rho=0.9, float decay=0)
     {
         for (std::size_t i = 0; i < layers.size(); i++) {
             layers[i]->RMSProp(lr, rho, decay, true);
@@ -105,6 +105,8 @@ public:
 
     void Adam(float lr, float alpha=0.99, float beta=0.9, float decay=0)
     {
+        alpha_ *= alpha;
+        beta_ *= beta;
         for (std::size_t i = 0; i < layers.size(); i++) {
             layers[i]->Adam(lr, alpha, beta, alpha_, beta_, decay, true);
         }

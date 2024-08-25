@@ -10,10 +10,9 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     exploringRate = 1;
     stateDim = stateDim_;
     actionDim = actionDim_;
-    annealing = ExpAnnealing(0.01, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = -0.12*std::log(0.12);
+    entropy0 = -0.11*std::log(0.11);
 #if 0
     policyNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
@@ -21,7 +20,7 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
                     Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 #else
-    policyNet = Net(Attention<16>::_(4, 4, true),
+    policyNet = Net(Attention<16>::_(stateDim, 4, true),
                     LayerNorm<Sigmoid, LN::Post>::_(16*4, hiddenDim, true, true),
                     Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 
@@ -74,7 +73,7 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
     std::cout<<"alpha:";
     alpha.val.printValue();
 #endif
-    policyNet.RMSProp(learningRate, 0.9, annealing.step());
+    policyNet.RMSProp(learningRate, 0.9, 0);
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
     return;

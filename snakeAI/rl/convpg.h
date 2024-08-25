@@ -20,7 +20,6 @@ class ConvPG
 public:
     ConvPG(){}
     explicit ConvPG(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
-    ~ConvPG(){}
     Tensor &eGreedyAction(const Tensor &state);
     Tensor &noiseAction(const Tensor &state);
     Tensor &gumbelMax(const RL::Tensor &state);
@@ -36,7 +35,6 @@ protected:
     float learningRate;
     float entropy0;
     GradValue alpha;
-    ExpAnnealing annealing;
     Net policyNet;
 };
 }

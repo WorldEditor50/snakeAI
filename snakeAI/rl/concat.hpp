@@ -37,6 +37,7 @@ public:
     Tensor w2;
     Tensor b;
     Tensor a;
+    Tensor z;
     TLayer layers[N];
     ScaledConcatGrad g;
     ScaledConcatGrad v;
@@ -59,6 +60,7 @@ public:
             layers[i].initParams();
         }
         a = Tensor(outputDim, 1);
+        z = Tensor(outputDim, 1);
         o = Tensor(outputDim, 1);
         e = Tensor(outputDim, 1);
         if (withGrad) {
@@ -121,6 +123,7 @@ public:
         for (int i = 0; i < N; i++) {
             layers[i].gradient(x, y);
         }
+        z.zero();
         o.zero();
         e.zero();
         return;

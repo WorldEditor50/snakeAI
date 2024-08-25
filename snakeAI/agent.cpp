@@ -197,7 +197,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
         /* exploring environment */
         std::vector<RL::Step> steps;
         float total = 0;
-        for (std::size_t i = 0; i < 32; i++) {
+        for (std::size_t i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
             /* sample */
@@ -215,7 +215,7 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        dpg.reinforce(steps, 1e-3);
+        dpg.reinforce(steps, 1e-2);
     }
     /* making decision */
     RL::Tensor& a = dpg.action(state_);
@@ -294,7 +294,7 @@ int Agent::convpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        convpg.reinforce(steps, 1e-3);
+        convpg.reinforce(steps, 1e-2);
     }
     /* making decision */
     RL::Tensor& a = convpg.action(state_);
@@ -315,7 +315,7 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
     if (trainFlag == true) {
         /* exploring environment */
         float total = 0;
-        for (std::size_t i = 0; i < 32; i++) {
+        for (std::size_t i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
             /* sample */
@@ -341,7 +341,7 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        convdqn.learn(4096, 256, 16, 1e-3);
+        convdqn.learn(4096, 256, 32, 1e-2);
     }
     /* making decision */
     RL::Tensor& a = convdqn.action(state_);
