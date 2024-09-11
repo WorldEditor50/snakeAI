@@ -13,9 +13,11 @@ RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t acti
     c = Tensor(hiddenDim_, 1);
     lstm = LSTM::_(stateDim_, hiddenDim_, hiddenDim_, true);
     QMainNet = Net(lstm,
-                   TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, true, true));
+                   TanhNorm<Sigmoid>::_(hiddenDim_, hiddenDim_, true, true),
+                   Layer<Sigmoid>::_(hiddenDim_, actionDim_, true, true));
     QTargetNet = Net(LSTM::_(stateDim_, hiddenDim_, hiddenDim_, false),
-                     TanhNorm<Sigmoid>::_(hiddenDim_, actionDim_, true, false));
+                     TanhNorm<Sigmoid>::_(hiddenDim_, hiddenDim_, true, false),
+                     Layer<Sigmoid>::_(hiddenDim_, actionDim_, true, false));
     QMainNet.copyTo(QTargetNet);
 }
 
@@ -25,9 +27,6 @@ void RL::QLSTM::perceive(Tensor& state,
         float reward,
         bool done)
 {
-    if (state.size() != stateDim || nextState.size() != stateDim) {
-        return;
-    }
     memories.push_back(Transition(state, action, nextState, reward, done));
     return;
 }

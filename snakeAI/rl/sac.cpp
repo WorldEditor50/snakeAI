@@ -2,6 +2,8 @@
 #include "layer.h"
 #include "loss.h"
 
+#define USE_DECAY 1
+
 RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
 {
     gamma = 0.99;
@@ -11,9 +13,12 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     annealing = ExpAnnealing(0.01, 0.12, 1e-4);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
+#if USE_DECAY
     //entropy0 = -0.12*std::log(0.12);
-    entropy0 = -0.1*std::log(0.1);
-
+    entropy0 = -0.11*std::log(0.11);
+#else
+    entropy0 = -0.05*std::log(0.05);
+#endif
     actor = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                 LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
                 Layer<Softmax>::_(hiddenDim, actionDim, true, true));
@@ -175,9 +180,14 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         int k = uniform(Random::engine);
         experienceReplay(memories[k]);
     }
+#if USE_DECAY
     float r = annealing.step();
     actor.RMSProp(r, 0.9, r);
     alpha.RMSProp(1e-5, 0.9, 0);
+#else
+    actor.RMSProp(0.1, 0.9, 0);
+    alpha.RMSProp(1e-4, 0.9, 0);
+#endif
 #if 1
     std::cout<<"annealing:"<<annealing.val<<",alpha:";
     alpha.val.printValue();

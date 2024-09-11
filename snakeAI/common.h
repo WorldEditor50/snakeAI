@@ -7,9 +7,9 @@
 #define    DOWN     3
 enum Object {
     OBJ_NONE = 0,
-    OBJ_BLOCK = 6,
-    OBJ_SNAKE = 4,
-    OBJ_TARGET = 8
+    OBJ_BLOCK = 1,
+    OBJ_SNAKE = 2,
+    OBJ_TARGET = 4
 };
 
 class Point

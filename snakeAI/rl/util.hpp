@@ -287,7 +287,7 @@ inline Tensor& eGreedy(Tensor& x, float exploringRate, bool hard)
 inline Tensor& noise(Tensor& x)
 {
     Tensor epsilon(x.shape);
-    Random::uniform(epsilon, 0, 1);
+    Random::uniform(epsilon, 0, 2);
     x += epsilon;
     x /= x.max();
     return x;
@@ -299,7 +299,7 @@ inline Tensor& noise(Tensor& x, float exploringRate)
     float p = uniform(Random::engine);
     if (p < exploringRate) {
         Tensor epsilon(x.shape);
-        Random::uniform(epsilon, 0, 1);
+        Random::uniform(epsilon, 0, 2);
         x += epsilon;
         x /= x.max();
     }
@@ -341,7 +341,7 @@ inline Tensor& gumbelSoftmax(Tensor &x, const Tensor& tau)
     }
     x += epsilon;
     x /= tau;
-    x = softmax(x);
+    softmax(x);
     return x;
 }
 

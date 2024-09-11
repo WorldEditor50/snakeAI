@@ -178,28 +178,28 @@ public:
             z = qk^T/d = Wq*x * (Wk*x)^T/d = Wq*x*(x^T*Wk^T)/d
             o = softmax(z)*v
 
-            do/dz = dSoftmax(z)*v
+            do/dz = J(z)*v
             dz/dq = k^T/d
             dz/dk^T = q/d
             dz/dk = q^T/d
             dq/dWq = x^T
             dk/dWk = x^T
-            do/dWq = (do/dz)*(dz/dq)*(dq/dWq) = dSoftmax(z)*(v*k^T/d)*x^T
-            do/dWk = (do/dz)*(dz/dk)*(dk/dWk) = dSoftmax(z)*(v*q^T/d)*x^T
+            do/dWq = (do/dz)*(dz/dq)*(dq/dWq) = J(z)*(v*k^T/d)*x^T
+            do/dWk = (do/dz)*(dz/dk)*(dk/dWk) = J(z)*(v*q^T/d)*x^T
             do/dWv = (do/dv)*(dv/dWv) = sofmax(z)*x^T
         */
 
         float d = std::sqrt(outputDim);
         /* softmax jacobian */
         Tensor J = Softmax::jacobian(z);
-        /* dSoftmax(z)*(v*k^T/d) */
+        /* J(z)*(v*k^T/d) */
         Tensor vk(outputDim, outputDim);
         Tensor::MM::ikjk(vk, v, k);
         Tensor jvk(outputDim*outputDim, 1);
         vk.reshape(outputDim*outputDim, 1);
         Tensor::MM::ikkj(jvk, J, vk);
         jvk /= d;
-        /* dSoftmax(z)*(v*q^T/d) */
+        /* J(z)*(v*q^T/d) */
         Tensor vq(outputDim, outputDim);
         Tensor::MM::ikjk(vq, v, q);
         Tensor jvq(outputDim*outputDim, 1);

@@ -107,29 +107,38 @@ struct Softmax {
         return J;
     }
 
-    inline static Tensor df(const Tensor &y, std::size_t j)
-    {
-        Tensor dy(y.shape);
-        for (std::size_t i = 0; i < y.totalSize; i++) {
-            if (i == j) {
-                dy[i] = y[i]*(1 - y[j]);
-            } else {
-                dy[i] = -y[i]*y[j];
-            }
-        }
-        return dy;
-    }
 };
 
 struct Zeta {
-    inline static float f(float x)
+    inline static Tensor f(Tensor &x, float &gamma)
     {
-        return x/std::sqrt(1 + x*x);
+        /*
+            u = 1/n∑x
+            sigma = 1/n ∑(x - u)*(x - u)
+        */
+        float u = x.mean();
+        float sigma = x.variance(u);
+        gamma = 1.0/std::sqrt(sigma);
+        Tensor x_(x.shape);
+        for (std::size_t i = 0; i < x.totalSize; i++) {
+            x_[i] = (x[i] - u)*gamma;
+        }
+        return x_;
     }
 
-    inline static float df(float x, float y)
+    inline static Tensor jacobian(Tensor &x)
     {
-        return (1 - y*y)/std::sqrt(1 + x*x);
+        Tensor J(x.totalSize, x.totalSize);
+        for (std::size_t i = 0; i < x.totalSize; i++) {
+            for (std::size_t j = 0; j < x.totalSize; j++) {
+                if (i == j) {
+
+                } else {
+
+                }
+            }
+        }
+        return J;
     }
 };
 

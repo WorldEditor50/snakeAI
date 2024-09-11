@@ -30,6 +30,7 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                      TanhNorm<Sigmoid>::_(16*4, hiddenDim, true, false),
                      Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
 #else
+    /* it still performs well if stop exploring enviroment */
     QMainNet = Net(ScaledConcat<Layer<Sigmoid>, 16>::_(Layer<Sigmoid>(stateDim, 4, true, true), stateDim, 4, true),
                    TanhNorm<Sigmoid>::_(16*4, hiddenDim, true, true),
                    Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
@@ -75,7 +76,7 @@ void RL::DQN::experienceReplay(const Transition& x)
     int i = x.action.argmax();
     Tensor out = QMainNet.forward(x.state);
     Tensor qTarget = out;
-    if (x.done == true) {
+    if (x.done) {
         qTarget[i] = x.reward;
     } else {
         /* select optimal Action in the QMainNet */

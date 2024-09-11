@@ -331,7 +331,17 @@ public:
         }
         return x;
     }
-
+    bool shapeEqual(const Tensor_ &x) const
+    {
+        bool flag = true;
+        for (std::size_t i = 0; i < shape.size(); i++) {
+            if (shape[i] != x.shape[i]) {
+                flag = false;
+                break;
+            }
+        }
+        return flag;
+    }
     inline T* ptr() noexcept { return val.data(); }
     inline const T* ptr() const noexcept { return val.data(); }
     inline bool empty() const {return totalSize == 0;}

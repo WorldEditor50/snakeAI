@@ -61,7 +61,7 @@ void RL::ConvDQN::experienceReplay(const Transition& x)
     int i = x.action.argmax();
     Tensor out = QMainNet.forward(x.state);
     Tensor qTarget = out;
-    if (x.done == true) {
+    if (x.done) {
         qTarget[i] = x.reward;
     } else {
         /* select optimal Action in the QMainNet */

@@ -547,13 +547,7 @@ public:
         for (std::size_t i = 0; i < dy.totalSize; i++) {
             dy[i] = Fn::df(o[i])*e[i];
         }
-        Tensor dx(inputDim, 1);
-        for (std::size_t i = 0; i < dx.totalSize; i++) {
-            //float d = (x[i] - u)*gamma;
-            float d = x_[i];
-            dx[i] = (1 - 1.0/float(inputDim))*(1 - d*d)*gamma*d;
-        }
-        Tensor::MM::ikjk(g.w, dy, dx);
+        Tensor::MM::ikjk(g.w, dy, x_);
         if (bias) {
             g.b += dy;
         }

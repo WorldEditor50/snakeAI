@@ -395,6 +395,10 @@ public:
                 }
             }
         }
+        return;
+    }
+    void gradient(const Tensor &x, const Tensor &y) override
+    {
         mask.zero();
         e.zero();
         return;
@@ -472,6 +476,10 @@ public:
                 }
             }
         }
+        return;
+    }
+    void gradient(const Tensor &x, const Tensor &y) override
+    {
         e.zero();
         return;
     }

@@ -12,7 +12,8 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     actionDim = actionDim_;
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = -0.11*std::log(0.11);
+    //entropy0 = -0.11*std::log(0.11);
+    entropy0 = -0.1*std::log(0.1);
 #if 0
     policyNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
@@ -21,9 +22,11 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                     Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 #else
     policyNet = Net(Attention<16>::_(stateDim, 4, true),
-                    LayerNorm<Sigmoid, LN::Post>::_(16*4, hiddenDim, true, true),
+                    LayerNorm<Sigmoid, LN::Pre>::_(16*4, hiddenDim, true, true),
                     Layer<Softmax>::_(hiddenDim, actionDim, true, true));
-
+//    policyNet = Net(ScaledConcat<Layer<Sigmoid>, 16>::_(Layer<Sigmoid>(stateDim, 4, true, true), stateDim, 4, true),
+//                   LayerNorm<Sigmoid, LN::Post>::_(16*4, hiddenDim, true, true),
+//                   Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 #endif
 }
 
@@ -59,14 +62,14 @@ void RL::DPG::reinforce(std::vector<Step>& x, float learningRate)
         discountedReward[i] = r;
     }
     float u = discountedReward.mean();
-    for (std::size_t i = 0; i < x.size(); i++) {
-        const Tensor &prob = x[i].action;
-        int k = x[i].action.argmax();
-        alpha.g[k] += (-prob[k]*std::log(prob[k] + 1e-8) - entropy0)*alpha[i];
-        x[i].action[k] = prob[k]*(discountedReward[i] - u);
-        Tensor &out = policyNet.forward(x[i].state);
-        policyNet.backward(Loss::CrossEntropy(out, x[i].action));
-        policyNet.gradient(x[i].state, x[i].action);
+    for (std::size_t t = 0; t < x.size(); t++) {
+        const Tensor &prob = x[t].action;
+        int k = x[t].action.argmax();
+        alpha.g[k] += (-prob[k]*std::log(prob[k] + 1e-8) - entropy0)*alpha[t];
+        x[t].action[k] = prob[k]*(discountedReward[t] - u);
+        Tensor &out = policyNet.forward(x[t].state);
+        policyNet.backward(Loss::CrossEntropy(out, x[t].action));
+        policyNet.gradient(x[t].state, x[t].action);
     }
     alpha.RMSProp(1e-5, 0.9, 0);
 #if 1

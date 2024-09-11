@@ -251,12 +251,11 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        drpg.reinforce(steps, 1e-3);
+        drpg.reinforce(steps, 1e-2);
     }
     /* making decision */
-    state_.reshape(1, 118, 118);
     RL::Tensor &a = drpg.action(state_);
-    a.printValue();
+    //a.printValue();
     return a.argmax();
 }
 
@@ -315,7 +314,7 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
     if (trainFlag == true) {
         /* exploring environment */
         float total = 0;
-        for (std::size_t i = 0; i < 128; i++) {
+        for (std::size_t i = 0; i < 64; i++) {
             int xi = xn;
             int yi = yn;
             /* sample */
