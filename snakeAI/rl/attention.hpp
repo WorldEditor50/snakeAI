@@ -95,24 +95,22 @@ public:
 public:
     int inputDim;
     int outputDim;
-    bool withMask;
+    float d;
     Tensor wq;
     Tensor wk;
     Tensor wv;
     Tensor q;
     Tensor k;
     Tensor v;
-    Tensor qk;
     Tensor z;
-    Tensor mask;
     ScaledDotProductGrad g;
     ScaledDotProductGrad gv;
     ScaledDotProductGrad gm;
 public:
     ScaledDotProduct(){}
 
-    explicit ScaledDotProduct(int inputDim_, int outputDim_, bool withGrad_, bool withMask_=false)
-        :inputDim(inputDim_),outputDim(outputDim_),withMask(withMask_)
+    explicit ScaledDotProduct(int inputDim_, int outputDim_, bool withGrad_)
+        :inputDim(inputDim_),outputDim(outputDim_)
     {
         type = LAYER_SCALEDDOTPRODUCT;
         wq = Tensor(outputDim, inputDim);
@@ -126,8 +124,6 @@ public:
         v = Tensor(outputDim, 1);
         o = Tensor(outputDim, 1);
         e = Tensor(outputDim, 1);
-        qk = Tensor(outputDim, outputDim);
-        mask = upTriangle(outputDim, outputDim);
         z = Tensor(outputDim, outputDim);
         if (withGrad_) {
             g.wq = Tensor(outputDim, inputDim);
@@ -140,6 +136,7 @@ public:
             gm.wk = Tensor(outputDim, inputDim);
             gm.wv = Tensor(outputDim, inputDim);
         }
+        d = std::sqrt(outputDim);
     }
 
     static std::shared_ptr<ScaledDotProduct> _(int inputDim, int outputDim, bool withGrad)
@@ -151,13 +148,9 @@ public:
         Tensor::MM::ikkj(q, wq, x);
         Tensor::MM::ikkj(k, wk, x);
         Tensor::MM::ikkj(v, wv, x);
-        Tensor::MM::ikjk(qk, q, k);
-        if (withMask) {
-            qk *= mask;
-        }
-        float d = std::sqrt(outputDim);
-        qk /= d;
-        z = Softmax::f(qk);
+        Tensor::MM::ikjk(z, q, k);
+        z /= d;
+        softmax(z);
         Tensor::MM::ikkj(o, z, v);
         return o;
     }
@@ -188,8 +181,6 @@ public:
             do/dWk = (do/dz)*(dz/dk)*(dk/dWk) = J(z)*(v*q^T/d)*x^T
             do/dWv = (do/dv)*(dv/dWv) = sofmax(z)*x^T
         */
-
-        float d = std::sqrt(outputDim);
         /* softmax jacobian */
         Tensor J = Softmax::jacobian(z);
         /* J(z)*(v*k^T/d) */
@@ -213,10 +204,6 @@ public:
         Tensor dWv(outputDim, 1);
         jvk.reshape(outputDim, outputDim);
         jvq.reshape(outputDim, outputDim);
-        if (withMask) {
-            jvk *= mask;
-            jvq *= mask;
-        }
         Tensor::MM::ikkj(dWq, jvk, e);
         Tensor::MM::ikkj(dWk, jvq, e);
         Tensor::MM::ikkj(dWv, z, e);
@@ -227,7 +214,7 @@ public:
         q.zero();
         k.zero();
         v.zero();
-        qk.zero();
+        z.zero();
         o.zero();
         e.zero();
         return;
@@ -390,7 +377,6 @@ public:
             Tensor &out = dotProduct[i].forward(x, inference);
             a.embedding({i*unitDim, 0}, out);
         }
-        //softmax(a);
         Tensor::MM::ikkj(o, w1, a);
         Tensor::MM::ikkj(o, w2, x);
         o += b;
