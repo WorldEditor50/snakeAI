@@ -33,7 +33,13 @@ file(GLOB RL_FILES
     ${SRC_DIR}/rl/*.cpp)
 list(APPEND SRC_FILES ${RL_FILES})
 
-add_executable(SimpleRL ${SRC_FILES})
+# test
+file(GLOB TEST_FILES
+    ${SRC_DIR}/test/*.h
+    ${SRC_DIR}/test/*.cpp)
+add_executable(test ${RL_FILES} ${TEST_FILES})
 
+add_executable(SimpleRL ${SRC_FILES})
 target_link_libraries(SimpleRL PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets)
+

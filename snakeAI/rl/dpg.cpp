@@ -5,11 +5,8 @@
 #include "concat.hpp"
 
 RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.9), exploringRate(1)
 {
-    gamma = 0.9;
-    exploringRate = 1;
-    stateDim = stateDim_;
-    actionDim = actionDim_;
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     //entropy0 = -0.11*std::log(0.11);
@@ -24,9 +21,6 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     policyNet = Net(Attention<16>::_(stateDim, 4, true),
                     LayerNorm<Sigmoid, LN::Pre>::_(16*4, hiddenDim, true, true),
                     Layer<Softmax>::_(hiddenDim, actionDim, true, true));
-//    policyNet = Net(ScaledConcat<Layer<Sigmoid>, 16>::_(Layer<Sigmoid>(stateDim, 4, true, true), stateDim, 4, true),
-//                   LayerNorm<Sigmoid, LN::Post>::_(16*4, hiddenDim, true, true),
-//                   Layer<Softmax>::_(hiddenDim, actionDim, true, true));
 #endif
 }
 

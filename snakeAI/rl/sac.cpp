@@ -5,11 +5,8 @@
 #define USE_DECAY 1
 
 RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1)
 {
-    gamma = 0.99;
-    exploringRate = 1;
-    stateDim = stateDim_;
-    actionDim = actionDim_;
     annealing = ExpAnnealing(0.01, 0.12, 1e-4);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);

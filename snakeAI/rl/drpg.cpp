@@ -3,11 +3,8 @@
 #include "loss.h"
 
 RL::DRPG::DRPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.9), exploringRate(1)
 {
-    gamma = 0.9;
-    exploringRate = 1;
-    stateDim = stateDim_;
-    actionDim = actionDim_;
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.02*std::log(0.02);

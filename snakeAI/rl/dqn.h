@@ -6,8 +6,6 @@
 #include <vector>
 #include <deque>
 #include <cmath>
-#include <ctime>
-#include <cstdlib>
 #include "net.hpp"
 #include "rl_basic.h"
 

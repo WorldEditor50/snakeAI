@@ -22,8 +22,8 @@ public:
     PPO(){}
     explicit PPO(int stateDim, int hiddenDim, int actionDim);
     Tensor &eGreedyAction(const Tensor &state);
-    RL::Tensor &noiseAction(const RL::Tensor &state);
-    RL::Tensor &gumbelMax(const RL::Tensor &state);
+    Tensor &noiseAction(const Tensor &state);
+    Tensor &gumbelMax(const Tensor &state);
     Tensor &action(const Tensor &state);
     void learnWithKLpenalty(std::vector<Step>& trajectory, float learningRate);
     void learnWithClipObjective(std::vector<Step>& x, float learningRate);

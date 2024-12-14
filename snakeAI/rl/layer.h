@@ -184,6 +184,8 @@ template<typename Fn>
 class Layer : public iFcLayer
 {
 public:
+    using Type = Layer<Fn>;
+public:
     Layer(){}
     virtual ~Layer(){}
     static std::shared_ptr<Layer> _(std::size_t inputDim,

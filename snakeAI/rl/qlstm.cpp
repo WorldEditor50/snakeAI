@@ -4,11 +4,8 @@
 #include "loss.h"
 
 RL::QLSTM::QLSTM(std::size_t stateDim_, std::size_t hiddenDim_, std::size_t actionDim_)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1)
 {
-    gamma = 0.99;
-    exploringRate = 1;
-    stateDim = stateDim_;
-    actionDim = actionDim_;
     h = Tensor(hiddenDim_, 1);
     c = Tensor(hiddenDim_, 1);
     lstm = LSTM::_(stateDim_, hiddenDim_, hiddenDim_, true);

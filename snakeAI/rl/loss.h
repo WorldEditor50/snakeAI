@@ -21,7 +21,6 @@ inline Tensor CrossEntropy(const Tensor& yo, const Tensor& yt)
     Tensor loss(yo.totalSize, 1);
     for (std::size_t i = 0; i < yo.size(); i++) {
         loss[i] = -yt[i]*std::log(yo[i] + 1e-8);
-        //loss[i] = -yt[i]/(yo[i] + 1e-8);
     }
     return loss;
 }

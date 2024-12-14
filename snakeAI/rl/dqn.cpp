@@ -5,11 +5,8 @@
 #include "concat.hpp"
 
 RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1)
 {
-    gamma = 0.99;
-    exploringRate = 1;
-    stateDim = stateDim_;
-    actionDim = actionDim_;
 #if 0
     QMainNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                    TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),

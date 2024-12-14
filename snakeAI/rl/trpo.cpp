@@ -4,12 +4,10 @@
 
 
 RL::TRPO::TRPO(int stateDim_, int hiddenDim, int actionDim_)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99)
 {
-    gamma = 0.99;
     lmbda = 0.95;
     learningSteps = 0;
-    stateDim = stateDim_;
-    actionDim = actionDim_;
     annealing = ExpAnnealing(0.01, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);

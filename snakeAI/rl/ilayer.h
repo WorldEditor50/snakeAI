@@ -1,6 +1,8 @@
 #ifndef ILAYER_H
 #define ILAYER_H
 #include "tensor.hpp"
+#include <memory>
+#include <functional>
 
 namespace RL {
 
@@ -18,10 +20,9 @@ public:
         LAYER_ATTENTION,
         LAYER_SCALEDDOTPRODUCT
     };
+    using sptr = std::shared_ptr<iLayer>;
 public:
     int type;
-    std::vector<int> preLayers;
-    std::vector<int> nextLayers;
     Tensor o;
     Tensor e;
 public:

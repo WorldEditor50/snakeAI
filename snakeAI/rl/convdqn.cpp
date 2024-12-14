@@ -4,12 +4,9 @@
 #include "loss.h"
 
 RL::ConvDQN::ConvDQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1)
 {
-    gamma = 0.99;
-    exploringRate = 1;
     totalReward = 0;
-    stateDim = stateDim_;
-    actionDim = actionDim_;
     QMainNet = Net(Conv2d<Selu>::_(1, 118, 118, 1, 5, 5, 1, true, true),
                    MaxPooling2d::_(1, 24, 24, 2, 2),
                    Conv2d<Selu>::_(1, 12, 12, 4, 3, 3, 0, true, true),

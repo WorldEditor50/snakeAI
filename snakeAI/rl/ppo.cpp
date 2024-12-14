@@ -3,15 +3,12 @@
 #include "loss.h"
 
 RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1)
 {
-    gamma = 0.99;
     beta = 0.5;
     delta = 0.01;
     epsilon = 0.2;
-    exploringRate = 1;
     learningSteps = 0;
-    stateDim = stateDim_;
-    actionDim = actionDim_;
     annealing = ExpAnnealing(0.01, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);

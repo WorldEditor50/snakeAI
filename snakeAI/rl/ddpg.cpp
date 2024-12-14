@@ -3,12 +3,9 @@
 #include "loss.h"
 
 RL::DDPG::DDPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1)
 {
-    gamma = 0.99;
     beta = 1;
-    exploringRate = 1;
-    stateDim = stateDim_;
-    actionDim = actionDim_;
     /* actor: a = P(s, theta) */
     actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                  LayerNorm<Sigmoid, LN::Pre>::_(hiddenDim, hiddenDim, true, true),
