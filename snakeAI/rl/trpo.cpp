@@ -75,7 +75,7 @@ void RL::TRPO::learn(std::vector<RL::Step> &x, float learningRate)
             qTarget[k] = x[i].reward + gamma*vn[k];
         }
         tdTarget[i] = qTarget[k];
-        critic.backward(Loss::MSE(qTarget, v));
+        critic.backward(Loss::MSE::df(qTarget, v));
         critic.gradient(x[i].state, qTarget);
     }
     critic.RMSProp(1e-3, 0.9, 0);

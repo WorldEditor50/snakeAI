@@ -2,7 +2,7 @@
 #include "layer.h"
 #include "loss.h"
 
-#define USE_DECAY 1
+#define USE_DECAY 0
 
 RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1)
@@ -14,7 +14,7 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     //entropy0 = -0.12*std::log(0.12);
     entropy0 = -0.11*std::log(0.11);
 #else
-    entropy0 = -0.05*std::log(0.05);
+    entropy0 = -0.1*std::log(0.1);
 #endif
     actor = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                 LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
@@ -45,14 +45,6 @@ void RL::SAC::perceive(const Tensor& state,
                        bool done)
 {
     memories.push_back(Transition(state, action, nextState, reward, done));
-    return;
-}
-
-void RL::SAC::perceive(const std::vector<RL::Transition> &x)
-{
-    for (int t = 0; t >= 0; t--) {
-        memories.push_back(x[t]);
-    }
     return;
 }
 
@@ -126,27 +118,32 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         const Tensor &out1 = critic1.forward(x.state);
         Tensor qTarget1 = out1;
         qTarget1[i] = qTarget;
-        critic1.backward(Loss::MSE(out1, qTarget1));
+        critic1.backward(Loss::MSE::df(out1, qTarget1));
         critic1.gradient(x.state, qTarget1);
         const Tensor &out2 = critic2.forward(x.state);
         Tensor qTarget2 = out2;
         qTarget2[i] = qTarget;
-        critic2.backward(Loss::MSE(out2, qTarget2));
+        critic2.backward(Loss::MSE::df(out2, qTarget2));
         critic2.gradient(x.state, qTarget2);
     }
 #endif
     /* train policy net */
     {
-        const Tensor& prob = actor.forward(x.state);
+        const Tensor& p = actor.forward(x.state);
         const Tensor& q1 = critic1.forward(x.state);
         const Tensor& q2 = critic2.forward(x.state);
-        Tensor loss(actionDim, 1);
+        Tensor dLoss(actionDim, 1);
         for (int i = 0; i < actionDim; i++) {
             float q = std::min(q1[i], q2[i]);
-            loss[i] = prob[i]*(q - alpha[i]*std::log(prob[i] + 1e-8));
+            /*
+                loss = -q*log(p) - alpha*p*log(p)
+                dLoss/dp = -q/p - alpha*(1 + log(p))
+             */
+            //loss[i] = p[i]*(q - alpha[i]*std::log(p[i] + 1e-8));
+            dLoss[i] = p[i] - q/(p[i] + 1e-8) + alpha[i]*(1 + std::log(p[i] + 1e-8));
         }
-        actor.backward(loss);
-        actor.gradient(x.state, loss);
+        actor.backward(dLoss);
+        actor.gradient(x.state, dLoss);
     }
     /* alpha */
     {
@@ -182,8 +179,8 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
     actor.RMSProp(r, 0.9, r);
     alpha.RMSProp(1e-5, 0.9, 0);
 #else
-    actor.RMSProp(0.1, 0.9, 0);
-    alpha.RMSProp(1e-4, 0.9, 0);
+    actor.RMSProp(1e-2, 0.9, 0);
+    alpha.RMSProp(1e-5, 0.9, 0);
 #endif
 #if 1
     std::cout<<"annealing:"<<annealing.val<<",alpha:";

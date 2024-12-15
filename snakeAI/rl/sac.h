@@ -13,7 +13,7 @@
 #include "rl_basic.h"
 #include "parameter.hpp"
 #include "annealing.hpp"
-
+#include "layer.h"
 namespace RL {
 
 class SAC
@@ -26,7 +26,6 @@ public:
                   const Tensor& nextState,
                   float reward,
                   bool done);
-    void perceive(const std::vector<Transition>& x);
     Tensor& eGreedyAction(const Tensor& state);
     Tensor& gumbelMax(const Tensor &state);
     Tensor& action(const Tensor &state);

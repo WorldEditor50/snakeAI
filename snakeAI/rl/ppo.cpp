@@ -3,12 +3,9 @@
 #include "loss.h"
 
 RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
-    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1)
+    :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99),
+      beta(0.5),delta(0.01),epsilon(0.2), exploringRate(1),learningSteps(0)
 {
-    beta = 0.5;
-    delta = 0.01;
-    epsilon = 0.2;
-    learningSteps = 0;
     annealing = ExpAnnealing(0.01, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
@@ -95,7 +92,7 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
             Tensor &v1 = critic.forward(criticState);
             r[k] = trajectory[t].reward + 0.99*v1[k];
         }
-        critic.backward(Loss::MSE(v, r));
+        critic.backward(Loss::MSE::df(v, r));
         critic.gradient(criticState, r);
         /* temperture parameter */
         Tensor& q = trajectory[t].action;
@@ -106,7 +103,7 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         q[k] *= ratio*advantage - beta*kl;
         KLexpect += kl;
-        actorP.backward(Loss::CrossEntropy(p, q));
+        actorP.backward(Loss::CrossEntropy::df(p, q));
         actorP.gradient(trajectory[t].state, q);
     }
     /* KL-Penalty */
@@ -160,7 +157,7 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
             Tensor &v1 = critic.forward(criticState);
             r[k] = trajectory[t].reward + 0.99*v1[k];
         }
-        critic.backward(Loss::MSE(v, r));
+        critic.backward(Loss::MSE::df(v, r));
         critic.gradient(criticState, r);
         /* temperture parameter */
         Tensor& q = trajectory[t].action;
@@ -170,7 +167,7 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]) + 1e-9);
         ratio = std::min(ratio, RL::clip(ratio, 1 - epsilon, 1 + epsilon));
         q[k] *= ratio * adv;
-        actorP.backward(Loss::CrossEntropy(p, q));
+        actorP.backward(Loss::CrossEntropy::df(p, q));
         actorP.gradient(trajectory[t].state, q);
     }
     float decay = annealing.step();

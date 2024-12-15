@@ -436,7 +436,7 @@ void RL::LSTM::test()
         for (int j = 0; j < 16; j++) {
             int k = selectIndex(Random::engine);
             Tensor& out = lstm.forward(data[k]);
-            lstm.cacheError(Loss::MSE(out, target[k]));
+            lstm.cacheError(Loss::MSE::df(out, target[k]));
         }
         lstm.RMSProp(0.9, 1e-3, 0, true);
     }

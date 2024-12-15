@@ -255,19 +255,11 @@ public:
         return softmax(o);
     }
 
-    void gradient(const RL::Tensor &x, const Tensor &y) override
+    void gradient(const RL::Tensor &x, const Tensor &dLoss) override
     {
-#if 0
-        Tensor J = FnSoftmax::jacobian(o);
         Tensor dy(outputDim, 1);
-        Tensor dLoss(outputDim, 1);
-        for (std::size_t i = 0; i < outputDim; i++) {
-            dLoss[i] = -y[i]/(o[i] + 1e-8);
-        }
+        Tensor J = Softmax::jacobian(o);
         Tensor::MM::ikkj(dy, J, dLoss);
-#else
-        Tensor dy = o - y;
-#endif
         Tensor::MM::ikjk(g.w, dy, x);
         if (bias) {
             g.b += dy;

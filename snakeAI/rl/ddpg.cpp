@@ -68,7 +68,7 @@ void RL::DDPG::experienceReplay(const Transition& x)
             ct[k] = x.reward + gamma*cq[k];
         }
         Tensor &cp = criticP.forward(x.state);
-        criticP.backward(Loss::MSE(cp, ct));
+        criticP.backward(Loss::MSE::df(cp, ct));
         criticP.gradient(x.state, ct);
     }
 
@@ -76,12 +76,12 @@ void RL::DDPG::experienceReplay(const Transition& x)
     {
         Tensor &ap = actorP.forward(x.state);
         Tensor& q = criticP.forward(x.state);
-        Tensor loss(actionDim, 1);
+        Tensor dLoss(actionDim, 1);
         for (std::size_t i = 0; i < actionDim; i++) {
-            loss[i] = ap[i]*q[i];
+            dLoss[i] = -ap[i]*q[i];
         }
-        actorP.backward(loss);
-        actorP.gradient(x.state, loss);
+        actorP.backward(dLoss);
+        actorP.gradient(x.state, dLoss);
     }
 
     return;

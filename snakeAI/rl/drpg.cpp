@@ -59,8 +59,9 @@ void RL::DRPG::reinforce(std::vector<Step>& x, float learningRate)
         alpha.g[k] += (-prob[k]*std::log(prob[k] + 1e-8) - entropy0)*alpha[t];
         x[t].action[k] = prob[k]*(discountedReward[t] - u);
         Tensor &out = policyNet.forward(x[t].state, false);
-        policyNet.backward(Loss::CrossEntropy(out, x[t].action));
-        policyNet.gradient(x[t].state, x[t].action);
+        Tensor dLoss = Loss::CrossEntropy::df(out, x[t].action);
+        policyNet.backward(dLoss);
+        policyNet.gradient(x[t].state, dLoss);
     }
     alpha.RMSProp(1e-4, 0.9, 0);
 #if 1

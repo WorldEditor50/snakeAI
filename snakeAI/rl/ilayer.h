@@ -33,7 +33,7 @@ public:
     {
         return o;
     }
-    virtual void gradient(const Tensor& x, const Tensor&){}
+    virtual void gradient(const Tensor& x, const Tensor& dLoss){}
     virtual void backward(Tensor &ei){}
     virtual void broadcast(){}
     virtual void cacheError(const Tensor &e){}

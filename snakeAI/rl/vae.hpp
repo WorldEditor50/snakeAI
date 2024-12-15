@@ -77,8 +77,8 @@ public:
     {
         /* decoder */
         {
-            Tensor loss1 = Loss::MSE(decoder.output(), x);
-            decoder.backward(loss1);
+            Tensor dLoss = Loss::MSE::df(decoder.output(), x);
+            decoder.backward(dLoss);
         }
         /* encoder
            z = u + std*eps

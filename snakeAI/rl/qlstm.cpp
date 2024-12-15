@@ -70,7 +70,7 @@ void RL::QLSTM::experienceReplay(const Transition& x)
         Tensor &v = QTargetNet.forward(x.nextState, true);
         qTarget[i] = x.reward + gamma * v[k];
     }
-    QMainNet.backward(Loss::MSE(out, qTarget));
+    QMainNet.backward(Loss::MSE::df(out, qTarget));
     QMainNet.gradient(x.state, qTarget);
     return;
 }

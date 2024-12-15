@@ -68,7 +68,7 @@ void RL::ConvDQN::experienceReplay(const Transition& x)
         qTarget[i] = x.reward + gamma * v[k];
     }
     /* train QMainNet */
-    QMainNet.backward(Loss::MSE(out, qTarget));
+    QMainNet.backward(Loss::MSE::df(out, qTarget));
     QMainNet.gradient(x.state, qTarget);
     return;
 }

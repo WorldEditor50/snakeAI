@@ -345,20 +345,5 @@ inline Tensor& gumbelSoftmax(Tensor &x, const Tensor& tau)
     return x;
 }
 
-inline void gaussianResample(Tensor &z, float u, float sigma)
-{
-    /*
-        z = u + std*eps
-        eps ~ N(0, 1)
-    */
-    float std = std::sqrt(sigma);
-    Tensor eps(z.shape);
-    Random::normal(eps, u, std);
-    for (std::size_t i = 0; i < z.totalSize; i++) {
-        z[i] = u + std*eps[i];
-    }
-    return;
-}
-
 }
 #endif // UTIL_HPP
