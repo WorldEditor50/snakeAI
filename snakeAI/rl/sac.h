@@ -37,6 +37,7 @@ public:
     void save();
     void load();
 protected:
+    int count;
     int stateDim;
     int actionDim;
     float gamma;

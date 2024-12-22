@@ -218,6 +218,7 @@ inline void lerp(Tensor &s, const Tensor s_, float r)
     }
     return;
 }
+
 float gaussian(float x, float u, float sigma);
 float clip(float x, float sup, float inf);
 float hmean(const Tensor &x);
@@ -227,6 +228,10 @@ float covariance(const Tensor& x1, const Tensor& x2);
 void zscore(Tensor &x);
 void normalize(Tensor &x);
 
+inline float entropy(float p)
+{
+    return -p*std::log(p);
+}
 
 inline float M3(const Tensor &x, float u)
 {

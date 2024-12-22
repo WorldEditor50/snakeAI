@@ -7,7 +7,7 @@ RL::DRPG::DRPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionD
 {
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = -0.02*std::log(0.02);
+    entropy0 = RL::entropy(0.02);
     lstm = LSTM::_(stateDim, hiddenDim, hiddenDim, true);
     h = Tensor(hiddenDim, 1);
     c = Tensor(hiddenDim, 1);
@@ -56,7 +56,7 @@ void RL::DRPG::reinforce(std::vector<Step>& x, float learningRate)
     for (std::size_t t = 0; t < x.size(); t++) {
         const Tensor &prob = x[t].action;
         int k = x[t].action.argmax();
-        alpha.g[k] += (-prob[k]*std::log(prob[k] + 1e-8) - entropy0)*alpha[t];
+        alpha.g[k] += RL::entropy(prob[k]) - entropy0;
         x[t].action[k] = prob[k]*(discountedReward[t] - u);
         Tensor &out = policyNet.forward(x[t].state, false);
         Tensor dLoss = Loss::CrossEntropy::df(out, x[t].action);

@@ -39,6 +39,8 @@ protected:
     VAE actionGenerator;
     Net qNet1;
     Net qNet2;
+    Net qNetTarget1;
+    Net qNetTarget2;
     std::deque<Transition> memories;
 };
 

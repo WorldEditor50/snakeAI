@@ -11,11 +11,18 @@ RL::BCQ::BCQ(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     qNet1 = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                 TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
                 Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
+    qNet2 = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
+                TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),
+                Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
 
-    qNet2 = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
-                TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
-                Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
-    qNet1.copyTo(qNet2);
+    qNetTarget1 = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
+                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                      Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
+    qNetTarget2 = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, false),
+                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
+                      Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
+    qNet1.copyTo(qNetTarget1);
+    qNet2.copyTo(qNetTarget2);
 }
 
 RL::Tensor &RL::BCQ::action(const Tensor &state)

@@ -2,7 +2,7 @@
 #include "layer.h"
 #include "loss.h"
 
-#define USE_DECAY 0
+#define USE_DECAY 1
 
 RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1)
@@ -10,12 +10,7 @@ RL::SAC::SAC(size_t stateDim_, size_t hiddenDim, size_t actionDim_)
     annealing = ExpAnnealing(0.01, 0.12, 1e-4);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-#if USE_DECAY
-    //entropy0 = -0.12*std::log(0.12);
-    entropy0 = -0.11*std::log(0.11);
-#else
-    entropy0 = -0.1*std::log(0.1);
-#endif
+    entropy0 =  RL::entropy(0.1);
     actor = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                 LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
                 Layer<Softmax>::_(hiddenDim, actionDim, true, true));
@@ -91,10 +86,10 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
             }
         }
         const Tensor &out1 = critic1.forward(x.state);
-        critic1.backward(Loss::MSE(out1, qTarget));
+        critic1.backward(Loss::MSE::df(out1, qTarget));
         critic1.gradient(x.state, qTarget);
         const Tensor &out2 = critic2.forward(x.state);
-        critic2.backward(Loss::MSE(out2, qTarget));
+        critic2.backward(Loss::MSE::df(out2, qTarget));
         critic2.gradient(x.state, qTarget);
     }
 #else
@@ -108,7 +103,7 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         const Tensor& q2 = critic2Target.forward(x.nextState);
         float q = std::min(q1[k], q2[k]);
         float nextValue = 0;
-        nextValue = nextProb[k]*(q - alpha[k]*std::log(nextProb[k] + 1e-8));
+        nextValue = nextProb[k]*(q - alpha[k]*std::log(nextProb[k]));
         float qTarget = 0;
         if (x.done) {
             qTarget = x.reward;
@@ -136,11 +131,10 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         for (int i = 0; i < actionDim; i++) {
             float q = std::min(q1[i], q2[i]);
             /*
-                loss = -q*log(p) - alpha*p*log(p)
-                dLoss/dp = -q/p - alpha*(1 + log(p))
-             */
-            //loss[i] = p[i]*(q - alpha[i]*std::log(p[i] + 1e-8));
-            dLoss[i] = p[i] - q/(p[i] + 1e-8) + alpha[i]*(1 + std::log(p[i] + 1e-8));
+                loss = -p*(q - alpha*log(p)) + 0.5*p^2
+                dLoss/dp = p - q + alpha*(1 + log(p))
+            */
+            dLoss[i] = p[i] - q + alpha[i]*(1 + std::log(p[i]));
         }
         actor.backward(dLoss);
         actor.gradient(x.state, dLoss);
@@ -148,9 +142,8 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
     /* alpha */
     {
         const Tensor& prob = x.action;
-        for (int i = 0; i < actionDim; i++) {
-            alpha.g[i] += (-prob[i]*std::log(prob[i] + 1e-8) - entropy0)*alpha[i];
-        }
+        int i = prob.argmax();
+        alpha.g[i] += RL::entropy(prob[i]) - entropy0;
     }
     return;
 }
@@ -165,10 +158,11 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         std::cout<<"update target net"<<std::endl;
         /* update */
         critic1.softUpdateTo(critic1Target, 1e-3);
-        critic2.softUpdateTo(critic2Target, 1e-4);
+        critic2.softUpdateTo(critic2Target, 1e-3);
         learningSteps = 0;
     }
     /* experience replay */
+    count = 0;
     std::uniform_int_distribution<int> uniform(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
         int k = uniform(Random::engine);
@@ -176,16 +170,15 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
     }
 #if USE_DECAY
     float r = annealing.step();
-    actor.RMSProp(r, 0.9, r);
-    alpha.RMSProp(1e-5, 0.9, 0);
+    actor.RMSProp(1e-2, 0.9, r);
 #else
     actor.RMSProp(1e-2, 0.9, 0);
-    alpha.RMSProp(1e-5, 0.9, 0);
 #endif
 #if 1
     std::cout<<"annealing:"<<annealing.val<<",alpha:";
     alpha.val.printValue();
 #endif
+    alpha.RMSProp(1e-5, 0.9, 0);
     critic1.RMSProp(1e-3, 0.9, 0);
     critic2.RMSProp(1e-3, 0.9, 0);
     /* reduce memory */
