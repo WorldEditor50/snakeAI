@@ -60,7 +60,7 @@ RL::Tensor& RL::SAC::action(const RL::Tensor &state)
     return actor.forward(state);
 }
 
-void RL::SAC::experienceReplay(const RL::Transition &x)
+void RL::SAC::experienceReplay(const RL::Transition &x, float beta)
 {
     /* train critic net */
 #if 0
@@ -103,7 +103,7 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         const Tensor& q2 = critic2Target.forward(x.nextState);
         float q = std::min(q1[k], q2[k]);
         float nextValue = 0;
-        nextValue = nextProb[k]*(q - alpha[k]*std::log(nextProb[k]));
+        nextValue = (nextProb[k] + beta)*(q - alpha[k]*std::log(nextProb[k] + beta));
         float qTarget = 0;
         if (x.done) {
             qTarget = x.reward;
@@ -127,23 +127,26 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
         const Tensor& p = actor.forward(x.state);
         const Tensor& q1 = critic1.forward(x.state);
         const Tensor& q2 = critic2.forward(x.state);
-        Tensor dLoss(actionDim, 1);
+        Tensor loss(actionDim, 1);
         for (int i = 0; i < actionDim; i++) {
-            float q = std::min(q1[i], q2[i]);
+            float q = 0.5*(q1[i] + q2[i]);
             /*
-                loss = -p*(q - alpha*log(p)) + 0.5*p^2
-                dLoss/dp = p - q + alpha*(1 + log(p))
+                L(p) = p*(q - alpha*log(p))
+                time shift loss: e^(beta*D)(L) = L(p + beta)
             */
-            dLoss[i] = p[i] - q + alpha[i]*(1 + std::log(p[i]));
+            float dL = (p[i] + beta)*(q - alpha[i]*std::log(p[i] + beta));
+            loss[i] = p[i] - dL;
         }
-        actor.backward(dLoss);
-        actor.gradient(x.state, dLoss);
+        actor.backward(loss);
+        actor.gradient(x.state, loss);
     }
+
     /* alpha */
     {
         const Tensor& prob = x.action;
-        int i = prob.argmax();
-        alpha.g[i] += RL::entropy(prob[i]) - entropy0;
+        for (int i = 0; i < actionDim; i++) {
+            alpha.g[i] += (RL::entropy(prob[i]) - entropy0)*alpha[i];
+        }
     }
     return;
 }
@@ -162,18 +165,14 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
         learningSteps = 0;
     }
     /* experience replay */
-    count = 0;
     std::uniform_int_distribution<int> uniform(0, memories.size() - 1);
     for (std::size_t i = 0; i < batchSize; i++) {
         int k = uniform(Random::engine);
-        experienceReplay(memories[k]);
+        float beta = float(k)/maxMemorySize;
+        experienceReplay(memories[k], beta);
     }
-#if USE_DECAY
-    float r = annealing.step();
-    actor.RMSProp(1e-2, 0.9, r);
-#else
     actor.RMSProp(1e-2, 0.9, 0);
-#endif
+
 #if 1
     std::cout<<"annealing:"<<annealing.val<<",alpha:";
     alpha.val.printValue();

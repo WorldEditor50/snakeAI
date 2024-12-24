@@ -29,7 +29,7 @@ public:
     Tensor& eGreedyAction(const Tensor& state);
     Tensor& gumbelMax(const Tensor &state);
     Tensor& action(const Tensor &state);
-    void experienceReplay(const Transition& x);
+    void experienceReplay(const Transition& x, float beta);
     void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 32,
@@ -37,7 +37,6 @@ public:
     void save();
     void load();
 protected:
-    int count;
     int stateDim;
     int actionDim;
     float gamma;

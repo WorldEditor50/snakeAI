@@ -96,7 +96,7 @@ void RL::PPO::learnWithKLpenalty(std::vector<RL::Step> &trajectory, float learni
         critic.gradient(criticState, r);
         /* temperture parameter */
         Tensor& q = trajectory[t].action;
-        alpha.g[k] += RL::entropy(q[k]) - entropy0;
+        alpha.g[k] += (RL::entropy(q[k]) - entropy0)*alpha[k];
         /* actor */
         Tensor p = actorP.forward(trajectory[t].state);
         float kl = p[k] * std::log(p[k]/q[k] + 1e-9);
@@ -162,7 +162,7 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
         critic.gradient(criticState, r);
         /* temperture parameter */
         Tensor& q = trajectory[t].action;
-        alpha.g[k] += RL::entropy(q[k]) - entropy0;
+        alpha.g[k] += (RL::entropy(q[k]) - entropy0)*alpha[k];
         /* actor */
         Tensor p = actorP.forward(trajectory[t].state);
         float ratio = std::exp(std::log(p[k]) - std::log(q[k]));

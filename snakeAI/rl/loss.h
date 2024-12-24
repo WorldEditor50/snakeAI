@@ -34,7 +34,7 @@ struct CrossEntropy {
     {
         Tensor loss(yo.totalSize, 1);
         for (std::size_t i = 0; i < yo.size(); i++) {
-            loss[i] = -yt[i]*std::log(yo[i] + 1e-8);
+            loss[i] = -yt[i]*std::log(yo[i]);
         }
         return loss;
     }
@@ -43,10 +43,11 @@ struct CrossEntropy {
     {
         Tensor dLoss(yo.totalSize, 1);
         for (std::size_t i = 0; i < yo.size(); i++) {
-             dLoss[i] = -yt[i]/(yo[i] + 1e-8);
+             dLoss[i] = -yt[i]/(yo[i]);
         }
         return dLoss;
     }
+
 };
 
 struct BCE {
@@ -62,7 +63,7 @@ struct BCE {
     {
         Tensor dLoss(yo.totalSize, 1);
         for (std::size_t i = 0; i < yo.size(); i++) {
-             dLoss[i] = -yt[i]/(yo[i] + 1e-8) - (1 - yt[i])/(1 - yo[i]);
+             dLoss[i] = -yt[i]/(yo[i]) - (1 - yt[i])/(1 - yo[i]);
         }
         return dLoss;
     }
