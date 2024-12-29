@@ -74,11 +74,11 @@ void RL::DDPG::experienceReplay(const Transition& x)
 
     /* train actor */
     {
-        Tensor &ap = actorP.forward(x.state);
+        Tensor &p = actorP.forward(x.state);
         Tensor& q = criticP.forward(x.state);
         Tensor dLoss(actionDim, 1);
         for (std::size_t i = 0; i < actionDim; i++) {
-            dLoss[i] = -ap[i]*q[i];
+            dLoss[i] = p[i] - p[i]*q[i];
         }
         actorP.backward(dLoss);
         actorP.gradient(x.state, dLoss);

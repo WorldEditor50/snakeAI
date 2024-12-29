@@ -226,11 +226,11 @@ float Environment::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
 {
     /* agent goes out of the map */
     if (map(xn, yn) == OBJ_BLOCK) {
-        return -1;
+        return -1.5;
     }
     /* agent reaches to the target's position */
     if (xn == xt && yn == yt) {
-        return 1;
+        return 1.5;
     }
     /* the distance from agent's previous position to the target's position */
     float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
@@ -289,10 +289,10 @@ float Environment::reward2(const RL::Tensor &map_, int xi, int yi, int xn, int y
 float Environment::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
 {
     if (map(xn, yn) == OBJ_BLOCK) {
-        return -1;
+        return 0;
     }
     if (xn == xt && yn == yt) {
-        return 16;
+        return 1.5;
     }
     float d1 = (xi - xt)*(xi - xt) + (yi - yt)*(yi - yt);
     float d2 = (xn - xt)*(xn - xt) + (yn - yt)*(yn - yt);

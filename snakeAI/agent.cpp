@@ -443,11 +443,10 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
             int xi = xn;
             int yi = yn;
             RL::Tensor& a = sac.gumbelMax(state);
-            //int k = a.argmax();
-            int k = RL::Random::categorical(a);
+            int k = a.argmax();
+            //int k = RL::Random::categorical(a);
             simulateMove(xn, yn, k);
             float r = env.reward0(xi, yi, xn, yn, xt, yt);
-            //float r = env.reward2(env.map, xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (env.map(xn, yn) == OBJ_BLOCK) {

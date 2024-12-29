@@ -9,7 +9,7 @@ RL::PPO::PPO(int stateDim_, int hiddenDim, int actionDim_)
     annealing = ExpAnnealing(0.01, 0.12);
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
-    entropy0 = RL::entropy(0.25);
+    entropy0 = RL::entropy(0.1);
 
     actorP = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                  TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, true),

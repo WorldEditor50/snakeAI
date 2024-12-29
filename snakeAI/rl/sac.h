@@ -14,10 +14,13 @@
 #include "parameter.hpp"
 #include "annealing.hpp"
 #include "layer.h"
+
 namespace RL {
 
 class SAC
 {
+public:
+    static constexpr int max_qnet_num = 4;
 public:
     SAC(){}
     explicit SAC(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
@@ -47,10 +50,8 @@ protected:
     ExpAnnealing annealing;
     GradValue alpha;
     Net actor;
-    Net critic1;
-    Net critic1Target;
-    Net critic2;
-    Net critic2Target;
+    Net critics[max_qnet_num];
+    Net criticsTarget[max_qnet_num];
 };
 
 }

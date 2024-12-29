@@ -85,7 +85,10 @@ namespace Norm {
         return s;
     }
 }
-
+inline float sigmoid(float x)
+{
+    return 1.0/(1 + std::exp(-x));
+}
 inline Tensor& sqrt(Tensor& x)
 {
     for (std::size_t i = 0; i < x.size(); i++) {
@@ -211,10 +214,10 @@ inline Tensor lowTriangle(int rows, int cols)
 }
 
 /* exponential moving average */
-inline void lerp(Tensor &s, const Tensor s_, float r)
+inline void lerp(Tensor &x, const Tensor xi, float r)
 {
-    for (std::size_t i = 0; i < s.size(); i++) {
-        s[i] = (1 - r) * s[i] + r * s_[i];
+    for (std::size_t i = 0; i < x.size(); i++) {
+        x[i] = (1 - r) * x[i] + r * xi[i];
     }
     return;
 }
@@ -232,6 +235,22 @@ inline float entropy(float p)
 {
     return -p*std::log(p);
 }
+namespace Metrics {
+/* Kullback Leibler Divergence */
+inline float KL(float p, float q)
+{
+    return -p*std::log(p/q);
+}
+
+/* Jensen-Shannon */
+inline float JS(float p, float q)
+{
+    float r = (p + q)/2;
+    return (KL(p, r) + KL(q, r))/2;
+}
+
+}
+
 
 inline float M3(const Tensor &x, float u)
 {

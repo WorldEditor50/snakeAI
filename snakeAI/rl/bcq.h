@@ -15,32 +15,33 @@ namespace RL {
 class BCQ
 {
 public:
-    struct Step {
-        Tensor state;
-        Tensor action;
-    };
+    static constexpr int max_qnet_num = 2;
 public:
-    BCQ();
-    explicit BCQ(std::size_t stateDim, std::size_t hiddenDim, std::size_t actionDim);
+    BCQ(){}
+    explicit BCQ(int stateDim, int hiddenDim, int actionDim);
     Tensor& action(const Tensor &state);
+    Tensor& mixAction(const Tensor &state, const Tensor &ga);
+    void perceive(const Tensor& state,
+                  const Tensor& action,
+                  const Tensor& nextState,
+                  float reward,
+                  bool done);
     void experienceReplay(const Transition& x);
     void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 32,
                float learningRate = 0.001);
 protected:
-    std::size_t stateDim;
-    std::size_t actionDim;
-    std::size_t featureDim;
+    int stateDim;
+    int actionDim;
+    int featureDim;
     float gamma;
-    float exploringRate;
     int learningSteps;
-    VAE stateGenerator;
-    VAE actionGenerator;
-    Net qNet1;
-    Net qNet2;
-    Net qNetTarget1;
-    Net qNetTarget2;
+
+    VAE encoder;
+    Net actor;
+    Net critics[max_qnet_num];
+    Net criticsTarget[max_qnet_num];
     std::deque<Transition> memories;
 };
 
