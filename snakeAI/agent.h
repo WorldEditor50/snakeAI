@@ -1,6 +1,5 @@
 #ifndef AGENT_H
 #define AGENT_H
-#include <vector>
 #include "rl/dqn.h"
 #include "rl/dpg.h"
 #include "rl/ddpg.h"
@@ -11,7 +10,6 @@
 #include "rl/convdqn.h"
 #include "rl/tensor.hpp"
 #include "rl/sac.h"
-#include "common.h"
 #include "snake.h"
 
 class Environment;

@@ -7,15 +7,10 @@
 #include <QResizeEvent>
 #include <QTimer>
 #include <QMap>
-#include <functional>
 #include <thread>
-#include <chrono>
-#include <ctime>
-#include <cstdlib>
 #include "environment.h"
-#include "snake.h"
 #include "agent.h"
-#include "axis.h"
+
 
 class GameWidget : public QWidget
 {

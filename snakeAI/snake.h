@@ -1,7 +1,6 @@
 #ifndef SNAKE_H
 #define SNAKE_H
-#include <iostream>
-#include <vector>
+
 #include <deque>
 #include "common.h"
 #include "rl/tensor.hpp"

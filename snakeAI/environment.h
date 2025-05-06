@@ -1,8 +1,6 @@
 #ifndef ENVIRONMENT_H
 #define ENVIRONMENT_H
-#include <vector>
 #include <cstdlib>
-#include <cmath>
 #include <string>
 #include <map>
 #include "rl/tensor.hpp"

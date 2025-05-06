@@ -6,7 +6,6 @@
 #include <QPainter>
 #include <QWheelEvent>
 #include <QTimer>
-#include <cmath>
 #include <mutex>
 
 class AxisWidget : public QWidget

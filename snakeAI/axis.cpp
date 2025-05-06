@@ -129,7 +129,13 @@ void AxisWidget::timerEvent(QTimerEvent *event)
 
 void AxisWidget::wheelEvent(QWheelEvent *event)
 {
-    if (event->delta() < 0) {
+
+#if (QT_VERSION >= QT_VERSION_CHECK(6,0,0))
+    int delta = event->angleDelta().y();
+#else
+    int delta = event->delta();
+#endif
+    if (delta < 0) {
         scale /= 2;
         scale = scale < 1 ? 1 : scale;
     } else {

@@ -1,7 +1,6 @@
 #ifndef GENETIC_H
 #define GENETIC_H
-#include <iostream>
-#include <cmath>
+
 #include <cstdlib>
 #include <cstring>
 #include <ctime>

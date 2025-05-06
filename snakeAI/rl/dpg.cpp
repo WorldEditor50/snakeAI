@@ -2,7 +2,6 @@
 #include "layer.h"
 #include "loss.h"
 #include "attention.hpp"
-#include "concat.hpp"
 
 RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
     :stateDim(stateDim_), actionDim(actionDim_), gamma(0.9), exploringRate(1)
@@ -10,7 +9,7 @@ RL::DPG::DPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = RL::entropy(0.08);
-#if 0
+#if 1
     policyNet = Net(Layer<Tanh>::_(stateDim, hiddenDim, true, true),
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
                     Layer<Tanh>::_(hiddenDim, hiddenDim, true, true),

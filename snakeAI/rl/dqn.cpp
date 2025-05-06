@@ -1,7 +1,6 @@
 #include "dqn.h"
 #include "layer.h"
 #include "loss.h"
-#include "attention.hpp"
 #include "concat.hpp"
 
 RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
