@@ -14,7 +14,7 @@ struct MSE {
         Tensor loss(yo.totalSize, 1);
         for (std::size_t i = 0; i < yo.size(); i++) {
             float d = yo[i] - yt[i];
-            loss[i] = 2*d*d;
+            loss[i] = d*d;
         }
         return loss;
     }

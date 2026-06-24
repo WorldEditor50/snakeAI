@@ -9,9 +9,9 @@ RL::ConvPG::ConvPG(std::size_t stateDim_, std::size_t hiddenDim, std::size_t act
     alpha = GradValue(actionDim, 1);
     alpha.val.fill(1);
     entropy0 = -0.05*std::log(0.05);
-    policyNet = Net(Conv2d<Sigmoid>::_(1, 118, 118, 4, 5, 5, 1, true, true),
+    policyNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, true),
                     MaxPooling2d::_(4, 24, 24, 2, 2),
-                    Conv2d<Sigmoid>::_(4, 12, 12, 8, 3, 3, 0, true, true),
+                    Conv2d<Tanh>::_(4, 12, 12, 8, 3, 3, 0, true, true),
                     MaxPooling2d::_(8, 4, 4, 2, 2),
                     Layer<Tanh>::_(8*2*2, hiddenDim, true, true),
                     LayerNorm<Sigmoid, LN::Post>::_(hiddenDim, hiddenDim, true, true),
@@ -43,6 +43,24 @@ RL::Tensor &RL::ConvPG::action(const Tensor &state)
 
 void RL::ConvPG::reinforce(std::vector<Step>& x, float learningRate)
 {
+
+    /* --- Standard REINFORCE policy gradient ---
+       ∇J = ∇log π(a|s) · A
+
+       For a softmax policy π(a|s) = exp(z_a)/Σexp(z_i):
+         ∂log π(a|s)/∂z_k = 1 - π(a|s) if a=k,  -π(k|s) if a≠k
+
+       The gradient w.r.t. logits: ∂J/∂z = A · (e_a - π(·|s))
+
+       Through the softmax Jacobian J (where J_ij = π_i(δ_ij - π_j)):
+         J · e = A · (e_a - π)
+
+       Setting e_a = A/π(a|s), e_i≠a = 0 gives the correct result:
+         (J · e)_a = π_a·(A/π_a) - π_a·A = A·(1-π_a) ✓
+         (J · e)_i = 0 - π_i·A = -π_i·A ✓
+
+       where π(a|s) = out[k] is the current policy probability of action a.
+    */
     float r = 0;
     Tensor discountedReward(x.size(), 1);
     for (int i = x.size() - 1; i >= 0; i--) {
@@ -57,8 +75,7 @@ void RL::ConvPG::reinforce(std::vector<Step>& x, float learningRate)
         x[t].action[k] = prob[k]*(discountedReward[t] - u);
         Tensor &out = policyNet.forward(x[t].state);
         Tensor dLoss = Loss::CrossEntropy::df(out, x[t].action);
-        policyNet.backward(dLoss);
-        policyNet.gradient(x[t].state, dLoss);
+        policyNet.backward(x[t].state, dLoss);
     }
     alpha.RMSProp(1e-4, 0.9, 0);
 #if 0

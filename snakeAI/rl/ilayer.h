@@ -2,7 +2,6 @@
 #define ILAYER_H
 #include "tensor.hpp"
 #include <memory>
-#include <functional>
 
 namespace RL {
 
@@ -18,7 +17,12 @@ public:
         LAYER_MAXPOOLING,
         LAYER_AVGPOOLING,
         LAYER_ATTENTION,
-        LAYER_SCALEDDOTPRODUCT
+        LAYER_SCALEDDOTPRODUCT,
+        LAYER_MHA,
+        LAYER_TRANSFORMERBLOCK,
+        LAYER_MOE,
+        LAYER_SSM,
+        LAYER_MAMBA
     };
     using sptr = std::shared_ptr<iLayer>;
 public:
@@ -33,9 +37,7 @@ public:
     {
         return o;
     }
-    virtual void gradient(const Tensor& x, const Tensor& dLoss){}
-    virtual void backward(Tensor &ei){}
-    virtual void broadcast(){}
+    virtual void backward(const Tensor& x, Tensor &ei){}
     virtual void cacheError(const Tensor &e){}
     virtual void SGD(float lr){}
     virtual void RMSProp(float lr, float rho, float decay, bool clipGrad){}

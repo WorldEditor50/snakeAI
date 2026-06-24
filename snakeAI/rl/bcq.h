@@ -16,9 +16,15 @@ class BCQ
 {
 public:
     static constexpr int max_qnet_num = 2;
+    /* Number of candidate actions sampled from VAE prior per state */
+    static constexpr int NUM_CANDIDATES = 100;
 public:
     BCQ(){}
     explicit BCQ(int stateDim, int hiddenDim, int actionDim);
+    /*
+     * Standard BCQ action: sample NUM_CANDIDATES candidates from VAE prior,
+     * run each through actor + critics, pick the one with highest Q.
+     */
     Tensor& action(const Tensor &state);
     Tensor& mixAction(const Tensor &state, const Tensor &ga);
     void perceive(const Tensor& state,
@@ -37,6 +43,10 @@ protected:
     int featureDim;
     float gamma;
     int learningSteps;
+
+    /* Internal buffers for action selection (avoids reallocation) */
+    Tensor actionOut;
+    Tensor bestQOut;
 
     VAE encoder;
     Net actor;

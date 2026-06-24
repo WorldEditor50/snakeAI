@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <string>
 #include <map>
+#include <unordered_map>
 #include "rl/tensor.hpp"
 #include "snake.h"
 #include "agent.h"
@@ -32,6 +33,7 @@ public:
     Agent agent;
     AgentMethod act;
     std::map<std::string, AgentMethod> agentMethod;
+    std::unordered_map<int, int> visited;  // exploration tracker for reward4
 public:
     Environment();
     ~Environment(){}

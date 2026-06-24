@@ -22,7 +22,7 @@ public:
     Tensor& noiseAction(const Tensor &state);
     Tensor &action(const Tensor &state);
     void reset();
-    void experienceReplay(const Transition& x);
+    void experienceReplaySeq(int startIdx, int seqLen);
     void learn(std::size_t maxMemorySize = 4096,
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 32,
@@ -33,12 +33,15 @@ protected:
     float gamma;
     float exploringRate;
     int learningSteps;
+    int currentSeqId;
     Tensor h;
     Tensor c;
     std::shared_ptr<LSTM> lstm;
+    std::shared_ptr<LSTM> lstmTarget;
     Net QMainNet;
     Net QTargetNet;
     std::deque<Transition> memories;
+    std::deque<bool> seqEnds;
 };
 
 }

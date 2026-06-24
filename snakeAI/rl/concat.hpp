@@ -95,31 +95,27 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
-    {
-
-        return;
-    }
-
-    void broadcast() override
+    void backward(const Tensor& x, Tensor &ei) override
     {
         for (int i = 0; i < N; i++) {
             layers[i].e = e.block({unitDim*i, 0}, {unitDim, 1});
         }
-        return;
-    }
 
-    void gradient(const Tensor& x, const Tensor&y) override
-    {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < outputDim; i++) {
             dy[i] = Tanh::df(o[i])*e[i];
         }
+        Tensor da(a.shape);
+        Softmax::jacobian_transpose_mul(a, dy, da);
+        Tensor::MM::kikj(ei, w1, da);
+
+        Tensor::MM::kikj(ei, w2, dy);
+
         Tensor::MM::ikjk(g.w1, dy, a);
         Tensor::MM::ikjk(g.w2, dy, x);
         g.b += dy;
         for (int i = 0; i < N; i++) {
-            layers[i].gradient(x, y);
+            layers[i].backward(x, ei);
         }
         o.zero();
         e.zero();
@@ -144,7 +140,7 @@ public:
         Optimize::RMSProp(w2, v.w2, g.w2, lr, rho, decay, clipGrad);
         Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
         for (int i = 0; i < N; i++) {
-            layers[i].RMSProp(rho, lr, decay, clipGrad);
+            layers[i].RMSProp(lr, rho, decay, clipGrad);
         }
         g.zero();
         return;
@@ -164,7 +160,7 @@ public:
                        alpha_, beta_, lr,
                        alpha, beta, decay, clipGrad);
         for (int i = 0; i < N; i++) {
-            layers[i].Adam(alpha, beta, alpha_, beta_, lr, decay, clipGrad);
+            layers[i].Adam(lr, alpha, beta, alpha_, beta_, decay, clipGrad);
         }
         g.zero();
         return;
@@ -337,22 +333,13 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
+    void backward(const Tensor &x, Tensor &ei) override
     {
 
-        return;
-    }
-
-    void broadcast() override
-    {
         for (int i = 0; i < N; i++) {
             layers[i].e = e.block({unitDim*i, 0}, {unitDim, 1});
         }
-        return;
-    }
 
-    void gradient(const Tensor& x, const Tensor&y) override
-    {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < outputDim; i++) {
             dy[i] = Tanh::df(o[i])*e[i];
@@ -377,7 +364,7 @@ public:
         Tensor::MM::ikjk(g.w0,  dw0, a);
 
         for (int i = 0; i < N; i++) {
-            layers[i].gradient(x, y);
+            layers[i].gradient(x);
         }
         z1.zero();
         o.zero();
@@ -405,7 +392,7 @@ public:
         Optimize::RMSProp(w2, v.w2, g.w2, lr, rho, decay, clipGrad);
         Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
         for (int i = 0; i < N; i++) {
-            layers[i].RMSProp(rho, lr, decay, clipGrad);
+            layers[i].RMSProp(lr, rho, decay, clipGrad);
         }
         g.zero();
         return;
@@ -428,7 +415,7 @@ public:
                        alpha_, beta_, lr,
                        alpha, beta, decay, clipGrad);
         for (int i = 0; i < N; i++) {
-            layers[i].Adam(alpha, beta, alpha_, beta_, lr, decay, clipGrad);
+            layers[i].Adam(lr, alpha, beta, alpha_, beta_, decay, clipGrad);
         }
         g.zero();
         return;
@@ -593,13 +580,7 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
-    {
-
-        return;
-    }
-
-    void broadcast() override
+    void backward(const Tensor& x, Tensor &ei) override
     {
         int offset = 0;
         for (int i = 0; i < layers.size(); i++) {
@@ -607,11 +588,7 @@ public:
             layers[i]->e = e.block({offset, 0}, {unitDim, 1});
             offset += unitDim;
         }
-        return;
-    }
 
-    void gradient(const Tensor& x, const Tensor&y) override
-    {
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < outputDim; i++) {
             dy[i] = Tanh::df(o[i])*e[i];
@@ -623,7 +600,7 @@ public:
         Tensor::MM::ikjk(g.w2, dy, x);
         g.b += dy;
         for (int i = 0; i < layers.size(); i++) {
-            layers[i]->gradient(x, y);
+            layers[i]->backward(x, ei);
         }
         o.zero();
         e.zero();
@@ -648,7 +625,7 @@ public:
         Optimize::RMSProp(w2, v.w2, g.w2, lr, rho, decay, clipGrad);
         Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
         for (int i = 0; i < layers.size(); i++) {
-            layers[i]->RMSProp(rho, lr, decay, clipGrad);
+            layers[i]->RMSProp(lr, rho, decay, clipGrad);
         }
         g.zero();
         return;
@@ -668,7 +645,7 @@ public:
                        alpha_, beta_, lr,
                        alpha, beta, decay, clipGrad);
         for (int i = 0; i < layers.size(); i++) {
-            layers[i]->Adam(alpha, beta, alpha_, beta_, lr, decay, clipGrad);
+            layers[i]->Adam(lr, alpha, beta, alpha_, beta_, decay, clipGrad);
         }
         g.zero();
         return;

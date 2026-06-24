@@ -186,10 +186,10 @@ public:
     void Adam(float lr, float alpha, float beta,
               float alpha_, float beta_,
               float decay, bool clipGrad) override;
-    void clamp(float c0, float cn);
+    void clamp(float c0, float cn) override;
     /* parameter */
-    virtual void copyTo(iLayer* layer);
-    virtual void softUpdateTo(iLayer* layer, float rho);
+    virtual void copyTo(iLayer* layer) override;
+    virtual void softUpdateTo(iLayer* layer, float rho) override;
     virtual void write(std::ofstream &file) override;
     virtual void read(std::ifstream &file) override;
     static void test();

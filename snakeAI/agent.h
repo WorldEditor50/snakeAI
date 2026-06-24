@@ -4,12 +4,16 @@
 #include "rl/dpg.h"
 #include "rl/ddpg.h"
 #include "rl/ppo.h"
+#include "rl/trpo.h"
 #include "rl/qlstm.h"
 #include "rl/drpg.h"
 #include "rl/convpg.h"
 #include "rl/convdqn.h"
 #include "rl/tensor.hpp"
 #include "rl/sac.h"
+#include "rl/bcq.h"
+#include "rl/mpg.h"
+
 #include "snake.h"
 
 class Environment;
@@ -26,12 +30,16 @@ private:
     RL::DPG dpg;
     RL::DDPG ddpg;
     RL::PPO ppo;
+    RL::TRPO trpo;
     RL::SAC sac;
     RL::QLSTM qlstm;
     RL::DRPG drpg;
     RL::ConvPG convpg;
     RL::ConvDQN convdqn;
+    RL::BCQ bcq;
+    RL::MPG mpg;
     bool trainFlag;
+
 public:
     explicit Agent(Environment& env, Snake& s);
     ~Agent();
@@ -46,8 +54,12 @@ public:
     int convdqnAction(int x, int y, int xt, int yt, float &totalReward);
     int ddpgAction(int x, int y, int xt, int yt, float &totalReward);
     int ppoAction(int x, int y, int xt, int yt, float &totalReward);
+    int trpoAction(int x, int y, int xt, int yt, float &totalReward);
     int sacAction(int x, int y, int xt, int yt, float &totalReward);
+    int bcqAction(int x, int y, int xt, int yt, float &totalReward);
+    int mpgAction(int x, int y, int xt, int yt, float &totalReward);
     int supervisedAction(int x, int y, int xt, int yt, float &totalReward);
+
     void setTrain(bool on){trainFlag = on;}
 private:
     bool simulateMove(int& x, int& y, int direct);

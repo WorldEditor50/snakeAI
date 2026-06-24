@@ -143,7 +143,7 @@ inline Tensor sqrt(const Tensor& x)
     for (std::size_t i = 0; i < x.size(); i++) {
         y[i] = std::sqrt(x[i]);
     }
-    return x;
+    return y;
 }
 
 inline Tensor exp(const Tensor& x)
@@ -186,7 +186,7 @@ inline Tensor cos(const Tensor& x)
 {
     Tensor y(x.shape);
     for (std::size_t i = 0; i < x.size(); i++) {
-        y[i] /= std::cos(x[i]);
+        y[i] = std::cos(x[i]);
     }
     return y;
 }
@@ -222,6 +222,14 @@ inline void lerp(Tensor &x, const Tensor xi, float r)
     return;
 }
 
+inline Tensor onehot(const Tensor &xi)
+{
+    Tensor xo(xi.shape);
+    int k = xi.argmax();
+    xo[k] = 1;
+    return xo;
+}
+
 float gaussian(float x, float u, float sigma);
 float clip(float x, float sup, float inf);
 float hmean(const Tensor &x);
@@ -233,13 +241,13 @@ void normalize(Tensor &x);
 
 inline float entropy(float p)
 {
-    return -p*std::log(p);
+    return -p*std::log(p + 1e-7);
 }
 namespace Metrics {
-/* Kullback Leibler Divergence */
+/* Kullback Leibler Divergence: KL(p||q) = Σ p*log(p/q) */
 inline float KL(float p, float q)
 {
-    return -p*std::log(p/q);
+    return p*std::log(p/q);
 }
 
 /* Jensen-Shannon */
@@ -348,7 +356,7 @@ inline Tensor& gumbelSoftmax(Tensor &x, float tau)
     Tensor epsilon(x.shape);
     Random::uniform(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
-        epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
+        epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-7) + 1e-7);
     }
     x += epsilon;
     x /= tau;
@@ -361,7 +369,7 @@ inline Tensor& gumbelSoftmax(Tensor &x, const Tensor& tau)
     Tensor epsilon(x.shape);
     Random::uniform(epsilon, 0, 1);
     for (std::size_t i = 0; i < epsilon.size(); i++) {
-        epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-8) + 1e-8);
+        epsilon[i] = -std::log(-std::log(epsilon[i] + 1e-7) + 1e-7);
     }
     x += epsilon;
     x /= tau;

@@ -17,13 +17,14 @@ public:
     RL::Tensor &gumbelMax(const RL::Tensor &state);
     Tensor &action(const Tensor &state);
     void reinforce(std::vector<Step>& x, float learningRate);
+    void reinforce1(std::vector<Step>& x, float learningRate);
 protected:
     std::size_t stateDim;
     std::size_t actionDim;
     float gamma;
     float exploringRate;
     float learningRate;
-    float entropy0;
+    float H0;
     GradValue alpha;
     Tensor h;
     Tensor c;

@@ -24,11 +24,11 @@ public:
         g.zero();
         return;
     }
-    void clamp(float c0, float cn)
+    void clamp(float c0, float ci, float cn)
     {
         for (std::size_t i = 0; i < val.totalSize; i++) {
-            val[i] = val[i] < c0 ? c0 : val[i];
-            val[i] = val[i] > cn ? cn : val[i];
+            val[i] = val[i] < c0 ? ci : val[i];
+            val[i] = val[i] > cn ? ci : val[i];
         }
         return;
     }

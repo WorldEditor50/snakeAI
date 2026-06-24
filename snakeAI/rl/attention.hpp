@@ -1,6 +1,7 @@
 #ifndef ATTENTION_HPP
 #define ATTENTION_HPP
 #include <memory>
+#include <fstream>
 #include "tensor.hpp"
 #include "ilayer.h"
 #include "activate.h"
@@ -36,11 +37,8 @@ public:
         }
         return o;
     }
-    void gradient(const Tensor& x, const Tensor&) override
-    {
 
-    }
-    void backward(Tensor &ei) override
+    void backward(const Tensor& x, Tensor &ei) override
     {
 
     }
@@ -155,62 +153,98 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
+    /*
+        Reference implementation: backward using explicit O(N⁴) softmax Jacobian matrix.
+
+        Constructs the full N²×N² Jacobian J(i,j) = z[i]·(δ_ij - z[j]),
+        then computes vec(dz) = J^T · vec(dz_hat) via kikj.
+
+        This is mathematically correct but O(N⁴) time and O(N⁴) memory.
+        Use backward() instead for O(N²) performance.
+    */
+    void backward_jacobian(Tensor &ei)
     {
-        Tensor w = wq + wk + wv;
-        Tensor::MM::kikj(ei, w, e);
+        Tensor dv(outputDim, 1);
+        Tensor::MM::kikj(dv, z, e);
+
+        Tensor dz_hat(outputDim, outputDim);
+        Tensor::MM::ikjk(dz_hat, e, v);
+
+        /* Explicit N²×N² Jacobian matrix construction (O(N⁴) memory + time) */
+        Tensor J = Softmax::jacobian(z);           // N² × N² matrix!
+        Tensor dz_hat_vec = dz_hat;
+        dz_hat_vec.reshape(outputDim*outputDim, 1);
+        Tensor dz_vec(outputDim*outputDim, 1);
+        Tensor::MM::kikj(dz_vec, J, dz_hat_vec);   // J^T · vec(dz_hat)
+        dz_vec.reshape(outputDim, outputDim);
+
+        Tensor dq(outputDim, 1);
+        Tensor::MM::ikkj(dq, dz_vec, k);
+        dq /= d;
+
+        Tensor dk(outputDim, 1);
+        Tensor dz_t = dz_vec.tr();
+        Tensor::MM::ikkj(dk, dz_t, q);
+        dk /= d;
+
+        Tensor::MM::kikj(ei, wq, dq);
+        Tensor::MM::kikj(ei, wk, dk);
+        Tensor::MM::kikj(ei, wv, dv);
         return;
     }
 
-    void gradient(const Tensor& x, const Tensor&) override
+    void backward(const Tensor& x, Tensor &ei) override
     {
         /*
-            q = Wq*x
-            k = Wk*x
-            v = Wv*x
-            z = qk^T/d = Wq*x * (Wk*x)^T/d = Wq*x*(x^T*Wk^T)/d
-            o = softmax(z)*v
+            Correct backward through ScaledDotProduct:
+            o = ẑ · v, ẑ = softmax(q·k^T / d)
 
-            do/dz = J(z)*v
-            dz/dq = k^T/d
-            dz/dk^T = q/d
-            dz/dk = q^T/d
-            dq/dWq = x^T
-            dk/dWk = x^T
-            do/dWq = (do/dz)*(dz/dq)*(dq/dWq) = J(z)*(v*k^T/d)*x^T
-            do/dWk = (do/dz)*(dz/dk)*(dk/dWk) = J(z)*(v*q^T/d)*x^T
-            do/dWv = (do/dv)*(dv/dWv) = sofmax(z)*x^T
+            Given e = ∂L/∂o (N×1):
+            1. ∂L/∂v = ẑ^T · e                          (N×1)
+            2. ∂L/∂ẑ = e · v^T                          (N×N)
+            3. vec(∂L/∂z) = J^T · vec(∂L/∂ẑ)           (O(N²) via jacobian_transpose_mul)
+            4. ∂L/∂q = (∂L/∂z) · k / d                  (N×1)
+            5. ∂L/∂k = (∂L/∂z)^T · q / d                (N×1)
+            6. ∂L/∂x = Wq^T·∂L/∂q + Wk^T·∂L/∂k + Wv^T·∂L/∂v
+            7. g.wq += ∂L/∂q · x^T, etc.
         */
-        /* softmax jacobian */
-        Tensor J = Softmax::jacobian(z);
-        /* J(z)*(v*k^T/d) */
-        Tensor vk(outputDim, outputDim);
-        Tensor::MM::ikjk(vk, v, k);
-        Tensor jvk(outputDim*outputDim, 1);
-        vk.reshape(outputDim*outputDim, 1);
-        Tensor::MM::ikkj(jvk, J, vk);
-        jvk /= d;
-        /* J(z)*(v*q^T/d) */
-        Tensor vq(outputDim, outputDim);
-        Tensor::MM::ikjk(vq, v, q);
-        Tensor jvq(outputDim*outputDim, 1);
-        vq.reshape(outputDim*outputDim, 1);
-        Tensor::MM::ikkj(jvq, J, vq);
-        jvq /= d;
 
-        /* do/dWq, do/dWk, do/dWv */
-        Tensor dWq(outputDim, 1);
-        Tensor dWk(outputDim, 1);
-        Tensor dWv(outputDim, 1);
-        jvk.reshape(outputDim, outputDim);
-        jvq.reshape(outputDim, outputDim);
-        Tensor::MM::ikkj(dWq, jvk, e);
-        Tensor::MM::ikkj(dWk, jvq, e);
-        Tensor::MM::ikkj(dWv, z, e);
-        Tensor::MM::ikjk(g.wq, dWq, x);
-        Tensor::MM::ikjk(g.wk, dWk, x);
-        Tensor::MM::ikjk(g.wv, dWv, x);
-        /* zero */
+        /* Step 1: ∂L/∂v = z^T · e  (kikj: result(i) = Σ_k z(k,i)·e(k)) */
+        Tensor dv(outputDim, 1);
+        Tensor::MM::kikj(dv, z, e);
+
+        /* Step 2: ∂L/∂ẑ = e · v^T  (ikjk: dz_hat(i,j) = e(i)·v(j)) */
+        Tensor dz_hat(outputDim, outputDim);
+        Tensor::MM::ikjk(dz_hat, e, v);
+
+        /* Step 3: ∂L/∂z = J^T · ∂L/∂ẑ  (O(N²) softmax Jacobian-vector product) */
+        Tensor dz(outputDim, outputDim);
+        Softmax::jacobian_transpose_mul(z, dz_hat, dz);
+
+        /* Step 4: ∂L/∂q = dz · k / d  */
+        Tensor dq(outputDim, 1);
+        Tensor::MM::ikkj(dq, dz, k);
+        dq /= d;
+
+        /* ∂L/∂k = dz^T · q / d */
+        Tensor dk(outputDim, 1);
+        Tensor dz_t = dz.tr();
+        Tensor::MM::ikkj(dk, dz_t, q);
+        dk /= d;
+
+        /* Step 5: ∂L/∂x = Wq^T·dq + Wk^T·dk + Wv^T·dv
+           NOTE: DO NOT zero ei here! May be called from multi-head attention
+           which accumulates all heads' gradients. */
+        Tensor::MM::kikj(ei, wq, dq);
+        Tensor::MM::kikj(ei, wk, dk);
+        Tensor::MM::kikj(ei, wv, dv);
+
+        /* Step 6: Parameter gradients */
+        Tensor::MM::ikjk(g.wq, dq, x);    // g.wq += dq · x^T
+        Tensor::MM::ikjk(g.wk, dk, x);    // g.wk += dk · x^T
+        Tensor::MM::ikjk(g.wv, dv, x);    // g.wv += dv · x^T
+
+        /* Clear cached state */
         q.zero();
         k.zero();
         v.zero();
@@ -386,41 +420,56 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
+    void backward(const Tensor &x, Tensor &ei) override
     {
-        Tensor::MM::kikj(ei, w2, e);
-        Tensor es(e.shape);
-        for (int i = 0; i < N; i++) {
-            Tensor esi(unitDim, 1);
-            dotProduct[i].backward(esi);
-            for (int j = 0; j < unitDim; j++) {
-                es[unitDim*i + j] += esi[j];
-            }
-        }
-        Tensor::MM::kikj(ei, w1, es);
-        return;
-    }
+        /*
+            Attention backward:
+            o = tanh(z), z = w1·a + w2·x + b
+            a = [head₁(x); head₂(x); ...; headₙ(x)]
 
-    void broadcast() override
-    {
-        for (int i = 0; i < N; i++) {
-            dotProduct[i].e = e.block({unitDim*i, 0}, {unitDim, 1});
-        }
-        return;
-    }
+            Given e = ∂L/∂o (N×1):
+            ∂L/∂z = e ⊙ tanh'(o)             → dy
+            ∂L/∂x = w2^T · dy                (residual path)
+            ∂L/∂a = w1^T · dy                (attention path)
+                  = [∂L/∂head₁; ...; ∂L/∂headₙ]
+            Each ∂L/∂head_i backpropagates through ScaledDotProduct to ∂L/∂x
+        */
 
-    void gradient(const Tensor& x, const Tensor&y) override
-    {
+        /* ∂L/∂z = e ⊙ tanh'(o) */
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < outputDim; i++) {
             dy[i] = Tanh::df(o[i])*e[i];
         }
+        /* w2 residual path: ∂L/∂x += w2^T · dy  */
+        Tensor::MM::kikj(ei, w2, dy);
+
+        /* w1 attention path through heads:
+           ∂L/∂a = w1^T · dy
+           then backprop through each head */
+        Tensor da(outputDim, 1);
+        Tensor::MM::kikj(da, w1, dy);
+        for (int i = 0; i < N; i++) {
+            /*
+                Broadcast the correct gradient to each ScaledDotProduct head.
+                o = tanh(w1·a + w2·x + b), a = [head₁...headₙ]
+                Given e = ∂L/∂o:
+                head_i.e = ∂L/∂(head_i_output)
+                = block_of(w1^T · (e ⊙ tanh'(o)), i*unitDim, unitDim)
+            */
+            dotProduct[i].e = da.block({i*unitDim, 0}, {unitDim, 1});
+            dotProduct[i].backward(x, ei);    /* accumulates ∂L/∂x_head into ei */
+        }
+
+        /*
+            ∂L/∂z = e ⊙ tanh'(o)                  → dy
+            g.w1 += dy · a^T
+            g.w2 += dy · x^T
+            g.b  += dy
+            For each head: da_i = block_of(w1^T·dy), gradient(da_i)
+        */
         Tensor::MM::ikjk(g.w1, dy, a);
         Tensor::MM::ikjk(g.w2, dy, x);
         g.b += dy;
-        for (int i = 0; i < N; i++) {
-            dotProduct[i].gradient(x, y);
-        }
         o.zero();
         e.zero();
         return;
@@ -444,7 +493,7 @@ public:
         Optimize::RMSProp(w2, v.w2, g.w2, lr, rho, decay, clipGrad);
         Optimize::RMSProp(b, v.b, g.b, lr, rho, decay, clipGrad);
         for (int i = 0; i < N; i++) {
-            dotProduct[i].RMSProp(rho, lr, decay, clipGrad);
+            dotProduct[i].RMSProp(lr, rho, decay, clipGrad);
         }
         g.zero();
         return;
@@ -464,9 +513,9 @@ public:
                        alpha_, beta_, lr,
                        alpha, beta, decay, clipGrad);
         for (int i = 0; i < N; i++) {
-            dotProduct[i].Adam(alpha, beta,
+            dotProduct[i].Adam(lr, alpha, beta,
                                alpha_, beta_,
-                               lr, decay, clipGrad);
+                               decay, clipGrad);
         }
         g.zero();
         return;
@@ -539,5 +588,230 @@ public:
          return;
      }
 };
+
+/*
+    Standard Multi-Head Attention (Transformer MHA)
+
+    Architecture:
+        For each head i (0..h-1) with head_dim = d_k = modelDim / numHeads:
+            q_i = Wq_i · x   (d_k × 1)
+            k_i = Wk_i · x   (d_k × 1)
+            v_i = Wv_i · x   (d_k × 1)
+            attn_i = softmax(q_i · k_i^T / √d_k)  (d_k × d_k)
+            head_i = attn_i · v_i  (d_k × 1)
+
+        all_heads = [head₀; head₁; ...; head_{h-1}]  (modelDim × 1)
+        o = Wo · all_heads  (modelDim × 1)
+
+    Key differences from Attention<N> class:
+        - No tanh activation
+        - No residual/W2 path
+        - Standard output projection Wo
+        - Cleaner multi-head gradient accumulation (broadcast + backward)
+
+    Forward:
+        output = Wo · concat(head₁(x), ..., headₕ(x))
+
+    Backward (given e = ∂L/∂o, modelDim×1):
+        1. ∂L/∂all_heads = Wo^T · e  (modelDim×1)
+        2. For each head i: ∂L/∂head_i = block(∂L/∂all_heads, i·d_k, d_k)
+        3. Each head_i.backward accumulates ∂L/∂x into ei
+
+    Gradient:
+        1. g.Wo += e · (all_heads)^T  (ikjk)
+        2. Each head_i.gradient(x, y) computes its Wq/Wk/Wv gradients
+
+    Integration with Net::backward:
+        Uses LAYER_MHA type. The same broadcast + backward pattern works.
+*/
+template<int NumHeads>
+class MultiHeadAttention : public iLayer
+{
+public:
+    class MHAGrad
+    {
+    public:
+        Tensor wo;
+    public:
+        MHAGrad(){}
+        void zero() { wo.zero(); }
+    };
+public:
+    int inputDim;
+    int d_k;           // head dimension = d_model / NumHeads
+    int d_model;       // total model dimension = NumHeads * d_k
+    Tensor wo;         // output projection (d_model × d_model)
+    Tensor a;          // concatenated head outputs (d_model × 1)
+    ScaledDotProduct heads[NumHeads];
+    MHAGrad g;
+    MHAGrad v;
+    MHAGrad m;
+public:
+    MultiHeadAttention(){}
+    explicit MultiHeadAttention(int inputDim_, int d_model_, bool withGrad)
+        :inputDim(inputDim_), d_model(d_model_)
+    {
+        type = LAYER_MHA;
+        d_k = d_model / NumHeads;
+        /* Ensure d_model is divisible by NumHeads */
+        if (d_k * NumHeads != d_model) {
+            d_k = d_model / NumHeads + 1;
+            d_model = d_k * NumHeads;
+        }
+
+        wo = Tensor(d_model, d_model);
+        Random::uniform(wo, -1, 1);
+        for (int i = 0; i < NumHeads; i++) {
+            heads[i] = ScaledDotProduct(inputDim, d_k, withGrad);
+        }
+        a = Tensor(d_model, 1);
+        o = Tensor(d_model, 1);
+        e = Tensor(d_model, 1);
+        if (withGrad) {
+            g.wo = Tensor(d_model, d_model);
+            v.wo = Tensor(d_model, d_model);
+            m.wo = Tensor(d_model, d_model);
+        }
+    }
+
+    static std::shared_ptr<MultiHeadAttention> _(int inputDim, int d_model, bool withGrad)
+    {
+        return std::make_shared<MultiHeadAttention>(inputDim, d_model, withGrad);
+    }
+
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
+    {
+        /*
+            Forward: o = Wo · concat(head₀(x), ..., head_{h-1}(x))
+            Each head_i(x) = softmax(Wq_i·x · (Wk_i·x)^T / √d_k) · Wv_i·x  (d_k × 1)
+        */
+        for (int i = 0; i < NumHeads; i++) {
+            Tensor &head_out = heads[i].forward(x, inference);
+            a.embedding({i*d_k, 0}, head_out);
+        }
+        /* o = Wo · a */
+        Tensor::MM::ikkj(o, wo, a);
+        return o;
+    }
+
+    void backward(const Tensor& x, Tensor &ei) override
+    {
+        /*
+            ∂L/∂all_heads = Wo^T · e
+            For each head i:
+                ∂L/∂head_i = block(Wo^T·e, i*d_k, d_k)
+                head_i.backward(ei)  (accumulates ∂L/∂x_head_i into ei)
+        */
+        /* ∂L/∂all_heads = Wo^T · e */
+        Tensor da(d_model, 1);
+        Tensor::MM::kikj(da, wo, e);
+        ei += da;
+        /* Backprop through each head into ei */
+        for (int i = 0; i < NumHeads; i++) {
+            /*
+                Distribute the output gradient to each head for subsequent gradient()
+                ∂L/∂head_i = block(Wo^T · e, i*d_k, d_k)
+            */
+            heads[i].e = da.block({i*d_k, 0}, {d_k, 1});
+            heads[i].backward(x, ei);   /* accumulates ∂L/∂x_head into ei */
+        }
+
+        /*
+            g.Wo += e · a^T
+            For each head i: head_i.gradient(x, y)
+        */
+        Tensor::MM::ikjk(g.wo, e, a);
+
+        o.zero();
+        e.zero();
+        return;
+    }
+
+    void SGD(float lr) override
+    {
+        Optimize::SGD(wo, g.wo, lr);
+        for (int i = 0; i < NumHeads; i++) {
+            heads[i].SGD(lr);
+        }
+        g.zero();
+        return;
+    }
+
+    void RMSProp(float lr, float rho, float decay, bool clipGrad) override
+    {
+        Optimize::RMSProp(wo, v.wo, g.wo, lr, rho, decay, clipGrad);
+        for (int i = 0; i < NumHeads; i++) {
+            heads[i].RMSProp(lr, rho, decay, clipGrad);
+        }
+        g.zero();
+        return;
+    }
+
+    void Adam(float lr, float alpha, float beta,
+              float alpha_, float beta_,
+              float decay, bool clipGrad) override
+    {
+        Optimize::Adam(wo, v.wo, m.wo, g.wo,
+                       alpha_, beta_, lr,
+                       alpha, beta, decay, clipGrad);
+        for (int i = 0; i < NumHeads; i++) {
+            heads[i].Adam(lr, alpha, beta,
+                          alpha_, beta_,
+                          decay, clipGrad);
+        }
+        g.zero();
+        return;
+    }
+
+    void clamp(float c0, float cn) override
+    {
+        Optimize::clamp(wo, c0, cn);
+        for (int i = 0; i < NumHeads; i++) {
+            heads[i].clamp(c0, cn);
+        }
+        return;
+    }
+
+    void copyTo(iLayer* layer) override
+    {
+        MultiHeadAttention *pLayer = static_cast<MultiHeadAttention*>(layer);
+        pLayer->wo = wo;
+        for (int i = 0; i < NumHeads; i++) {
+            heads[i].copyTo(&pLayer->heads[i]);
+        }
+        return;
+    }
+
+    void softUpdateTo(iLayer* layer, float alpha) override
+    {
+        MultiHeadAttention *pLayer = static_cast<MultiHeadAttention*>(layer);
+        lerp(pLayer->wo, wo, alpha);
+        for (int i = 0; i < NumHeads; i++) {
+            heads[i].softUpdateTo(&pLayer->heads[i], alpha);
+        }
+        return;
+    }
+
+    void write(std::ofstream &file) override
+    {
+        file << wo.toString() << std::endl;
+        for (int i = 0; i < NumHeads; i++) {
+            heads[i].write(file);
+        }
+        return;
+    }
+
+    void read(std::ifstream &file) override
+    {
+        std::string wos;
+        std::getline(file, wos);
+        wo = Tensor::fromString(wos);
+        for (int i = 0; i < NumHeads; i++) {
+            heads[i].read(file);
+        }
+        return;
+    }
+};
+
 }
 #endif // ATTENTION_HPP

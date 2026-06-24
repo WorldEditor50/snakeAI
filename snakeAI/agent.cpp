@@ -11,6 +11,7 @@ Agent::Agent(Environment& env_, Snake &s):
     dpg = RL::DPG(stateDim, 16, 4);
     ddpg = RL::DDPG(stateDim, 16, 4);
     ppo = RL::PPO(stateDim, 16, 4);
+    trpo = RL::TRPO(stateDim, 16, 4);
     sac = RL::SAC(stateDim, 16, 4);
     bpnn = RL::Net(RL::Layer<RL::Sigmoid>::_(stateDim, 16, true, true),
                    RL::Layer<RL::Sigmoid>::_(16, 16, true, true),
@@ -20,6 +21,9 @@ Agent::Agent(Environment& env_, Snake &s):
     drpg = RL::DRPG(stateDim, 16, 4);
     convpg = RL::ConvPG(stateDim, 16, 4);
     convdqn = RL::ConvDQN(stateDim, 16, 4);
+    bcq = RL::BCQ(stateDim, 16, 4);
+    mpg = RL::MPG(stateDim, 16, 4);
+
     state = RL::Tensor(stateDim, 1);
     nextState = RL::Tensor(stateDim, 1);
     //dqn.load("./dqn");
@@ -37,6 +41,7 @@ Agent::~Agent()
     ddpg.save("./ddpg_actor", "./ddpg_critic");
     //bpnn.save("./bpnn");
     ppo.save("./ppo_actor", "./ppo_critic");
+    trpo.save("./trpo_actor", "./trpo_critic");
     sac.save();
 }
 
@@ -141,7 +146,7 @@ int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
-        dqn.learn(8192, 256, 64, 1e-3);
+        dqn.learn(16384, 256, 64, 1e-3);
     }
     /* making decision */
     RL::Tensor& a = dqn.action(state0);
@@ -431,6 +436,43 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
     return a.argmax();
 }
 
+int Agent::trpoAction(int x, int y, int xt, int yt, float &totalReward)
+{
+    /* exploring environment */
+    int xn = x;
+    int yn = y;
+    observe(state, x, y, xt, yt);
+    RL::Tensor state_ = state;
+    if (trainFlag == true) {
+        float total = 0;
+        std::vector<RL::Step> trajectory;
+        for (std::size_t i = 0; i < 32; i++) {
+            int xi = xn;
+            int yi = yn;
+            /* sample */
+            RL::Tensor &a = trpo.eGreedyAction(state);
+            int k = a.argmax();
+            /* move */
+            simulateMove(xn, yn, k);
+            observe(nextState, xn, yn, xt, yt);
+            float r = env.reward0(xi, yi, xn, yn, xt, yt);
+            trajectory.push_back(RL::Step(state, a, r));
+            total += r;
+            if (env.map(xn, yn) == OBJ_BLOCK || (xn == xt && yn == yt)) {
+                break;
+            }
+            state = nextState;
+        }
+        totalReward = total;
+        /* training */
+        trpo.learn(trajectory, 1e-3);
+    }
+    /* making decision */
+    RL::Tensor &a = trpo.action(state_);
+    a.printValue();
+    return a.argmax();
+}
+
 int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
 {
     int xn = x;
@@ -442,28 +484,32 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
         for (int i = 0; i < 128; i++) {
             int xi = xn;
             int yi = yn;
-            RL::Tensor& a = sac.gumbelMax(state);
-            int k = a.argmax();
-            //int k = RL::Random::categorical(a);
+#if 0
+            const RL::Tensor& prob = sac.action(state);
+            int k = RL::Random::categorical(prob);
+#else
+            RL::Tensor &prob = sac.gumbelMax(state);
+            int k = prob.argmax();
+#endif
             simulateMove(xn, yn, k);
             float r = env.reward0(xi, yi, xn, yn, xt, yt);
             total += r;
             observe(nextState, xn, yn, xt, yt);
             if (env.map(xn, yn) == OBJ_BLOCK) {
-                sac.perceive(state, a, nextState, r, true);
+                sac.perceive(state, prob, nextState, r, true);
                 break;
             }
             if (xn == xt && yn == yt) {
-                sac.perceive(state, a, nextState, r, true);
+                sac.perceive(state, prob, nextState, r, true);
                 break;
             } else {
-                sac.perceive(state, a, nextState, r, false);
+                sac.perceive(state, prob, nextState, r, false);
             }
             state = nextState;
         }
         totalReward = total;
         /* training */
-        sac.learn(4096, 256, 64, 1e-3);
+        sac.learn(16384, 256, 64, 1e-3);
     }
     /* making decision */
     RL::Tensor& a = sac.action(state_);
@@ -471,7 +517,84 @@ int Agent::sacAction(int x, int y, int xt, int yt, float &totalReward)
     return a.argmax();
 }
 
+int Agent::bcqAction(int x, int y, int xt, int yt, float &totalReward)
+{
+    int xn = x;
+    int yn = y;
+    observe(state, x, y, xt, yt);
+    RL::Tensor state_ = state;
+    if (trainFlag == true) {
+        float total = 0;
+        for (int i = 0; i < 128; i++) {
+            int xi = xn;
+            int yi = yn;
+            /* BCQ: VAE generates candidate actions, actor refines and adds noise */
+            const RL::Tensor& prob = bcq.action(state);
+            int k = RL::Random::categorical(prob);
+            simulateMove(xn, yn, k);
+            float r = env.reward0(xi, yi, xn, yn, xt, yt);
+            total += r;
+            observe(nextState, xn, yn, xt, yt);
+            if (env.map(xn, yn) == OBJ_BLOCK) {
+                bcq.perceive(state, prob, nextState, r, true);
+                break;
+            }
+            if (xn == xt && yn == yt) {
+                bcq.perceive(state, prob, nextState, r, true);
+                break;
+            } else {
+                bcq.perceive(state, prob, nextState, r, false);
+            }
+            state = nextState;
+        }
+        totalReward = total;
+        /* training */
+        bcq.learn(8192, 256, 32, 1e-3);
+    }
+    /* making decision */
+    RL::Tensor& a = bcq.action(state_);
+    //a.printValue();
+    return a.argmax();
+}
+
+int Agent::mpgAction(int x, int y, int xt, int yt, float &totalReward)
+{
+    int xn = x;
+    int yn = y;
+    observe(state, x, y, xt, yt);
+    RL::Tensor state_ = state;
+    if (trainFlag == true) {
+        std::vector<RL::Step> steps;
+        float total = 0;
+        for (std::size_t i = 0; i < 32; i++) {
+            int xi = xn;
+            int yi = yn;
+            /* move using Gumbel-Softmax exploration */
+            RL::Tensor &a = mpg.gumbelMax(state);
+            int k = a.argmax();
+            simulateMove(xn, yn, k);
+            observe(nextState, xn, yn, xt, yt);
+            float r = env.reward0(xi, yi, xn, yn, xt, yt);
+            /* sample */
+            steps.push_back(RL::Step(state, a, r));
+            total += r;
+            if (env.map(xn, yn) == OBJ_BLOCK || (xn == xt && yn == yt)) {
+                break;
+            }
+            state = nextState;
+        }
+        totalReward = total;
+        /* training */
+        mpg.reinforce(steps, 1e-2);
+    }
+    /* making decision */
+    RL::Tensor &a = mpg.action(state_);
+    //a.printValue();
+    return a.argmax();
+}
+
 int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
+
 {
     int direct1 = 0;
     int direct2 = 0;
@@ -487,8 +610,7 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
             if (direct1 != direct2) {
                 RL::Tensor target(4, 1);
                 target[direct2] = 1;
-                bpnn.backward(RL::Loss::MSE::df(out, target));
-                bpnn.gradient(state, target);
+                bpnn.backward(state, RL::Loss::MSE::df(out, target));
                 m++;
             }
             if ((xn == xt) && (yn == yt)) {

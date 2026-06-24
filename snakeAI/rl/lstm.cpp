@@ -1,4 +1,5 @@
 #include "lstm.h"
+#include <fstream>
 
 RL::LSTM::LSTM(std::size_t inputDim_,
                std::size_t hiddenDim_,
@@ -134,7 +135,12 @@ void RL::LSTM::backwardAtTime(int t,
                          State &delta_)
 {
     State delta(hiddenDim, outputDim);
-    Tensor::MM::kijk(delta.h, w, E);
+    /* ∂L/∂z_y = E ⊙ tanh'(y): loss gradient w.r.t. pre-activation output */
+    Tensor outputError(hiddenDim, 1);
+    for (std::size_t i = 0; i < outputError.size(); i++) {
+        outputError[i] = E[i] * Tanh::df(states[t].y[i]);
+    }
+    Tensor::MM::kijk(delta.h, w, outputError);
 
     Tensor::MM::kijk(delta.h, ui, delta_.i);
     Tensor::MM::kijk(delta.h, uf, delta_.f);
@@ -160,11 +166,10 @@ void RL::LSTM::backwardAtTime(int t,
     }
     /* gradient */
     for (int i = 0; i < w.shape[0]; i++) {
-        float error = E[i] * Tanh::df(states[t].y[i]);
         for (int j = 0; j < w.shape[1]; j++) {
-            g.w(i, j) += error * states[t].h[j];
+            g.w(i, j) += outputError[i] * states[t].h[j];
         }
-        g.b[i] += error;
+        g.b[i] += outputError[i];
     }
 
     Tensor::MM::ikjk(g.wi, delta.i, x);

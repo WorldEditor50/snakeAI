@@ -1,17 +1,12 @@
 #ifndef CONVPG_H
 #define CONVPG_H
-#include <iostream>
 #include <string>
-#include <fstream>
 #include <vector>
-#include <deque>
-#include <cmath>
 #include <ctime>
 #include <cstdlib>
 #include "net.hpp"
 #include "rl_basic.h"
 #include "parameter.hpp"
-#include "annealing.hpp"
 
 namespace RL {
 

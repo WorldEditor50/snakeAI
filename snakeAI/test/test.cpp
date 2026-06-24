@@ -126,8 +126,7 @@ void test_ae()
             int k = uniform(RL::Random::generator);
             RL::Tensor& out = ae.forward(x[k]);
             RL::Tensor loss = RL::Loss::MSE::df(out, x[k]);
-            ae.backward(loss);
-            ae.gradient(x[k], x[k]);
+            ae.backward(x[k], loss);
         }
         ae.RMSProp(1e-2);
     }

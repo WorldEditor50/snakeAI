@@ -14,6 +14,18 @@ namespace RL {
 
 /* this is not a real DDPG,
  *  DDPG may not work in discrete Action space */
+/*
+ * DDPG (Deep Deterministic Policy Gradient) for discrete action spaces
+ *
+ * Discrete-action adaptation:
+ *   - Actor: π(s) → softmax probability distribution over actions
+ *   - Critic: Q(s) → values for each action: [Q(s,a_0), ..., Q(s,a_n)]
+ *   - Actor objective: maximize Σ π_i(s) * Q_i(s)
+ *     i.e., maximize expected Q-value under policy
+ *   - Critic objective: minimize MSE(Q(s,a), r + γ·Q'(s', argmax π'(s')))
+ *     using the target policy's best action for TD-target
+ *   - Target networks are soft-updated every step (Polyak averaging)
+ */
 class DDPG
 {
 public:
@@ -46,5 +58,6 @@ protected:
     Net criticQ;
     std::deque<Transition> memories;
 };
+
 }
 #endif // DDPG_H

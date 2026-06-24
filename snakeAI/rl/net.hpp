@@ -2,6 +2,7 @@
 #define NET_HPP
 #include <memory>
 #include <fstream>
+#include <functional>
 #include "tensor.hpp"
 #include "ilayer.h"
 
@@ -21,15 +22,17 @@ public:
     virtual ~Net(){}
     template<typename ...TLayer>
     explicit Net(TLayer&&...layer)
-        :layers({layer...}),alpha_(1),beta_(1){}
+        :alpha_(1),beta_(1),layers({layer...}){}
     explicit Net(const Layers &layers_)
-        :layers(layers_),alpha_(1),beta_(1){}
+        :alpha_(1),beta_(1),layers(layers_){}
     Net(const Net &r)
-        :layers(r.layers),alpha_(1),beta_(1){}
+        :alpha_(1),beta_(1),layers(r.layers){}
 
     inline Tensor& output() {return layers.back()->o;}
 
-    inline iLayer* get(int i) {return layers.at(i).get();}
+    inline iLayer* operator[](std::size_t i) {return layers.at(i).get();}
+
+    inline std::size_t size() const {return layers.size();}
 
     Tensor &forward(const Tensor &x, bool inference=false)
     {
@@ -48,48 +51,52 @@ public:
         return layers.back()->o;
     }
 
-    void backward(const Tensor &loss)
+    void backward(const Tensor &x, const Tensor &loss)
     {
         std::size_t outputIndex = layers.size() - 1;
         layers[outputIndex]->e = loss;
         for (int i = layers.size() - 1; i > 0; i--) {
-            if ((layers[i - 1]->type == iLayer::LAYER_CONV2D ||
-                 layers[i - 1]->type == iLayer::LAYER_MAXPOOLING ||
-                 layers[i - 1]->type == iLayer::LAYER_AVGPOOLING)&&
-                    layers[i]->type == iLayer::LAYER_FC) {
-                Tensor e(layers[i - 1]->e.totalSize, 1);
-                layers[i]->backward(e);
-                layers[i - 1]->e.val = e.val;
-            } else if(layers[i - 1]->type == iLayer::LAYER_LSTM &&
-                      layers[i]->type == iLayer::LAYER_FC) {
-                Tensor e(layers[i - 1]->o.totalSize, 1);
-                layers[i]->backward(e);
-                layers[i - 1]->cacheError(e);
-            } else if((layers[i - 1]->type == iLayer::LAYER_ATTENTION ||
-                      layers[i - 1]->type == iLayer::LAYER_SCALEDCONCAT) &&
-                      layers[i]->type == iLayer::LAYER_FC) {
-                layers[i]->backward(layers[i - 1]->e);
-                layers[i - 1]->broadcast();
+            iLayer::sptr layer = layers[i];
+            iLayer::sptr preLayer = layers[i - 1];
+            if ((preLayer->type == iLayer::LAYER_CONV2D ||
+                 preLayer->type == iLayer::LAYER_MAXPOOLING ||
+                 preLayer->type == iLayer::LAYER_AVGPOOLING)&&
+                    layer->type == iLayer::LAYER_FC) {
+                Tensor e(preLayer->e.totalSize, 1);
+                layer->backward(preLayer->o.flatten(), e);
+                preLayer->e.val = e.val;
+            } else if (preLayer->type == iLayer::LAYER_LSTM) {
+                /* LSTM uses BPTT via cacheError/cacheX cache */
+                Tensor e(preLayer->o.totalSize, 1);
+                layer->backward(preLayer->o, e);
+                preLayer->cacheError(e);
+            } else if (preLayer->type == iLayer::LAYER_SSM) {
+                /* SSM uses the same BPTT pattern as LSTM */
+                Tensor e(preLayer->o.totalSize, 1);
+                layer->backward(preLayer->o, e);
+                preLayer->cacheError(e);
+            } else if (preLayer->type == iLayer::LAYER_MAMBA) {
+                /* MambaLayer uses the same BPTT pattern as SSM/LSTM */
+                Tensor e(preLayer->o.totalSize, 1);
+                layer->backward(preLayer->o, e);
+                preLayer->cacheError(e);
+            } else if ((preLayer->type == iLayer::LAYER_ATTENTION ||
+                      preLayer->type == iLayer::LAYER_MHA ||
+                      preLayer->type == iLayer::LAYER_SCALEDCONCAT ||
+                      preLayer->type == iLayer::LAYER_MOE) &&
+                      layer->type == iLayer::LAYER_FC) {
+                layer->backward(preLayer->o, preLayer->e);
             } else {
-                layers[i]->backward(layers[i - 1]->e);
+                layer->backward(preLayer->o, preLayer->e);
             }
         }
-        return;
-    }
-    void gradient(const Tensor &x, const Tensor &y)
-    {
-        layers[0]->gradient(x, y);
-        for (std::size_t i = 1; i < layers.size(); i++) {
-            Tensor &out = layers[i - 1]->o;
-            if ((layers[i - 1]->type == iLayer::LAYER_CONV2D ||
-                 layers[i - 1]->type == iLayer::LAYER_MAXPOOLING ||
-                 layers[i - 1]->type == iLayer::LAYER_AVGPOOLING)&&
-                    layers[i]->type == iLayer::LAYER_FC) {
-                layers[i]->gradient(out.flatten(), y);
-            } else {
-                layers[i]->gradient(out, y);
-            }
-        }
+        /* Also backprop through layer[0] so compound layers
+           (TransformerBlock, MHA, etc.) execute their internal
+           backward logic, compute LN/MHA gradients, and clear caches.
+           Input gradient is discarded (not needed for DQN input). */
+        Tensor inputGrad(layers[0]->o.totalSize, 1);
+        inputGrad.zero();
+        layers[0]->backward(x, inputGrad);
         return;
     }
 

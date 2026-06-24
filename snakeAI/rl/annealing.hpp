@@ -41,7 +41,6 @@ public:
     {
         val *= r;
         val = val < minVal ? minVal : val;
-        //std::cout<<"annealing:"<<val<<std::endl;
         return val;
     }
 };

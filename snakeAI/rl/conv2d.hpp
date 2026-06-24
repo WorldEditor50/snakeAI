@@ -11,13 +11,14 @@ namespace RL {
 
 inline void conv2d(Tensor &y, const Tensor &kernels, const Tensor &x, int stride=1, int padding=0)
 {
-    /* output */
-    for (int n = 0; n < y.shape[0]; n++) {
+    /* output shape: (outChannels, ho, wo) */
+    /* kernels shape: (outChannels, inChannels, kernelSize, kernelSize) */
+    /* x shape: (inChannels, hi, wi) */
+    for (int oc = 0; oc < y.shape[0]; oc++) {
         for (int i = 0; i < y.shape[1]; i++) {
             for (int j = 0; j < y.shape[2]; j++) {
-                float ynij = y(n, i, j);
-                /* kernels */
-                for (int k = 0; k < kernels.shape[1]; k++) {
+                float ynij = 0;
+                for (int ic = 0; ic < kernels.shape[1]; ic++) {
                     for (int u = 0; u < kernels.shape[2]; u++) {
                         for (int v = 0; v < kernels.shape[3]; v++) {
                             /* map to input  */
@@ -28,11 +29,11 @@ inline void conv2d(Tensor &y, const Tensor &kernels, const Tensor &x, int stride
                                 continue;
                             }
                             /* sum up all convolution result */
-                            ynij += kernels(n, k, u, v)*x(k, ui, vj);
+                            ynij += kernels(oc, ic, u, v)*x(ic, ui, vj);
                         }
                     }
                 }
-                y(n, i, j) = ynij;
+                y(oc, i, j) = ynij;
             }
         }
     }
@@ -89,6 +90,7 @@ public:
 public:
     Tensor kernels;
     Tensor b;
+    Tensor op;
     Conv2dGrad g;
     Conv2dGrad v;
     Conv2dGrad m;
@@ -114,9 +116,10 @@ public:
         wo = std::floor((wi - kernelSize + 2*padding)/stride) + 1;
         /* (N, ho, wo) */
         o = Tensor(outChannels, ho, wo);
+        op = Tensor(outChannels, ho, wo);
         if (bias == true) {
-            /* (N, ho, wo) */
-            b = Tensor(outChannels, kernelSize, kernelSize);
+            /* (outChannels, 1, 1) - one bias per output channel */
+            b = Tensor(outChannels, 1, 1);
             Random::uniform(b, -1, 1);
         }
 
@@ -149,84 +152,96 @@ public:
     Tensor& forward(const Tensor &x, bool inference=false) override
     {
         /* conv */
-        conv2d(o, kernels, x, stride, padding);
-        /* bias */
+        conv2d(op, kernels, x, stride, padding);
+        /* bias - manually broadcast (outChannels, 1, 1) to (outChannels, ho, wo) */
         if (bias) {
-            o += b;
+            for (int oc = 0; oc < outChannels; oc++) {
+                float bval = b(oc, 0, 0);
+                for (int i = 0; i < ho; i++) {
+                    for (int j = 0; j < wo; j++) {
+                        op(oc, i, j) += bval;
+                    }
+                }
+            }
         }
         /* activate */
         for (std::size_t i = 0; i < o.totalSize; i++) {
-            o[i] = Fn::f(o[i]);
+            o[i] = Tanh::f(op[i]);
         }
-        o /= o.max();
         return o;
     }
 
-    void backward(Tensor &ei) override
+    void backward(const Tensor &x, Tensor &ei) override
     {
-        for (int n = 0; n < ei.shape[0]; n++) {
-            for (int i = 0; i < ei.shape[1]; i++) {
-                for (int j = 0; j < ei.shape[2]; j++) {
-
-                    int h0 = (i - kernelSize + 1)/stride;
-                    h0 = h0 > 0 ? std::ceil(h0):0;
-                    int hn = i/stride;
-                    hn = hn < ho ? std::floor(hn):ho;
-
-                    int k0 = (j - kernelSize + 1)/stride;
-                    k0 = k0 > 0 ? std::ceil(k0):0;
-                    int kn = j/stride;
-                    kn = kn < wo ? std::floor(kn):wo;
-
-                    for (int c = 0; c < kernels.shape[0]; c++) {
-                        for (int h = h0; h < hn; h++) {
-                            for (int k = k0; k < kn; k++) {
-                                ei(n, i, j) += kernels(n, c, i - h*stride, j - k*stride)*e(c, h, k);
+        /* ei shape: (inChannels, hi, wi) - gradient flowing back to input */
+        /* kernels shape: (outChannels, inChannels, kernelSize, kernelSize) */
+        /* e shape: (outChannels, ho, wo) - error from output */
+        ei.zero();
+        for (int oc = 0; oc < e.shape[0]; oc++) {
+            for (int h_out = 0; h_out < ho; h_out++) {
+                for (int w_out = 0; w_out < wo; w_out++) {
+                    float e_val = e(oc, h_out, w_out);
+                    if (e_val == 0) continue;
+                    for (int ic = 0; ic < kernels.shape[1]; ic++) {
+                        for (int u = 0; u < kernelSize; u++) {
+                            for (int v = 0; v < kernelSize; v++) {
+                                int hi_idx = u + h_out*stride - padding;
+                                int wi_idx = v + w_out*stride - padding;
+                                if (hi_idx < 0 || hi_idx >= ei.shape[1] ||
+                                    wi_idx < 0 || wi_idx >= ei.shape[2]) {
+                                    continue;
+                                }
+                                ei(ic, hi_idx, wi_idx) += kernels(oc, ic, u, v) * e_val;
                             }
                         }
                     }
                 }
             }
         }
-        return;
-    }
 
-    void gradient(const Tensor &x, const Tensor &y) override
-    {
         Tensor dy(o.shape);
         for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Fn::df(o[i])*e[i];
+            dy[i] = Tanh::df(o[i])*e[i];
         }
-        /* db */
+        /* db: gradient for bias, sum dy over spatial dimensions */
         if (bias) {
-            g.b += dy;
+            for (int oc = 0; oc < outChannels; oc++) {
+                float sum = 0;
+                for (int i = 0; i < ho; i++) {
+                    for (int j = 0; j < wo; j++) {
+                        sum += dy(oc, i, j);
+                    }
+                }
+                g.b(oc, 0, 0) += sum;
+            }
         }
         /* dkernel */
+        /* x shape: (inChannels, hi, wi) */
+        /* dy shape: (outChannels, ho, wo) */
+        /* dkernels shape: (outChannels, inChannels, kernelSize, kernelSize) */
         Tensor &dkernels = g.kernels;
-        for (int n = 0; n < x.shape[0]; n++) {
-            for (int i = 0; i < x.shape[1]; i++) {
-                for (int j = 0; j < x.shape[2]; j++) {
-
-                    int h0 = (i - kernelSize + 1)/stride;
-                    h0 = h0 > 0 ? std::ceil(h0):0;
-                    int hn = i/stride;
-                    hn = hn < ho ? std::floor(hn):ho;
-
-                    int k0 = (j - kernelSize + 1)/stride;
-                    k0 = k0 > 0 ? std::ceil(k0):0;
-                    int kn = j/stride;
-                    kn = kn < wo ? std::floor(kn):wo;
-
-                    for (int c = 0; c < dkernels.shape[1]; c++) {
-                        for (int h = h0; h < hn; h++) {
-                            for (int k = k0; k < kn; k++) {
-                                dkernels(n, c, h, k) += x(n, i, j)*dy(n, h, k);
+        for (int oc = 0; oc < outChannels; oc++) {
+            for (int ic = 0; ic < inChannels; ic++) {
+                for (int h_out = 0; h_out < ho; h_out++) {
+                    for (int w_out = 0; w_out < wo; w_out++) {
+                        float dy_val = dy(oc, h_out, w_out);
+                        if (dy_val == 0) continue;
+                        for (int u = 0; u < kernelSize; u++) {
+                            for (int v = 0; v < kernelSize; v++) {
+                                int hi_idx = u + h_out*stride - padding;
+                                int wi_idx = v + w_out*stride - padding;
+                                if (hi_idx < 0 || hi_idx >= hi ||
+                                    wi_idx < 0 || wi_idx >= wi) {
+                                    continue;
+                                }
+                                dkernels(oc, ic, u, v) += x(ic, hi_idx, wi_idx) * dy_val;
                             }
                         }
                     }
                 }
             }
         }
+        op.zero();
         o.zero();
         e.zero();
         return;
@@ -322,6 +337,8 @@ public:
 class MaxPooling2d: public iConv2d
 {
 public:
+    /* mask stores per-output-position the kernel offset of the max value
+       encoded as: h_offset * kernelSize + k_offset */
     Tensor mask;
 public:
     MaxPooling2d(){}
@@ -336,6 +353,7 @@ public:
         ho = std::floor((hi - kernelSize)/stride) + 1;
         wo = std::floor((wi - kernelSize)/stride) + 1;
         o = Tensor(outChannels, ho, wo);
+        /* mask stores per-output position encoded index of max */
         mask = Tensor(outChannels, ho, wo);
         e = Tensor(outChannels, ho, wo);
     }
@@ -351,58 +369,50 @@ public:
     Tensor& forward(const Tensor &x, bool inference=false) override
     {
         o.zero();
-        /* input shape is same as output shape */
         for (int n = 0; n < outChannels; n++) {
             for (int i = 0; i < ho; i++) {
                 for (int j = 0; j < wo; j++) {
-                    float maxValue = 0;
+                    float maxValue = -1e10f;
+                    int maxIdx = 0;
                     for (int h = 0; h < kernelSize; h++) {
                         for (int k = 0; k < kernelSize; k++) {
                             float value = x(n, h + i*stride, k + j*stride);
                             if (value > maxValue) {
                                 maxValue = value;
-                                mask(n, h, k) = 1;
+                                maxIdx = h * kernelSize + k;
                             }
                         }
                     }
                     o(n, i, j) = maxValue;
+                    mask(n, i, j) = static_cast<float>(maxIdx);
                 }
             }
         }
         return o;
     }
-    void backward(Tensor &ei) override
+    void backward(const Tensor &x, Tensor &ei) override
     {
-        for (int n = 0; n < ei.shape[0]; n++) {
-            for (int i = 0; i < ei.shape[1]; i++) {
-                for (int j = 0; j < ei.shape[2]; j++) {
-
-                    int h0 = (i - kernelSize + 1)/stride;
-                    h0 = h0 > 0 ? std::ceil(h0):0;
-                    int hn = i/stride;
-                    hn = hn < ho ? std::floor(hn):ho;
-
-                    int k0 = (j - kernelSize + 1)/stride;
-                    k0 = k0 > 0 ? std::ceil(k0):0;
-                    int kn = j/stride;
-                    kn = kn < wo ? std::floor(kn):wo;
-
-                    for (int h = h0; h < hn; h++) {
-                        for (int k = k0; k < kn; k++) {
-                            ei(n, i, j) += mask(n, h, k)*e(n, h, k);
-                        }
+        /* ei shape: (inChannels, hi, wi) - gradient to previous layer */
+        /* For max pooling, gradient goes only to the input position that had the max value */
+        ei.zero();
+        for (int n = 0; n < outChannels; n++) {
+            for (int i = 0; i < ho; i++) {
+                for (int j = 0; j < wo; j++) {
+                    int encoded = static_cast<int>(mask(n, i, j));
+                    int h_offset = encoded / kernelSize;
+                    int k_offset = encoded % kernelSize;
+                    int hi_idx = h_offset + i * stride;
+                    int wi_idx = k_offset + j * stride;
+                    if (hi_idx >= 0 && hi_idx < hi && wi_idx >= 0 && wi_idx < wi) {
+                        ei(n, hi_idx, wi_idx) += e(n, i, j);
                     }
                 }
             }
         }
-        return;
-    }
-    void gradient(const Tensor &x, const Tensor &y) override
-    {
-        mask.zero();
         e.zero();
         return;
     }
+
 };
 
 class AvgPooling2d: public iConv2d
@@ -451,38 +461,34 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei)
+    void backward(const Tensor &x, Tensor &ei) override
     {
-        /* delta_: previous delta, the shape is same as delta and output */
-        for (int n = 0; n < ei.shape[0]; n++) {
-            for (int i = 0; i < ei.shape[1]; i++) {
-                for (int j = 0; j < ei.shape[2]; j++) {
-
-                    int h0 = (i - kernelSize + 1)/stride;
-                    h0 = h0 > 0 ? std::ceil(h0):0;
-                    int hn = i/stride;
-                    hn = hn < ho ? std::floor(hn):ho;
-
-                    int k0 = (j - kernelSize + 1)/stride;
-                    k0 = k0 > 0 ? std::ceil(k0):0;
-                    int kn = j/stride;
-                    kn = kn < wo ? std::floor(kn):wo;
-
-                    for (int h = h0; h < hn; h++) {
-                        for (int k = k0; k < kn; k++) {
-                            ei(n, i, j) += e(n, h, k);
+        /* Average pooling backward: evenly distribute output gradient
+           to all input positions in the pooling window.
+           ei shape: (inChannels, hi, wi) */
+        float scale = 1.0f / static_cast<float>(kernelSize * kernelSize);
+        ei.zero();
+        for (int n = 0; n < outChannels; n++) {
+            for (int h_out = 0; h_out < ho; h_out++) {
+                for (int w_out = 0; w_out < wo; w_out++) {
+                    float e_val = e(n, h_out, w_out) * scale;
+                    if (e_val == 0) continue;
+                    for (int u = 0; u < kernelSize; u++) {
+                        for (int v = 0; v < kernelSize; v++) {
+                            int hi_idx = u + h_out * stride;
+                            int wi_idx = v + w_out * stride;
+                            if (hi_idx < hi && wi_idx < wi) {
+                                ei(n, hi_idx, wi_idx) += e_val;
+                            }
                         }
                     }
                 }
             }
         }
-        return;
-    }
-    void gradient(const Tensor &x, const Tensor &y) override
-    {
         e.zero();
         return;
     }
+
 };
 
 }

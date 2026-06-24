@@ -31,13 +31,20 @@ file(GLOB RL_FILES
     ${SRC_DIR}/rl/*.h
     ${SRC_DIR}/rl/*.hpp
     ${SRC_DIR}/rl/*.cpp)
+include_directories(${SRC_DIR})
 list(APPEND SRC_FILES ${RL_FILES})
 
-# test
-file(GLOB TEST_FILES
-    ${SRC_DIR}/test/*.h
-    ${SRC_DIR}/test/*.cpp)
-add_executable(test ${RL_FILES} ${TEST_FILES})
+
+add_executable(test ${RL_FILES} test/test.cpp)
+add_executable(test_pg ${RL_FILES} test/test_pg.cpp)
+add_executable(test_sac ${RL_FILES} test/test_sac.cpp)
+add_executable(test_trpo ${RL_FILES} test/test_trpo.cpp)
+add_executable(test_moe ${RL_FILES} test/test_moe.cpp)
+add_executable(test_lstm ${RL_FILES} test/test_lstm.cpp)
+add_executable(test_ssm ${RL_FILES} test/test_ssm.cpp)
+add_executable(test_mamba ${RL_FILES} test/test_mamba.cpp)
+add_executable(test_mpg ${RL_FILES} test/test_mpg.cpp)
+add_executable(test_dqn ${RL_FILES} test/test_dqn.cpp)
 
 add_executable(SimpleRL ${SRC_FILES})
 target_link_libraries(SimpleRL PRIVATE

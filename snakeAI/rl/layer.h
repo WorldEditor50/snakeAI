@@ -1,8 +1,8 @@
 #ifndef LAYER_H
 #define LAYER_H
-#include <functional>
 #include <memory>
 #include <iostream>
+#include <fstream>
 #include "util.hpp"
 #include "optimize.h"
 #include "activate.h"
@@ -70,7 +70,7 @@ public:
         Random::uniform(b, -1, 1);
         return;
     }
-    virtual Tensor& forward(const Tensor& x, bool inference=false)
+    virtual Tensor& forward(const Tensor& x, bool inference=false) override
     {
         Tensor::MM::ikkj(o, w, x);
         if (bias) {
@@ -79,20 +79,16 @@ public:
         return o;
     }
 
-    virtual void gradient(const Tensor& x, const Tensor&)
+    virtual void backward(const Tensor& x, Tensor &ei) override
     {
+        Tensor::MM::kikj(ei, w, e);
+        /* gradient*/
         Tensor::MM::ikjk(g.w, e, x);
         if (bias) {
             g.b += e;
         }
         e.zero();
         o.zero();
-        return;
-    }
-
-    virtual void backward(Tensor &ei)
-    {
-        Tensor::MM::kikj(ei, w, e);
         return;
     }
     virtual void SGD(float lr) override
@@ -211,20 +207,22 @@ public:
         return o;
     }
 
-    void gradient(const Tensor& x, const Tensor&) override
+    void backward(const Tensor& x, Tensor &ei) override
     {
-        Tensor dy(outputDim, 1);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Fn::df(o[i]) * e[i];
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            e[i] = Fn::df(o[i]) * e[i];
         }
-        Tensor::MM::ikjk(g.w, dy, x);
+        Tensor::MM::kikj(ei, w, e);
+
+        Tensor::MM::ikjk(g.w, e, x);
         if (bias) {
-            g.b += dy;
+            g.b += e;
         }
         e.zero();
         o.zero();
         return;
     }
+
 };
 
 template<>
@@ -255,11 +253,12 @@ public:
         return softmax(o);
     }
 
-    void gradient(const RL::Tensor &x, const Tensor &dLoss) override
+    void backward(const Tensor& x, Tensor &ei) override
     {
         Tensor dy(outputDim, 1);
-        Tensor J = Softmax::jacobian(o);
-        Tensor::MM::ikkj(dy, J, dLoss);
+        Softmax::jacobian_transpose_mul(o, e, dy);
+        Tensor::MM::kikj(ei, w, dy);
+        /* gradient */
         Tensor::MM::ikjk(g.w, dy, x);
         if (bias) {
             g.b += dy;
@@ -291,6 +290,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
+        op.zero();
         Tensor::MM::ikkj(op, w, x);
         if (bias) {
             op += b;
@@ -301,15 +301,16 @@ public:
         return o;
     }
 
-    void gradient(const Tensor& x, const Tensor&) override
+    void backward(const RL::Tensor &x, Tensor &ei) override
     {
-        Tensor dy(outputDim, 1);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Gelu::df(op[i]) * e[i];
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            e[i] = Gelu::df(op[i]) * e[i];
         }
-        Tensor::MM::ikjk(g.w, dy, x);
+        Tensor::MM::kikj(ei, w, e);
+        /* gradient */
+        Tensor::MM::ikjk(g.w, e, x);
         if (bias) {
-            g.b += dy;
+            g.b += e;
         }
         e.zero();
         o.zero();
@@ -338,6 +339,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
+        op.zero();
         Tensor::MM::ikkj(op, w, x);
         if (bias) {
             op += b;
@@ -348,20 +350,71 @@ public:
         return o;
     }
 
-    void gradient(const Tensor& x, const Tensor&) override
+    void backward(const Tensor& x, Tensor &ei) override
     {
-        Tensor dy(outputDim, 1);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Swish::df(op[i]) * e[i];
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            e[i] = Swish::df(op[i]) * e[i];
         }
-        Tensor::MM::ikjk(g.w, dy, x);
+        Tensor::MM::kikj(ei, w, e);
+        /* gradient */
+        Tensor::MM::ikjk(g.w, e, x);
         if (bias) {
-            g.b += dy;
+            g.b += e;
         }
         e.zero();
         o.zero();
         return;
     }
+
+};
+
+template<>
+class Layer<Mish> : public iFcLayer
+{
+public:
+    Tensor op;
+public:
+    Layer(){}
+    ~Layer(){}
+    explicit Layer(std::size_t inputDim, std::size_t outputDim, bool bias_, bool withGrad_)
+        :iFcLayer(inputDim, outputDim, bias_, withGrad_),op(outputDim, 1){}
+
+    static std::shared_ptr<Layer> _(std::size_t inputDim,
+                                    std::size_t outputDim,
+                                    bool bias,
+                                    bool withGrad)
+    {
+        return std::make_shared<Layer>(inputDim, outputDim, bias, withGrad);
+    }
+    Tensor& forward(const RL::Tensor &x, bool inference=false) override
+    {
+        op.zero();
+        Tensor::MM::ikkj(op, w, x);
+        if (bias) {
+            op += b;
+        }
+        for (std::size_t i = 0; i < o.totalSize; i++) {
+            o[i] = Mish::f(op[i]);
+        }
+        return o;
+    }
+
+    void backward(const Tensor& x, Tensor &ei) override
+    {
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            e[i] = Mish::df(op[i]) * e[i];
+        }
+        Tensor::MM::kikj(ei, w, e);
+        /* gradient */
+        Tensor::MM::ikjk(g.w, e, x);
+        if (bias) {
+            g.b += e;
+        }
+        e.zero();
+        o.zero();
+        return;
+    }
+
 
 };
 
@@ -387,7 +440,7 @@ public:
     {
         return std::make_shared<Dropout>(inputDim, outputDim, bias, withGrad, p);
     }
-    Tensor& forward(const RL::Tensor &x, bool inference=false) override
+    Tensor& forward(const Tensor &x, bool inference=false) override
     {
         Layer<Fn>::forward(x);
         if (withGrad == true) {
@@ -400,7 +453,7 @@ public:
         return Layer<Fn>::o;
     }
 
-    void backward(Tensor& ei) override
+    void backward(const Tensor &x, Tensor& ei) override
     {
         if (withGrad == true) {
             Layer<Fn>::e *= mask;
@@ -459,24 +512,27 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
+    void backward(const Tensor& x, Tensor &ei) override
     {
-        Tensor::MM::kikj(ei, w, e*gamma);
-        return;
-    }
-
-    void gradient(const Tensor& x, const Tensor&) override
-    {
+        /* Forward: o = Fn(gamma·(op - u) + b)
+           backward: dy = gamma · (I - 1/n·1·1^T) · (Fn'(o) · e)
+        */
         Tensor dy(outputDim, 1);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            float error = Fn::df(o[i])*e[i];
-            float d = (op[i] - u)*gamma;
-            dy[i] = (1.0 - 1.0/float(outputDim))*(1 - d*d)*gamma*error;
-            if (bias) {
-                g.b[i] += error;
-            }
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            dy[i] = Fn::df(o[i]) * e[i];          // activation derivative => dz
         }
-        Tensor::MM::ikjk(g.w, dy, x);
+        float u = dy.mean();
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            e[i] = gamma * (dy[i] - u);     // LN centering => dL/dop
+        }
+        Tensor::MM::kikj(ei, w, dy);
+
+        /* gradient() independently computes activation derivative */
+        if (bias) {
+            g.b += dy;                     // dL/db = Fn'(o)·e (NOT LN-centered)
+        }
+        /* Recompute LN-centered dy for weight gradient */
+        Tensor::MM::ikjk(g.w, e, x);
         e.zero();
         op.zero();
         return;
@@ -529,18 +585,23 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
+    void backward(const Tensor& x, Tensor &ei) override
     {
-        Tensor::MM::kikj(ei, w, e*gamma);
-        return;
-    }
-
-    void gradient(const Tensor& x, const Tensor&) override
-    {
+        /* Forward is: x -> zscore -> w·x_ + b -> Fn::f */
         Tensor dy(outputDim, 1);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Fn::df(o[i])*e[i];
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            dy[i] = Fn::df(o[i]) * e[i];           // dy = Fn'(o)·e
         }
+        /* Propagate through w: dL/dx_ = w^T · dy */
+        Tensor dL(outputDim, 1);
+        Tensor::MM::kikj(dL, w, dy);
+        /* Propagate through zscore: dL/dx = gamma · (I - 1/n·1·1^T) · dq */
+        float u = dL.mean();
+        for (std::size_t i = 0; i < ei.totalSize; i++) {
+            ei[i] = gamma * (dL[i] - u);
+        }
+
+        /* gradient() uses x_ (z-scored input) but recomputes dy independently */
         Tensor::MM::ikjk(g.w, dy, x_);
         if (bias) {
             g.b += dy;
@@ -549,7 +610,6 @@ public:
         op.zero();
         return;
     }
-
 };
 
 template<typename Fn>
@@ -598,23 +658,23 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
+    void backward(const Tensor& x, Tensor &ei) override
     {
-        Tensor::MM::kikj(ei, w, e*gamma);
-        return;
-    }
-
-    void gradient(const Tensor& x, const Tensor&) override
-    {
+        /* Forward: o1 = w·x + b → o2 = Fn(o1) → o = gamma·(o2 - u) */
         Tensor dy(outputDim, 1);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            float d = o2[i];//(o2[i] - u)*gamma;
-            dy[i] = (1 - d*d)*(1 - 1.0/float(outputDim))*Fn::df(o2[i])*gamma*e[i];
+        float u = e.mean();
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            dy[i] = gamma * (e[i] - u) * Fn::df(o2[i]);           // activation derivative
         }
+        Tensor::MM::kikj(ei, w, dy);                  // linear backward
+
         Tensor::MM::ikjk(g.w, dy, x);
         if (bias) {
-            g.b += dy;
+            for (std::size_t i = 0; i < e.totalSize; i++) {
+                g.b[i] += Fn::df(o2[i]) * dy[i];      // dL/db = Fn'(o2)·e (pre-LN)
+            }
         }
+
         e.zero();
         o1.zero();
         return;
@@ -662,28 +722,27 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
+    void backward(const RL::Tensor &x, Tensor &ei) override
     {
-        Tensor::MM::kikj(ei, w, e*gamma);
-        return;
-    }
-
-    void gradient(const Tensor& x, const Tensor&) override
-    {
+        /* Forward: o = Fn(gamma·op + b) */
         Tensor dy(outputDim, 1);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            float error = Fn::d(o[i])*e[i];
-            float d = op[i]*gamma;
-            dy[i] = (1 - d*d)*gamma*error;
-            if (bias) {
-                g.b[i] += error;
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            dy[i] = gamma * Fn::df(o[i]) * e[i];     // dy = gamma · Fn'(o) · e
+        }
+        Tensor::MM::kikj(ei, w, dy);
+
+        if (bias) {
+            for (std::size_t i = 0; i < e.totalSize; i++) {
+                g.b[i] += Fn::df(o[i]) * e[i];      // dL/db = Fn'(o)·e (not gamma-scaled)
             }
         }
+        /* Recompute gamma-scaled dy for weight gradient */
         Tensor::MM::ikjk(g.w, dy, x);
         e.zero();
         op.zero();
         return;
     }
+
 };
 
 
@@ -729,24 +788,39 @@ public:
         return o;
     }
 
-    void backward(Tensor &ei) override
+    void backward(const Tensor &x, Tensor &ei) override
     {
-        Tensor::MM::kikj(ei, w, e);
-        return;
-    }
+        /*
+            Forward chain:
+                o1 = w · x
+                o2 = tanh(o1 * r)
+                o  = Fn::f(o2 + b)
 
-    void gradient(const Tensor& x, const Tensor&) override
-    {
+            dy = dL/do1 = r · (1 - tanh²(o2)) · Fn'(o) · e
+
+            Save original e (dL/do) for bias gradient computation.
+        */
+        Tensor dL(outputDim, 1);
         Tensor dy(outputDim, 1);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            float d1 = Fn::df(o[i])*e[i];
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            float d1 = Fn::df(o[i]) * e[i];       // Fn'(o) · e
             float d2 = o2[i];
-            dy[i] = r*(1 - d2*d2)*d1;
-            if (bias) {
-                g.b[i] += d1;
-            }
+            dL[i] = r * (1 - d2 * d2) * d1;         // tanh'(o2) · r · d1 = dL/do1
+            dy[i] = d1;
         }
-        Tensor::MM::ikjk(g.w, dy, x);
+        Tensor::MM::kikj(ei, w, dL);
+
+        /*
+         * e[i] = dL/do1 = r * tanh'(o2[i]) * Fn'(o[i]) * dL/do
+         * We use e for weight gradient: g.w += e · x^T = dL/do1 · x^T
+         * For bias gradient, we need Fn'(o[i]) * dL/do from saved e0:
+         *   g.b[i] += Fn::df(o[i]) * e0[i]
+         * where e0 = dL/do (original gradient before backward modified it).
+         */
+        Tensor::MM::ikjk(g.w, dL, x);
+        if (bias) {
+            g.b += dy;
+        }
         e.zero();
         o1.zero();
         return;

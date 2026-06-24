@@ -6,8 +6,8 @@
 namespace RL {
 
 struct Sigmoid {
-    inline static float f(float x) {return 1.0/(1 + std::exp(-x));}
-    inline static float df(float y) {return y*(1 - y);}
+    inline static float f(float x) {return 1.0/(1 + std::exp(-1.702*x));}
+    inline static float df(float y) {return 1.702*y*(1 - y);}
 };
 
 struct Tanh {
@@ -54,13 +54,35 @@ struct Linear {
     inline static float df(float) {return 1;}
 };
 
-struct Swish {
-    static constexpr float beta = 1.0;//1.702;
-    inline static float f(float x) {return x*Sigmoid::f(beta*x);}
+struct Mish {
+    inline static float f(float x) {return x*std::tanh(std::log(1 + std::exp(x)));}
     inline static float df(float x)
     {
-        float s = Sigmoid::f(beta*x);
-        return s + x*s*(1 - s);
+        float y0 = std::exp(x);
+        float y1 = std::tanh(std::log(1 + y0));
+        float y2 = x*(1 - y1*y1)*y0/(1 + y0);
+        return y1 + y2;
+    }
+};
+
+struct XTanh {
+    inline static float f(float x) {return std::tanh(x*std::log(1 + std::exp(x)));}
+    inline static float df(float x, float y)
+    {
+        float y0 = std::exp(x);
+        float y1 = std::log(1 + y0);
+        float y2 = (1 - y*y)*(y1 + x*y0/(1 + y0));
+        return y2;
+    }
+};
+
+struct Swish {
+    static constexpr float beta = 1.702;
+    inline static float f(float x) {return x/(1 + std::exp(-beta*x));}
+    inline static float df(float x)
+    {
+        float s = 1.0/(1 + std::exp(-beta*x));
+        return s + beta*x*s*(1 - s);
     }
 };
 
@@ -107,6 +129,42 @@ struct Softmax {
         return J;
     }
 
+    /*
+        O(N) softmax Jacobian-vector product: compute v_out = J^T · v_in
+        WITHOUT constructing the O(N²) Jacobian matrix.
+
+        For softmax output y = σ(x) (tensor of arbitrary shape):
+            J[i,j] = y[i]·(δ_ij - y[j])  (symmetric: J = J^T, treats y as flat)
+
+        Therefore:
+            (J^T · v)[i] = y[i] · (v[i] - Σ_k y[k]·v[k])
+
+        Time: O(N), Memory: O(1)
+        vs constructing J explicitly: O(N²) time, O(N²) memory
+
+        This works for any tensor shape — y and v are treated as flat vectors.
+        When y is a 2D matrix (as in ScaledDotProduct's N×N attention matrix z),
+        all N² elements are treated uniformly (matching the flat softmax behavior
+        used in RL::softmax() and Softmax::f()).
+
+        Parameters:
+            y:  softmax output (any shape, treated as flat in the Jacobian)
+            v:  gradient w.r.t. y (same shape as y)
+            out: result = J^T · v (same shape as y), can alias v
+    */
+    inline static void jacobian_transpose_mul(const Tensor &y, const Tensor &v, Tensor &out)
+    {
+        /* dot = Σ_k y[k] · v[k]  (single scalar over all elements) */
+        float dot = 0;
+        for (std::size_t k = 0; k < y.totalSize; k++) {
+            dot += y[k] * v[k];
+        }
+        /* out[i] = y[i] · (v[i] - dot) */
+        for (std::size_t i = 0; i < y.totalSize; i++) {
+            out[i] = y[i] * (v[i] - dot);
+        }
+        return;
+    }
 };
 
 struct Zeta {

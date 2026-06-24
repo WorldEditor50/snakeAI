@@ -2,8 +2,6 @@
 #define TENSOR_H
 #include <cmath>
 #include <vector>
-#include <functional>
-#include <fstream>
 #include <sstream>
 #include <string>
 #include <iostream>
@@ -967,7 +965,7 @@ public:
             /* transpose x1, x2 */
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[0]; k++) {
-                    T x1ki = x1ki;
+                    T x1ki = x1(k, i);
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
                         /* x(i, j) = x1(k, i)^T * x2(j, k)^T */
                         x(i, j) += x1ki*x2(j, k);
@@ -1030,7 +1028,7 @@ public:
             /* transpose x1, x2 */
             for (std::size_t i = 0; i < x.shape[0]; i++) {
                 for (std::size_t k = 0; k < x1.shape[0]; k++) {
-                    T x1ki = x1ki;
+                    T x1ki = x1(k, i);
                     for (std::size_t j = 0; j < x.shape[1]; j++) {
                         /* x(i, j) = x1(k, i)^T * x2(j, k)^T */
                         x(i, j) += x1ki*x2(j, k);
@@ -1040,6 +1038,40 @@ public:
             return x;
         }
     };
+
+    /* batch matrix multiplication */
+    inline static Tensor_ bmm(const Tensor_ &x1, const Tensor_ &x2)
+    {
+        /*
+            x1: (batch, n, m)
+            x2: (batch, m, p) or (m, p) for broadcasting
+            output: (batch, n, p)
+        */
+        if (x1.shape.size() == 3 && x2.shape.size() == 2) {
+            /* broadcasting case: x2 has no batch dimension */
+            int batch = x1.shape[0];
+            int n = x1.shape[1];
+            int p = x2.shape[1];
+            assert(x1.shape[2] == x2.shape[0]);
+            Tensor_ result(batch, n, p);
+            for (int b = 0; b < batch; b++) {
+                result.at(b) = x1.sub(b) % x2;
+            }
+            return result;
+        }
+        /* standard case: both are 3D tensors */
+        assert(x1.shape.size() == 3 && x2.shape.size() == 3);
+        assert(x1.shape[0] == x2.shape[0]);
+        assert(x1.shape[2] == x2.shape[1]);
+        int batch = x1.shape[0];
+        int n = x1.shape[1];
+        int p = x2.shape[2];
+        Tensor_ result(batch, n, p);
+        for (int b = 0; b < batch; b++) {
+            result.at(b) = x1.sub(b) % x2.sub(b);
+        }
+        return result;
+    }
 
     template<typename ...Arg>
     inline static Tensor_ concat(int dim, const Arg & ...args)
@@ -1091,6 +1123,15 @@ public:
             }
         }
         return y;
+    }
+
+    inline static T dot(const Tensor_& x1, const Tensor_& x2)
+    {
+        T s = 0;
+        for (int i = 0; i < x1.totalSize; i++) {
+            s += x1[i]*x2[i];
+        }
+        return s;
     }
 
     /* display */

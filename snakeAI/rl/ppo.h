@@ -38,7 +38,7 @@ protected:
     float epsilon;
     float exploringRate;
     int learningSteps;
-    float entropy0;
+    float H0;
     GradValue alpha;
     ExpAnnealing annealing;
     Net actorP;

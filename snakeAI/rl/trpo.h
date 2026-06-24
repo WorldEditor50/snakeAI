@@ -13,6 +13,7 @@
 #include "rl_basic.h"
 #include "parameter.hpp"
 #include "annealing.hpp"
+
 namespace RL {
 
 class TRPO
@@ -20,25 +21,28 @@ class TRPO
 public:
     TRPO(){}
     explicit TRPO(int stateDim, int hiddenDim, int actionDim);
-    RL::Tensor &gumbelMax(const RL::Tensor &state);
+    RL::Tensor &eGreedyAction(const RL::Tensor &state);
     Tensor &action(const Tensor &state);
-    Tensor hessain(const Tensor &state,
-                   const Tensor &oldAction,
-                   const Tensor &grad);
     void learn(std::vector<Step>& x, float learningRate);
+    void save(const std::string &actorPara, const std::string &criticPara);
+    void load(const std::string &actorPara, const std::string &criticPara);
 private:
     int stateDim;
     int actionDim;
     float gamma;
-    float lmbda;
     float maxKL;
+    float exploringRate;
     int learningSteps;
-    float entropy0;
-    GradValue alpha;
-    ExpAnnealing annealing;
-    Net actorP;
-    Net actorQ;
-    Net critic;
+    Net actorP;      /* policy network (training) */
+    Net actorQ;      /* exploration network (synced from actorP) */
+    Net critic;      /* V(s) state-value function with Linear output */
+
+    /* TRPO inner helpers */
+    int totalParams();
+    Tensor flatParams();
+    void setFlatParams(const Tensor &p);
+    Tensor flatGrad();
+    void zeroGrad();
 };
 
 }

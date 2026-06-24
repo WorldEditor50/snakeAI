@@ -36,7 +36,7 @@ protected:
     std::size_t actionDim;
     float gamma;
     float exploringRate;
-    int learningSteps;
+    int learningSteps = 0;
     Net QMainNet;
     Net QTargetNet;
     std::deque<Transition> memories;

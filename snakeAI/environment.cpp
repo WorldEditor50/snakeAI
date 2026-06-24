@@ -11,13 +11,17 @@ Environment::Environment()
     agentMethod.insert(std::pair<std::string, AgentMethod>("dqn", &Agent::dqnAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("dpg", &Agent::dpgAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("ppo", &Agent::ppoAction));
+    agentMethod.insert(std::pair<std::string, AgentMethod>("trpo", &Agent::trpoAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("sac", &Agent::sacAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("qlstm", &Agent::qlstmAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("drpg", &Agent::drpgAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("ddpg", &Agent::ddpgAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("convpg", &Agent::convpgAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("convdqn", &Agent::convdqnAction));
+    agentMethod.insert(std::pair<std::string, AgentMethod>("bcq", &Agent::bcqAction));
+    agentMethod.insert(std::pair<std::string, AgentMethod>("mpg", &Agent::mpgAction));
     act = agentMethod["sac"];
+
 }
 void Environment::init(size_t w, size_t h)
 {
@@ -212,11 +216,12 @@ int Environment::play2(float &totalReward)
         setTarget();
         return -1;
     }
-    /* snake hits itself */
+    /* snake hits itself — reset with penalty */
 #if 0
     if (snake.isHitSelf()) {
-        snake.reset(board.rows, board.cols);
-        board.setTarget();
+        snake.reset(rows, cols);
+        setTarget();
+        return -2;
     }
 #endif
     return 0;
@@ -226,17 +231,21 @@ float Environment::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
 {
     /* agent goes out of the map */
     if (map(xn, yn) == OBJ_BLOCK) {
-        return -1.5;
+        return -1.5f;
     }
     /* agent reaches to the target's position */
     if (xn == xt && yn == yt) {
-        return 1.5;
+        return 1.5f;
     }
-    /* the distance from agent's previous position to the target's position */
-    float d1 = (xi - xt) * (xi - xt) + (yi - yt) * (yi - yt);
-    /* the distance from agent's current position to the target's position */
-    float d2 = (xn - xt) * (xn - xt) + (yn - yt) * (yn - yt);
-    return std::sqrt(d1) - std::sqrt(d2);
+    /* distance-based reward with tanh normalization.
+       d1,d2 are Euclidean distances; diff > 0 means getting closer.
+       tanh(diff) ∈ [-1, 1] gives a smooth, bounded signal scale-matched
+       to the terminal rewards (±1.5). This replaces the raw sqrt(d1)-sqrt(d2)
+       which was ~100x smaller and drowned in terminal reward noise. */
+    float d1 = std::sqrt(float(xi - xt)*(xi - xt) + float(yi - yt)*(yi - yt));
+    float d2 = std::sqrt(float(xn - xt)*(xn - xt) + float(yn - yt)*(yn - yt));
+    float diff = d1 - d2;
+    return diff;
 }
 
 float Environment::reward1(int xi, int yi, int xn, int yn, int xt, int yt)
@@ -298,5 +307,47 @@ float Environment::reward3(int xi, int yi, int xn, int yn, int xt, int yt)
     float d2 = (xn - xt)*(xn - xt) + (yn - yt)*(yn - yt);
     float r = std::sqrt(d1) - std::sqrt(d2);
     return r;
+}
+
+float Environment::reward4(int xi, int yi, int xn, int yn, int xt, int yt)
+{
+    /* --- terminal events --- */
+
+    /* hit wall / block */
+    if (map(xn, yn) == OBJ_BLOCK) {
+        return -1.5f;
+    }
+
+    /* hit own body — strong penalty to prevent suicidal loops */
+    for (std::size_t i = 1; i < snake.body.size(); i++) {
+        if (xn == snake.body[i].x && yn == snake.body[i].y) {
+            return -2.0f;
+        }
+    }
+
+    /* reached target — reward scales with snake length */
+    if (xn == xt && yn == yt) {
+        return 1.5f + 0.01f * float(snake.body.size());
+    }
+
+    /* --- shaped reward --- */
+
+    /* step cost: small penalty per move to encourage efficiency */
+    float stepCost = -0.01f;
+
+    /* distance-based potential: tanh(d1 - d2) ∈ [-0.5, 0.5] */
+    float d1 = std::sqrt(float(xi - xt)*(xi - xt) + float(yi - yt)*(yi - yt));
+    float d2 = std::sqrt(float(xn - xt)*(xn - xt) + float(yn - yt)*(yn - yt));
+    float diff = d1 - d2;
+    float distReward = 0.5f * std::tanh(diff);
+
+    /* exploration bonus: prefer cells we haven't visited recently.
+       Use 1D key = xn * cols + yn to flatten 2D position. */
+    int posKey = xn * int(cols) + yn;
+    int& visitCount = visited[posKey];
+    float exploreBonus = 0.02f / (1.0f + float(visitCount));
+    visitCount++;
+
+    return stepCost + distReward + exploreBonus;
 }
 
