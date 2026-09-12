@@ -136,7 +136,7 @@ void RL::LSTM::backwardAtTime(int t,
 {
     State delta(hiddenDim, outputDim);
     /* ∂L/∂z_y = E ⊙ tanh'(y): loss gradient w.r.t. pre-activation output */
-    Tensor outputError(hiddenDim, 1);
+    Tensor outputError(outputDim, 1);
     for (std::size_t i = 0; i < outputError.size(); i++) {
         outputError[i] = E[i] * Tanh::df(states[t].y[i]);
     }
@@ -158,7 +158,7 @@ void RL::LSTM::backwardAtTime(int t,
     Tensor f_ = t < states.size() - 1 ? states[t + 1].f : Tensor(hiddenDim, 1);
     Tensor _c = t > 0 ? states[t - 1].c : Tensor(hiddenDim, 1);
     for (std::size_t i = 0; i < delta.o.size(); i++) {
-        delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::df(states[t].c[i]) + delta_.c[i] * f_[i];
+        delta.c[i] = delta.h[i] * states[t].o[i] * Tanh::df(Tanh::f(states[t].c[i])) + delta_.c[i] * f_[i];
         delta.o[i] = delta.h[i] * Tanh::f(states[t].c[i]) * Sigmoid::df(states[t].o[i]);
         delta.g[i] = delta.c[i] * states[t].i[i] * Tanh::df(states[t].g[i]);
         delta.i[i] = delta.c[i] * states[t].g[i] * Sigmoid::df(states[t].i[i]);
@@ -389,7 +389,7 @@ void RL::LSTM::read(std::ifstream &file)
         w = Tensor::fromString(ws);
         std::string us;
         std::getline(file, us);
-        u = Tensor::fromString(ws);
+        u = Tensor::fromString(us);
         std::string bs;
         std::getline(file, bs);
         b = Tensor::fromString(bs);
@@ -401,7 +401,7 @@ void RL::LSTM::read(std::ifstream &file)
     /* forget gate */
     parse(file, wf, uf, bf);
     /* output gate */
-    parse(file, wo, uo, bf);
+    parse(file, wo, uo, bo);
     /* predict */
     {
         std::string ws;

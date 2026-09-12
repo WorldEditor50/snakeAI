@@ -132,6 +132,9 @@ public:
 
         /* Step 1: Compute gating distribution */
         /* gate_logits = Wg · x + b */
+        /* MM::ikkj accumulates into gate, so it must be cleared first
+           (gate is a persistent member and is never zeroed in backward). */
+        gate.zero();
         Tensor::MM::ikkj(gate, wg, x);
         gate += b;
         softmax(gate);        // in-place softmax

@@ -91,8 +91,8 @@ static int test_trpo_bandit()
         if (ep % 100 == 99) {
             RL::Tensor s0(2,1); s0[0]=1; s0[1]=0;
             RL::Tensor s1(2,1); s1[0]=0; s1[1]=1;
-            RL::Tensor &p0 = agent.action(s0);
-            RL::Tensor &p1 = agent.action(s1);
+            RL::Tensor p0 = agent.action(s0);   /* value copy: Net::forward returns an internal reference */
+            RL::Tensor p1 = agent.action(s1);   /* value copy, see above */
             p0_history[eval_idx] = p0[0];
             p1_history[eval_idx] = p1[1];
             eval_idx++;
@@ -108,8 +108,8 @@ static int test_trpo_bandit()
     // Final evaluation
     RL::Tensor s0(2,1); s0[0]=1; s0[1]=0;
     RL::Tensor s1(2,1); s1[0]=0; s1[1]=1;
-    RL::Tensor &p0 = agent.action(s0);
-    RL::Tensor &p1 = agent.action(s1);
+    RL::Tensor p0 = agent.action(s0);   /* value copy: Net::forward returns an internal reference */
+    RL::Tensor p1 = agent.action(s1);   /* value copy, see above */
 
     bool pass = (p0[0] > 0.6f && p1[1] > 0.6f);
     std::cout << "\nResult: " << (pass ? "PASS" : "FAIL")

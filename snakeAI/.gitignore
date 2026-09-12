@@ -1,2 +1,6 @@
 # cmake
+build
+.qt
+.vscode
+.claude
 *.user

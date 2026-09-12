@@ -180,10 +180,6 @@ void RL::PPO::learnWithClipObjective(std::vector<RL::Step> &trajectory, float le
     actorP.RMSProp(learningRate, 0.9, decay);
     critic.RMSProp(1e-3, 0.9, decay);
     alpha.RMSProp(1e-7, 0.9, 0);
-#if 1
-    std::cout<<"alpha:";
-    alpha.val.printValue();
-#endif
     /* update step */
     exploringRate *= 0.99999;
     exploringRate = exploringRate < 0.01 ? 0.01 : exploringRate;

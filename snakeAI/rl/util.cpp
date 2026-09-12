@@ -54,13 +54,13 @@ float RL::covariance(const Tensor &x1, const Tensor &x2)
     return covar;
 }
 
-float RL::clip(float x, float sup, float inf)
+float RL::clip(float x, float lo, float hi)
 {
     float y = x;
-    if (x < sup) {
-        y = sup;
-    } else if (x > inf) {
-        y = inf;
+    if (x < lo) {
+        y = lo;
+    } else if (x > hi) {
+        y = hi;
     }
     return y;
 }
@@ -85,5 +85,9 @@ float RL::gmean(const RL::Tensor &x)
 
 float RL::gaussian(float x, float u, float sigma)
 {
-    return 1/std::sqrt(2*pi*sigma)*std::exp(-0.5*(x - u)*(x - u)/sigma);
+    /* Standard normal pdf: 1/sqrt(2*pi*sigma^2) * exp(-(x-u)^2/(2*sigma^2)).
+       The previous version used sqrt(2*pi*sigma) and divided by sigma instead
+       of 2*sigma^2, so it was not a Gaussian at all. */
+    float s2 = sigma*sigma;
+    return std::exp(-0.5f*(x - u)*(x - u)/s2)/std::sqrt(2.0f*pi*s2);
 }

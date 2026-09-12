@@ -9,14 +9,46 @@ AxisWidget::AxisWidget(QWidget *parent) :
     QPalette pal;
     pal.setBrush(backgroundRole(), Qt::white);
     x = 0;
+    timerID = -1;   /* timerEvent() compares against this; it was left uninitialised */
+}
+
+void AxisWidget::appendSample(float y)
+{
+    /*
+       Scroll one step and place the new sample at the RIGHT edge.
+
+       The scrolling used to live in paintEvent(). That is not a time base:
+       paintEvent also runs on resize/expose/occlusion, and Qt coalesces the
+       update() calls that arrive from addPoint() and from the widget's
+       readyForPaint signal, so the number of shifts per sample was arbitrary.
+
+       Worse, a sample's x came from a counter that only ever increased
+       (`x++` in addPoint), while the shift was per repaint. Once that counter
+       passed width()/2 every new sample was placed outside the visible window
+       [-w, +w] and the curve stopped updating — and because clearPoints() did
+       NOT reset the counter, switching agent (which emits clearReward) left the
+       reward window permanently blank: new samples kept arriving at x = 4000,
+       4001, ... with the window showing only ~±300.
+
+       Tying the scroll to the arrival of a sample makes the horizontal axis
+       mean "how many samples ago", which is what the plot is for.
+    */
+    const qreal right = width() / 2.0;
+    for (int i = 0; i < points.size(); i++) {
+        points[i].setX(points[i].x() - 1);
+    }
+    while (!points.isEmpty() && points.first().x() < -right) {
+        points.removeFirst();
+    }
+    points.append(QPointF(right, y));
+    x += 1;
+    update();
+    return;
 }
 
 void AxisWidget::addPoint(float y)
 {
-    QPointF p(x, y);
-    points.append(p);
-    x++;
-    update();
+    appendSample(y);
     return;
 }
 
@@ -36,7 +68,16 @@ void AxisWidget::setScale(int value)
 
 void AxisWidget::clearPoints()
 {
+    /*
+       Nothing about a sample's position depends on state that outlives the
+       clear any more (see appendSample()), so clearing is enough. This used to
+       leave the x counter untouched, which is why switching agent — the one
+       thing that calls clearReward() — left the reward window unable to show
+       any further data.
+    */
     points.clear();
+    x = 0;
+    update();
     return;
 }
 
@@ -104,14 +145,13 @@ void AxisWidget::paintEvent(QPaintEvent *event)
         painter.drawLine(x1, -y1, x2, -y2);
         //points.replace(i - 1, points.at(i));
     }
-    for (auto it = points.begin(); it != points.end();it++) {
-        qreal x = it->x();
-        if (x < -w) {
-           it = points.erase(it);
-        } else {
-           it->setX(x - 1);
-        }
-    }
+    /*
+       The scrolling/erasing loop that used to sit here MOVED to
+       appendSample(). Doing it in paintEvent() made the x axis depend on how
+       many times Qt repainted the widget rather than on how many samples
+       arrived, and mutating the sample list from a paint handler is wrong in
+       its own right (paintEvent must be a pure read of the model).
+    */
     return;
 }
 
@@ -119,10 +159,7 @@ void AxisWidget::timerEvent(QTimerEvent *event)
 {
     if (event->timerId() == timerID) {
         float y = rand() % 200 - rand() % 200;
-        QPointF p(x, y);
-        points.append(p);
-        x++;
-        update();
+        appendSample(y);
     }
     return;
 }

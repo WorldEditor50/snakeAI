@@ -8,6 +8,9 @@
 #include <QTimer>
 #include <QMap>
 #include <thread>
+#include <mutex>
+#include <atomic>
+#include <deque>
 #include "environment.h"
 #include "agent.h"
 
@@ -20,8 +23,8 @@ public:
     void start();
     void stop();
 signals:
-    void win(const QString &count);
-    void lost(const QString &count);
+    void notifyWin(const QString &count);
+    void notifyLost(const QString &count);
     void clearReward();
     void sendTotalReward(float r);
     void scale(int value);
@@ -42,8 +45,13 @@ public:
 private:
     int winCount;
     int lostCount;
-    bool isPlaying;
+    std::atomic<bool> isPlaying;
     std::thread playThread;
+    /* Guards every access to `env` and to winCount/lostCount. The play thread
+       (run) mutates env.map and env.snake.body while the GUI thread reads them
+       in paintEvent and in the slots below; without this the std::deque body
+       was read while being modified, which is undefined behaviour. */
+    std::mutex envMutex;
 };
 
 #endif // GAMEWIDGET_H

@@ -2,7 +2,7 @@
 #include <iostream>
 
 Environment::Environment()
-    :blockNum(0),snake(map),agent(*this, snake)
+    :width(0),height(0),rows(0),cols(0),unitLen(0),blockNum(0),snake(map),agent(*this, snake)
 {
     xt = -1;
     yt = -1;
@@ -13,7 +13,6 @@ Environment::Environment()
     agentMethod.insert(std::pair<std::string, AgentMethod>("ppo", &Agent::ppoAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("trpo", &Agent::trpoAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("sac", &Agent::sacAction));
-    agentMethod.insert(std::pair<std::string, AgentMethod>("qlstm", &Agent::qlstmAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("drpg", &Agent::drpgAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("ddpg", &Agent::ddpgAction));
     agentMethod.insert(std::pair<std::string, AgentMethod>("convpg", &Agent::convpgAction));
@@ -32,7 +31,6 @@ void Environment::init(size_t w, size_t h)
     this->blockNum = 0;
     this->rows = width / unitLen - 2;
     this->cols = height / unitLen - 2;
-    std::cout<<"rows:"<<rows<<"cols:"<<cols<<std::endl;
     /* init map */
     map = RL::Tensor(rows, cols);
     for (std::size_t i = 0; i < rows; i++) {
@@ -140,17 +138,51 @@ void Environment::clearPoint(int x, int y)
 
 void Environment::setBlocks(int N)
 {
-    if (blockNum >= N) {
+    if (N < 0) {
+        N = 0;
+    }
+    if (N == blockNum) {
         return;
     }
-    for (int i = 0; i < N - blockNum; i++) {
-        int x = rand() % (rows - 10);
-        int y = rand() % (cols - 10);
-        while (x < 10 || y < 10) {
-            x = rand() % rows;
-            y = rand() % cols;
+    if (N < blockNum) {
+        /* Reducing the obstacle count only ever worked by rebuilding: the
+           incremental path below can only ADD blocks. Clear the interior
+           obstacles (keeping the border wall) and re-place from scratch. */
+        for (std::size_t i = 1; i + 1 < rows; i++) {
+            for (std::size_t j = 1; j + 1 < cols; j++) {
+                if (map(i, j) == OBJ_BLOCK) {
+                    map(i, j) = OBJ_NONE;
+                }
+            }
         }
-        map(x, y) = OBJ_BLOCK;
+        blockNum = 0;
+    }
+    /* Place obstacles inside the interior region, away from the border. */
+    int loX = 10;
+    int loY = 10;
+    int spanX = static_cast<int>(rows) - 20;
+    int spanY = static_cast<int>(cols) - 20;
+    if (spanX < 1) {
+        loX = 1;
+        spanX = static_cast<int>(rows) - 2;
+    }
+    if (spanY < 1) {
+        loY = 1;
+        spanY = static_cast<int>(cols) - 2;
+    }
+    if (spanX < 1) {
+        spanX = 1;
+    }
+    if (spanY < 1) {
+        spanY = 1;
+    }
+    for (int i = 0; i < N - blockNum; i++) {
+        int x = loX + rand() % spanX;
+        int y = loY + rand() % spanY;
+        /* Never overwrite the target or a snake segment. */
+        if (map(x, y) == OBJ_NONE) {
+            map(x, y) = OBJ_BLOCK;
+        }
     }
     blockNum = N;
     return;
@@ -237,11 +269,17 @@ float Environment::reward0(int xi, int yi, int xn, int yn, int xt, int yt)
     if (xn == xt && yn == yt) {
         return 1.5f;
     }
-    /* distance-based reward with tanh normalization.
-       d1,d2 are Euclidean distances; diff > 0 means getting closer.
-       tanh(diff) ∈ [-1, 1] gives a smooth, bounded signal scale-matched
-       to the terminal rewards (±1.5). This replaces the raw sqrt(d1)-sqrt(d2)
-       which was ~100x smaller and drowned in terminal reward noise. */
+    /* Distance-shaping reward: how much closer to the target this move got us
+       (positive = closer), as the difference of the two Euclidean distances.
+
+       NOTE: this returns the RAW distance delta. On a 118x118 board that delta
+       can reach roughly +-167, so it dominates the +-1.5 terminal rewards
+       below. The comment that used to be here described a tanh-normalized
+       version ("tanh(diff) in [-1,1], scale-matched to +-1.5", as reward4
+       actually implements with 0.5*tanh(diff)) that this code never applied.
+       The behaviour is deliberately left unchanged here, because it defines
+       the training signal; use `0.5f*std::tanh(diff)` as the return value if
+       the bounded, scale-matched shaping is wanted instead. */
     float d1 = std::sqrt(float(xi - xt)*(xi - xt) + float(yi - yt)*(yi - yt));
     float d2 = std::sqrt(float(xn - xt)*(xn - xt) + float(yn - yt)*(yn - yt));
     float diff = d1 - d2;

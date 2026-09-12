@@ -15,6 +15,10 @@ public:
     using Layers = std::vector<iLayer::sptr>;
     float alpha_;
     float beta_;
+    /* ∂L/∂x of the most recent backward(). Exposed so callers that need to
+       propagate through the network input (e.g. VAE's decoder) can read it
+       instead of having to re-run a layer backward after its cache was cleared. */
+    Tensor inputGrad;
 protected:
     Layers layers;
 public:
@@ -93,9 +97,18 @@ public:
         /* Also backprop through layer[0] so compound layers
            (TransformerBlock, MHA, etc.) execute their internal
            backward logic, compute LN/MHA gradients, and clear caches.
-           Input gradient is discarded (not needed for DQN input). */
-        Tensor inputGrad(layers[0]->o.totalSize, 1);
-        inputGrad.zero();
+           The buffer copies the SHAPE OF THE NETWORK INPUT x, not a flat
+           (totalSize, 1):
+             * sizing it by layer[0]'s OUTPUT made the kikj() inside
+               Layer<Fn>::backward index w out of bounds whenever
+               inputDim != outputDim;
+             * sizing it flat broke conv-first networks entirely — Conv2d::
+               backward indexes ei.shape[1] and ei.shape[2], and a 2-D {N,1}
+               shape has no index 2, so every training step of ConvPG/ConvDQN
+               read past the end of the shape vector (AddressSanitizer:
+               heap-buffer-overflow at conv2d.hpp:223).
+           The result is kept in inputGrad rather than discarded. */
+        inputGrad = Tensor(x.shape);
         layers[0]->backward(x, inputGrad);
         return;
     }

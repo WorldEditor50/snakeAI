@@ -31,6 +31,10 @@ public:
                std::size_t replaceTargetIter = 256,
                std::size_t batchSize = 32,
                float learningRate = 0.001);
+    /* Current epsilon. Exposed so a test can assert on the exploration
+       schedule (it used to decay so slowly that epsilon stayed ~1.0 for a
+       whole session, i.e. the agent acted at random). */
+    float getExploringRate() const { return exploringRate; }
 protected:
     std::size_t stateDim;
     std::size_t actionDim;
@@ -39,6 +43,9 @@ protected:
     int learningSteps;
     Net QMainNet;
     Net QTargetNet;
+    /* Copy of the Q-values handed out by eGreedyAction(), so that exploration
+       does not scribble on the network's own cached output buffer. */
+    Tensor qAction;
 
     std::deque<Transition> memories;
 };

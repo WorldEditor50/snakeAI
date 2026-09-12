@@ -17,10 +17,9 @@ Agent::Agent(Environment& env_, Snake &s):
                    RL::Layer<RL::Sigmoid>::_(16, 16, true, true),
                    RL::Layer<RL::Sigmoid>::_(16, 16, true, true),
                    RL::Layer<RL::Sigmoid>::_(16, 4, true, true));
-    qlstm = RL::QLSTM(stateDim, 16, 4);
     drpg = RL::DRPG(stateDim, 16, 4);
     convpg = RL::ConvPG(stateDim, 16, 4);
-    convdqn = RL::ConvDQN(stateDim, 16, 4);
+    convdqn = RL::ConvDQN(stateDim, 64, 4);
     bcq = RL::BCQ(stateDim, 16, 4);
     mpg = RL::MPG(stateDim, 16, 4);
 
@@ -150,46 +149,6 @@ int Agent::dqnAction(int x, int y, int xt, int yt, float &totalReward)
     }
     /* making decision */
     RL::Tensor& a = dqn.action(state0);
-    a.printValue();
-    return a.argmax();
-}
-
-int Agent::qlstmAction(int x, int y, int xt, int yt, float &totalReward)
-{
-    int xn = x;
-    int yn = y;
-    observe(state, x, y, xt, yt);
-    RL::Tensor state_ = state;
-    if (trainFlag == true) {
-        float total = 0;
-        for (std::size_t i = 0; i < 128; i++) {
-            int xi = xn;
-            int yi = yn;
-            RL::Tensor& a = qlstm.noiseAction(state);
-            int k = a.argmax();
-            simulateMove(xn, yn, k);
-            float r = env.reward0(xi, yi, xn, yn, xt, yt);
-            total += r;
-            observe(nextState, xn, yn, xt, yt);
-            if (env.map(xn, yn) == OBJ_BLOCK) {
-                qlstm.perceive(state, a, nextState, r, true);
-                break;
-            }
-            if (xn == xt && yn == yt) {
-                qlstm.perceive(state, a, nextState, r, true);
-                break;
-            } else {
-                qlstm.perceive(state, a, nextState, r, false);
-            }
-            state = nextState;
-        }
-        totalReward = total;
-        /* training */
-        qlstm.learn(8192, 256, 16, 1e-3);
-    }
-    /* making decision */
-    RL::Tensor &a = qlstm.action(state_);
-    a.printValue();
     return a.argmax();
 }
 
@@ -221,6 +180,26 @@ int Agent::dpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
+        /*
+           The game trains with reinforce(), not reinforce1().
+
+           Measured in the running game, reinforce() produces visibly better play
+           than reinforce1(). The two are NOT the same estimator. With
+           CrossEntropy::df(out, target)[i] = -target[i]/out[i] and reinforce()'s
+           in-place edit x[t].action[k] = p_k * A_t, the resulting logit update is
+
+               reinforce()  :  dz = eta * p_k * A_t * (e_k - pi)
+               reinforce1() :  dz = eta *        A_t * (e_k - pi)
+
+           where p_k is the probability the sampled Gumbel-Softmax distribution
+           gave to the action that was actually taken. reinforce() therefore
+           weights every update by how confident the policy was about that
+           action, which damps steps taken when the choice was close to a coin
+           flip.
+
+           reinforce1() remains the exact, side-effect-free estimator and is the
+           one the test suite pins down (test_pg / test_mpg / test_convpg), so
+           both implementations stay in the library. */
         dpg.reinforce(steps, 1e-2);
     }
     /* making decision */
@@ -238,6 +217,13 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
     if (trainFlag == true) {
         std::vector<RL::Step> steps;
         float total = 0;
+        /* Each rollout is an independent episode, so the LSTM state must start
+           at zero — both to stop one episode's context leaking into the next and
+           because reinforce()/reinforce1() replay this trajectory from a RESET
+           state: if the rollout began from a dirty state, the forward passes used
+           to build the gradient would not correspond to the policy that produced
+           the actions. */
+        drpg.resetState();
         for (std::size_t i = 0; i < 16; i++) {
             int xi = xn;
             int yi = yn;
@@ -257,6 +243,9 @@ int Agent::drpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
+        /* reinforce(), as measured to play better than reinforce1(); the
+           difference between the two is derived in dpgAction() above.
+           rl/drpg.* keeps both, and the test suite covers reinforce1(). */
         drpg.reinforce(steps, 1e-2);
     }
     /* making decision */
@@ -299,11 +288,12 @@ int Agent::convpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
+        /* reinforce(), as measured to play better than reinforce1(); see the
+           derivation in dpgAction(). rl/convpg.* keeps both. */
         convpg.reinforce(steps, 1e-2);
     }
     /* making decision */
     RL::Tensor& a = convpg.action(state_);
-    a.printValue();
     return a.argmax();
 }
 
@@ -313,8 +303,15 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
     int yn = y;
     RL::Tensor cloneMap = env.map;
     Snake cloneSnake(snake.body, cloneMap);
+    /*
+       Normalise by a CONSTANT, not by the board's own maximum. The map holds
+       OBJ_NONE=0, OBJ_BLOCK=1, OBJ_SNAKE=2, OBJ_TARGET=4, so dividing by
+       state.max() happened to give 4 whenever the target was present — but the
+       encoding of every cell would silently change the moment it was not. A
+       fixed divisor keeps the input representation stationary.
+    */
     state = cloneMap;
-    state /= state.max();
+    state /= 4.0f;
     state.reshape(1, 118, 118);
     RL::Tensor state_ = state;
     if (trainFlag == true) {
@@ -323,12 +320,17 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
         for (std::size_t i = 0; i < 64; i++) {
             int xi = xn;
             int yi = yn;
-            /* sample */
-            RL::Tensor &a = convdqn.noiseAction(state);
+            /*
+               epsilon-greedy, not noiseAction(). noise() adds U(0,2) to every
+               Q-value and renormalises by the maximum, which randomises the
+               argmax outright; it was also driven by an epsilon that never
+               decayed (see ConvDQN::learn), so the agent explored forever.
+            */
+            RL::Tensor &a = convdqn.eGreedyAction(state);
             int k = a.argmax();
             simulateMove(cloneSnake, xn, yn, k);
             nextState = cloneMap;
-            nextState /= nextState.max();
+            nextState /= 4.0f;
             nextState.reshape(1, 118, 118);
             float r = env.reward0(xi, yi, xn, yn, xt, yt);
             total += r;
@@ -350,7 +352,6 @@ int Agent::convdqnAction(int x, int y, int xt, int yt, float &totalReward)
     }
     /* making decision */
     RL::Tensor& a = convdqn.action(state_);
-    a.printValue();
     return a.argmax();
 }
 
@@ -391,7 +392,6 @@ int Agent::ddpgAction(int x, int y, int xt, int yt, float &totalReward)
     }
 
     RL::Tensor &a = ddpg.action(state_);
-    a.printValue();
     return a.argmax();
 }
 
@@ -432,7 +432,6 @@ int Agent::ppoAction(int x, int y, int xt, int yt, float &totalReward)
     }
     /* making decision */
     RL::Tensor &a = ppo.action(state_);
-    a.printValue();
     return a.argmax();
 }
 
@@ -469,7 +468,6 @@ int Agent::trpoAction(int x, int y, int xt, int yt, float &totalReward)
     }
     /* making decision */
     RL::Tensor &a = trpo.action(state_);
-    a.printValue();
     return a.argmax();
 }
 
@@ -566,6 +564,10 @@ int Agent::mpgAction(int x, int y, int xt, int yt, float &totalReward)
     if (trainFlag == true) {
         std::vector<RL::Step> steps;
         float total = 0;
+        /* Fresh episode => fresh recurrent state. See the note in drpgAction():
+           reinforce()/reinforce1() replay this trajectory from a reset Mamba
+           state, so the rollout has to start from one as well. */
+        mpg.resetState();
         for (std::size_t i = 0; i < 32; i++) {
             int xi = xn;
             int yi = yn;
@@ -585,6 +587,8 @@ int Agent::mpgAction(int x, int y, int xt, int yt, float &totalReward)
         }
         totalReward = total;
         /* training */
+        /* reinforce(), as measured to play better than reinforce1(); see the
+           derivation in dpgAction(). rl/mpg.* keeps both. */
         mpg.reinforce(steps, 1e-2);
     }
     /* making decision */
@@ -622,7 +626,9 @@ int Agent::supervisedAction(int x, int y, int xt, int yt, float &totalReward)
             observe(state, xn, yn, xt, yt);
         }
         if (m > 0) {
-            bpnn.RMSProp(0.9, 1e-3, 0.1);
+            /* Net::RMSProp(lr, rho, decay): the arguments were swapped, so the
+               BPNN was trained with lr=0.9 (divergent) and rho=1e-3. */
+            bpnn.RMSProp(1e-3, 0.9, 0.1);
         }
     }
     observe(state, x, y, xt, yt);

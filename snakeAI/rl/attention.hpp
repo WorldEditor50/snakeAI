@@ -18,29 +18,38 @@ public:
 public:
     PositionalEncoder(){}
     explicit PositionalEncoder(int inputDim_, bool withGrad_)
-        :inputDim(inputDim_)
+        :inputDim(inputDim_), pos(0)
     {
+        /* pe must be allocated: it was previously written out of bounds. */
+        pe = Tensor(inputDim, 1);
         o = Tensor(inputDim, 1);
         e = Tensor(inputDim, 1);
     }
 
     Tensor& forward(const Tensor& x, bool inference=false) override
     {
-        float d = x.totalSize;
+        float d = float(x.totalSize);
         for (std::size_t i = 0; i < x.totalSize; i++) {
             if (i%2 == 0) {
-                pe[i] = std::sin(float(pos)/std::pow(10000, float(i)/d));
+                pe[i] = std::sin(float(pos)/std::pow(10000.0f, float(i)/d));
             } else {
-                pe[i] = std::cos(float(pos)/std::pow(10000, float(i - 1)/d));
+                pe[i] = std::cos(float(pos)/std::pow(10000.0f, float(i - 1)/d));
             }
             o[i] = x[i] + pe[i];
         }
+        pos++;
         return o;
     }
 
     void backward(const Tensor& x, Tensor &ei) override
     {
-
+        /* o = x + pe with pe a constant, so dL/dx = dL/do = e */
+        for (std::size_t i = 0; i < e.totalSize; i++) {
+            ei[i] += e[i];
+        }
+        e.zero();
+        o.zero();
+        return;
     }
     void SGD(float lr) override
     {
@@ -143,6 +152,11 @@ public:
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
+        q.zero();
+        k.zero();
+        v.zero();
+        z.zero();
+        o.zero();
         Tensor::MM::ikkj(q, wq, x);
         Tensor::MM::ikkj(k, wk, x);
         Tensor::MM::ikkj(v, wv, x);
@@ -411,6 +425,7 @@ public:
             Tensor &out = dotProduct[i].forward(x, inference);
             a.embedding({i*unitDim, 0}, out);
         }
+        o.zero();
         Tensor::MM::ikkj(o, w1, a);
         Tensor::MM::ikkj(o, w2, x);
         o += b;
@@ -638,8 +653,9 @@ public:
     };
 public:
     int inputDim;
-    int d_k;           // head dimension = d_model / NumHeads
-    int d_model;       // total model dimension = NumHeads * d_k
+    int numHeads;      // heads actually used (<= NumHeads, divides d_model)
+    int d_k;           // head dimension = d_model / numHeads
+    int d_model;       // total model dimension — NEVER modified after construction
     Tensor wo;         // output projection (d_model × d_model)
     Tensor a;          // concatenated head outputs (d_model × 1)
     ScaledDotProduct heads[NumHeads];
@@ -652,11 +668,33 @@ public:
         :inputDim(inputDim_), d_model(d_model_)
     {
         type = LAYER_MHA;
-        d_k = d_model / NumHeads;
-        /* Ensure d_model is divisible by NumHeads */
-        if (d_k * NumHeads != d_model) {
-            d_k = d_model / NumHeads + 1;
-            d_model = d_k * NumHeads;
+        /*
+         * The head count must divide d_model. Use at most NumHeads heads and
+         * pick the largest divisor of d_model that does not exceed NumHeads.
+         *
+         * The previous code did the opposite: when d_model was not divisible it
+         * ROUNDED d_model UP to d_k*NumHeads (e.g. d_model=2 with NumHeads=8
+         * became d_model=8). Because the template parameter NumHeads is fixed,
+         * that silently desynchronised every caller that sized its own buffers
+         * with the d_model it had passed in — TransformerBlock<8> built with
+         * d_model=2 kept 2-wide x_norm1/o/e while this layer returned 8-wide
+         * tensors, and MHA::backward then read wo(k,i) and e(k,j) out of
+         * bounds. d_model is now never changed, so the layer always honours the
+         * contract "input d_model in, same d_model out".
+         */
+        if (d_model < 1) {
+            d_model = 1;
+        }
+        numHeads = NumHeads;
+        while (numHeads > 1 && (d_model % numHeads) != 0) {
+            --numHeads;
+        }
+        if (numHeads < 1) {
+            numHeads = 1;
+        }
+        d_k = d_model / numHeads;
+        if (d_k < 1) {
+            d_k = 1;
         }
 
         wo = Tensor(d_model, d_model);
@@ -685,11 +723,12 @@ public:
             Forward: o = Wo · concat(head₀(x), ..., head_{h-1}(x))
             Each head_i(x) = softmax(Wq_i·x · (Wk_i·x)^T / √d_k) · Wv_i·x  (d_k × 1)
         */
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             Tensor &head_out = heads[i].forward(x, inference);
             a.embedding({i*d_k, 0}, head_out);
         }
         /* o = Wo · a */
+        o.zero();
         Tensor::MM::ikkj(o, wo, a);
         return o;
     }
@@ -705,9 +744,12 @@ public:
         /* ∂L/∂all_heads = Wo^T · e */
         Tensor da(d_model, 1);
         Tensor::MM::kikj(da, wo, e);
-        ei += da;
+        /* NOTE: da is ∂L/∂all_heads, i.e. the gradient w.r.t. the CONCATENATED
+           HEAD OUTPUTS — it is not ∂L/∂x. MHA has no residual path, so adding
+           it to ei would double-count / corrupt the input gradient. The input
+           gradient below comes solely from each head's backward(). */
         /* Backprop through each head into ei */
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             /*
                 Distribute the output gradient to each head for subsequent gradient()
                 ∂L/∂head_i = block(Wo^T · e, i*d_k, d_k)
@@ -730,7 +772,7 @@ public:
     void SGD(float lr) override
     {
         Optimize::SGD(wo, g.wo, lr);
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             heads[i].SGD(lr);
         }
         g.zero();
@@ -740,7 +782,7 @@ public:
     void RMSProp(float lr, float rho, float decay, bool clipGrad) override
     {
         Optimize::RMSProp(wo, v.wo, g.wo, lr, rho, decay, clipGrad);
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             heads[i].RMSProp(lr, rho, decay, clipGrad);
         }
         g.zero();
@@ -754,7 +796,7 @@ public:
         Optimize::Adam(wo, v.wo, m.wo, g.wo,
                        alpha_, beta_, lr,
                        alpha, beta, decay, clipGrad);
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             heads[i].Adam(lr, alpha, beta,
                           alpha_, beta_,
                           decay, clipGrad);
@@ -766,7 +808,7 @@ public:
     void clamp(float c0, float cn) override
     {
         Optimize::clamp(wo, c0, cn);
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             heads[i].clamp(c0, cn);
         }
         return;
@@ -776,7 +818,7 @@ public:
     {
         MultiHeadAttention *pLayer = static_cast<MultiHeadAttention*>(layer);
         pLayer->wo = wo;
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             heads[i].copyTo(&pLayer->heads[i]);
         }
         return;
@@ -786,7 +828,7 @@ public:
     {
         MultiHeadAttention *pLayer = static_cast<MultiHeadAttention*>(layer);
         lerp(pLayer->wo, wo, alpha);
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             heads[i].softUpdateTo(&pLayer->heads[i], alpha);
         }
         return;
@@ -795,7 +837,7 @@ public:
     void write(std::ofstream &file) override
     {
         file << wo.toString() << std::endl;
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             heads[i].write(file);
         }
         return;
@@ -806,7 +848,7 @@ public:
         std::string wos;
         std::getline(file, wos);
         wo = Tensor::fromString(wos);
-        for (int i = 0; i < NumHeads; i++) {
+        for (int i = 0; i < numHeads; i++) {
             heads[i].read(file);
         }
         return;

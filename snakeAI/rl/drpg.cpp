@@ -36,8 +36,17 @@ RL::Tensor &RL::DRPG::gumbelMax(const RL::Tensor &state)
 
 RL::Tensor &RL::DRPG::action(const Tensor &state)
 {
-    lstm->h = h;
-    lstm->c = c;
+    /*
+       NOTE: the LSTM state is deliberately NOT restored from the h/c members
+       here. Doing so made every call reset the recurrence to the state saved
+       before the last training pass, so the state could never propagate between
+       two consecutive action() calls and the recurrent pathway carried no
+       information at all — a 2-step temporal task then degenerates to "map s1 to
+       a fixed action" and scores exactly the 50% chance baseline.
+       No restore is needed: reinforce()/reinforce1() leave the live state equal
+       to the post-trajectory state (they replay the same trajectory from reset
+       with unchanged weights), which is exactly what h/c hold.
+    */
     return policyNet.forward(state, true);
 }
 
@@ -64,10 +73,6 @@ void RL::DRPG::reinforce(std::vector<Step>& x, float learningRate)
         policyNet.backward(x[t].state, dLoss);
     }
     alpha.RMSProp(1e-7, 0.9, 0);
-#if 1
-    std::cout<<"alpha:";
-    alpha.val.printValue();
-#endif
     policyNet.RMSProp(learningRate, 0.9, 0);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.25 ? 0.25 : exploringRate;
@@ -89,56 +94,65 @@ void RL::DRPG::reinforce1(std::vector<Step>& x, float learningRate)
 
         where J is the softmax Jacobian, e_k is one-hot at the selected action.
     */
+    const std::size_t n = x.size();
+    if (n == 0) {
+        return;
+    }
+
+    /* LSTM state reached after the trajectory: kept so inference continues from
+       the same point once training has replayed the sequence. */
     h = lstm->h;
     c = lstm->c;
+
+    Tensor discountedReward(n, 1);
     float r = 0;
-    Tensor discountedReward(x.size(), 1);
-    for (int i = x.size() - 1; i >= 0; i--) {
+    for (int i = static_cast<int>(n) - 1; i >= 0; i--) {
         r = gamma * r + x[i].reward;
         discountedReward[i] = r;
     }
+
+    /* Mean baseline plus a rescale by the return's standard deviation (divisor
+       floored at 1 so a nearly-flat return sequence cannot have its noise
+       amplified). As in DPG::reinforce1, this global factor is divided out again
+       by Net::RMSProp's clipGrad normalization, so it does not change the update
+       here; it only matters under an optimizer called with clipGrad = false. */
+    Tensor advantage(n, 1);
     float u = discountedReward.mean();
+    float sd = std::sqrt(discountedReward.variance(u));
+    float scale = (sd > 1.0f) ? sd : 1.0f;
+    for (std::size_t t = 0; t < n; t++) {
+        advantage[t] = (discountedReward[t] - u)/scale;
+    }
+
+    /* Replay the trajectory from a clean LSTM state so BPTT matches it exactly */
     lstm->reset();
-    for (std::size_t t = 0; t < x.size(); t++) {
-        const Tensor &oneHotAction = x[t].action;
-        int k = oneHotAction.argmax();
+    for (std::size_t t = 0; t < n; t++) {
+        int k = x[t].action.argmax();
 
         /* --- Forward pass to get current policy distribution --- */
         Tensor &out = policyNet.forward(x[t].state, false);
 
         /* --- alpha (temperature) gradient ---
-           Entropy computed from FULL policy distribution, not one-hot action */
+           Entropy of the FULL policy distribution. The SAC dual objective is
+           J(α) = α·(H(π) − H_target) so dJ/dα = H(π) − H_target; RMSProp then
+           lowers α when the policy is too random. The previous version also
+           multiplied by alpha[k], which is not part of the derivation. */
         float policyEntropy = 0;
         for (std::size_t i = 0; i < actionDim; i++) {
             policyEntropy += RL::entropy(out[i]);
         }
-        alpha.g[k] += (policyEntropy - H0) * alpha[k];
+        alpha.g[k] += policyEntropy - H0;
 
-        /* --- Standard REINFORCE policy gradient ---
-           ∇J = ∇log π(a|s) · A
-           
-           For a softmax policy π(a|s) = exp(z_a)/Σexp(z_i):
-             ∂log π(a|s)/∂z_k = 1 - π(a|s) if a=k,  -π(k|s) if a≠k
-           
-           The gradient w.r.t. logits: ∂J/∂z = A · (e_a - π(·|s))
-           
-           Through the softmax Jacobian J (where J_ij = π_i(δ_ij - π_j)):
-             J · e = A · (e_a - π)
-           
-           Setting e_a = A/π(a|s), e_i≠a = 0 gives the correct result:
-             (J · e)_a = π_a·(A/π_a) - π_a·A = A·(1-π_a) ✓
-             (J · e)_i = 0 - π_i·A = -π_i·A ✓
-           
-           where π(a|s) = out[k] is the current policy probability of action a.
-         */
-        float advantage = discountedReward[t] - u;
+        /* --- Standard REINFORCE policy gradient (ascent via negated dLoss) --- */
+        float probK = out[k] < 1e-6f ? 1e-6f : out[k];   /* guard 1/π blow-up */
         Tensor dLoss(actionDim, 1);
         dLoss.zero();
-        dLoss[k] = -advantage / (out[k] + 1e-9f);
+        dLoss[k] = -advantage[t]/probK;
 
         policyNet.backward(x[t].state, dLoss);
     }
     alpha.RMSProp(1e-5, 0.9, 0);
+    alpha.clamp(0.2f, 0.2f, 1.0f);
     policyNet.RMSProp(learningRate, 0.9, 0);
     exploringRate *= 0.9999;
     exploringRate = exploringRate < 0.25 ? 0.25 : exploringRate;

@@ -48,7 +48,9 @@ void quickSort(int first, int last, int *array)
 void bubbleSort(int *array, int len)
 {
     for (int i = 0; i < len; i++) {
-        for (int j = i + 1; j < len - 1; j++) {
+        /* `j < len - 1` never examined the last element, so the final slot
+           was left unsorted. */
+        for (int j = i + 1; j < len; j++) {
             if (array[i] > array[j]) {
                 int tmp = array[i];
                 array[i] = array[j];

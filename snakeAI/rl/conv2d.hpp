@@ -14,27 +14,67 @@ inline void conv2d(Tensor &y, const Tensor &kernels, const Tensor &x, int stride
     /* output shape: (outChannels, ho, wo) */
     /* kernels shape: (outChannels, inChannels, kernelSize, kernelSize) */
     /* x shape: (inChannels, hi, wi) */
-    for (int oc = 0; oc < y.shape[0]; oc++) {
-        for (int i = 0; i < y.shape[1]; i++) {
-            for (int j = 0; j < y.shape[2]; j++) {
-                float ynij = 0;
-                for (int ic = 0; ic < kernels.shape[1]; ic++) {
-                    for (int u = 0; u < kernels.shape[2]; u++) {
-                        for (int v = 0; v < kernels.shape[3]; v++) {
-                            /* map to input  */
-                            int ui = u + i*stride - padding;
-                            int vj = v + j*stride - padding;
-                            if (ui < 0 || ui >= x.shape[1] ||
-                                    vj < 0 || vj >= x.shape[2]) {
-                                continue;
-                            }
-                            /* sum up all convolution result */
-                            ynij += kernels(oc, ic, u, v)*x(ic, ui, vj);
+    /*
+       Flat strides instead of Tensor::operator(). operator() calls posOf(),
+       which builds an int index array and loops over it on EVERY element
+       access, and this inner loop performs three such accesses per
+       multiply-accumulate. That dominated ConvDQN: its rollout performs ~160
+       network forwards per game step and the convolution was costing roughly
+       10 ns per MAC. The input-validity bounds are now hoisted out of the
+       innermost loops as explicit ranges. The arithmetic is unchanged.
+    */
+    const int outC = y.shape[0];
+    const int ho   = y.shape[1];
+    const int wo   = y.shape[2];
+    const int inC  = kernels.shape[1];
+    const int kH   = kernels.shape[2];
+    const int kW   = kernels.shape[3];
+    const int hi   = x.shape[1];
+    const int wi   = x.shape[2];
+
+    const float *xData = x.val.data();
+    const float *kData = kernels.val.data();
+    float *yData = y.val.data();
+
+    const int xStrideC = hi*wi;
+    const int xStrideH = wi;
+    const int kStrideO = inC*kH*kW;
+    const int kStrideC = kH*kW;
+    const int kStrideH = kW;
+    const int yStrideO = ho*wo;
+    const int yStrideH = wo;
+
+    for (int oc = 0; oc < outC; oc++) {
+        const float *koc = kData + oc*kStrideO;
+        float *yoc = yData + oc*yStrideO;
+        for (int i = 0; i < ho; i++) {
+            /* kernel rows that land inside x for this output row */
+            int uBeg = padding - i*stride;
+            if (uBeg < 0) { uBeg = 0; }
+            int uEnd = hi + padding - i*stride;
+            if (uEnd > kH) { uEnd = kH; }
+            const int xRowBase = i*stride - padding;
+            for (int j = 0; j < wo; j++) {
+                int vBeg = padding - j*stride;
+                if (vBeg < 0) { vBeg = 0; }
+                int vEnd = wi + padding - j*stride;
+                if (vEnd > kW) { vEnd = kW; }
+                const int xColBase = j*stride - padding;
+                float acc = 0;
+                for (int ic = 0; ic < inC; ic++) {
+                    const float *xic = xData + ic*xStrideC;
+                    const float *kic = koc + ic*kStrideC;
+                    for (int u = uBeg; u < uEnd; u++) {
+                        const float *xrow = xic + (xRowBase + u)*xStrideH;
+                        const float *krow = kic + u*kStrideH;
+                        for (int v = vBeg; v < vEnd; v++) {
+                            acc += krow[v]*xrow[xColBase + v];
                         }
                     }
                 }
-                y(oc, i, j) = ynij;
+                yoc[j] = acc;
             }
+            yoc += yStrideH;
         }
     }
     return;
@@ -151,6 +191,29 @@ public:
 
     Tensor& forward(const Tensor &x, bool inference=false) override
     {
+        /*
+         * Derive the spatial geometry from the ACTUAL input instead of the
+         * height/width handed to the constructor, which are only a hint.
+         * When they disagree with the real input the convolution used to
+         * silently produce a CROPPED result (and read past the end of x when the
+         * input was smaller). `hi`/`wi` are also what backward() uses for its
+         * bounds checks and for the kernel-gradient loop, so keeping them in
+         * sync with the data is what keeps backward correct.
+         * For the existing networks the declarations already match the data, so
+         * this is a no-op there.
+         */
+        if (x.shape.size() >= 3) {
+            inChannels = x.shape[0];
+            hi = x.shape[1];
+            wi = x.shape[2];
+        }
+        ho = (hi - kernelSize + 2*padding)/stride + 1;
+        wo = (wi - kernelSize + 2*padding)/stride + 1;
+        if (ho < 1) { ho = 1; }
+        if (wo < 1) { wo = 1; }
+        op = Tensor(outChannels, ho, wo);
+        o = Tensor(outChannels, ho, wo);
+        e = Tensor(outChannels, ho, wo);
         /* conv */
         conv2d(op, kernels, x, stride, padding);
         /* bias - manually broadcast (outChannels, 1, 1) to (outChannels, ho, wo) */
@@ -176,12 +239,24 @@ public:
         /* ei shape: (inChannels, hi, wi) - gradient flowing back to input */
         /* kernels shape: (outChannels, inChannels, kernelSize, kernelSize) */
         /* e shape: (outChannels, ho, wo) - error from output */
+        /* dz = dL/d(pre-activation) = tanh'(o) ⊙ e. It must be computed BEFORE
+           the input gradient, because ei is the gradient through the
+           convolution of dz. The previous version used the raw e for ei, which
+           silently dropped the tanh' factor from the input gradient. */
+        Tensor dy(o.shape);
+        for (std::size_t i = 0; i < dy.totalSize; i++) {
+            dy[i] = Tanh::df(o[i])*e[i];
+        }
         ei.zero();
-        for (int oc = 0; oc < e.shape[0]; oc++) {
+        /* Channel count comes from `o` (the layer's shaped output), not from
+           `e.shape[0]`: a flat (totalSize,1) error tensor — which is what
+           Loss::MSE::df() returns — would otherwise be mistaken for that many
+           channels and index `e` out of bounds. */
+        for (int oc = 0; oc < o.shape[0]; oc++) {
             for (int h_out = 0; h_out < ho; h_out++) {
                 for (int w_out = 0; w_out < wo; w_out++) {
-                    float e_val = e(oc, h_out, w_out);
-                    if (e_val == 0) continue;
+                    float dy_val = dy(oc, h_out, w_out);
+                    if (dy_val == 0) continue;
                     for (int ic = 0; ic < kernels.shape[1]; ic++) {
                         for (int u = 0; u < kernelSize; u++) {
                             for (int v = 0; v < kernelSize; v++) {
@@ -191,17 +266,12 @@ public:
                                     wi_idx < 0 || wi_idx >= ei.shape[2]) {
                                     continue;
                                 }
-                                ei(ic, hi_idx, wi_idx) += kernels(oc, ic, u, v) * e_val;
+                                ei(ic, hi_idx, wi_idx) += kernels(oc, ic, u, v) * dy_val;
                             }
                         }
                     }
                 }
             }
-        }
-
-        Tensor dy(o.shape);
-        for (std::size_t i = 0; i < dy.totalSize; i++) {
-            dy[i] = Tanh::df(o[i])*e[i];
         }
         /* db: gradient for bias, sum dy over spatial dimensions */
         if (bias) {
@@ -249,9 +319,12 @@ public:
 
     void SGD(float lr) override
     {
-        Optimize::SGD(kernels, g.kernels, lr, true);
+        /* Optimize::SGD(w, dw, lr, gamma, clipGrad): the 4th argument is gamma
+           (weight decay), NOT clipGrad. Passing `true` there set gamma=1.0 and
+           replaced the weights with -lr*dw every step. */
+        Optimize::SGD(kernels, g.kernels, lr);
         if (bias) {
-            Optimize::SGD(b, g.b, lr, true);
+            Optimize::SGD(b, g.b, lr);
         }
         g.zero();
         return;
@@ -368,6 +441,20 @@ public:
 
     Tensor& forward(const Tensor &x, bool inference=false) override
     {
+        /* Output geometry comes from the ACTUAL input, not the declared h/w —
+           see the note in Conv2d::forward. */
+        if (x.shape.size() >= 3) {
+            outChannels = x.shape[0];
+            hi = x.shape[1];
+            wi = x.shape[2];
+        }
+        ho = (hi - kernelSize)/stride + 1;
+        wo = (wi - kernelSize)/stride + 1;
+        if (ho < 1) { ho = 1; }
+        if (wo < 1) { wo = 1; }
+        o = Tensor(outChannels, ho, wo);
+        mask = Tensor(outChannels, ho, wo);
+        e = Tensor(outChannels, ho, wo);
         o.zero();
         for (int n = 0; n < outChannels; n++) {
             for (int i = 0; i < ho; i++) {
@@ -443,6 +530,18 @@ public:
 
     Tensor& forward(const Tensor &x, bool inference=false) override
     {
+        /* Output geometry comes from the ACTUAL input — see Conv2d::forward. */
+        if (x.shape.size() >= 3) {
+            outChannels = x.shape[0];
+            hi = x.shape[1];
+            wi = x.shape[2];
+        }
+        ho = (hi - kernelSize)/stride + 1;
+        wo = (wi - kernelSize)/stride + 1;
+        if (ho < 1) { ho = 1; }
+        if (wo < 1) { wo = 1; }
+        o = Tensor(outChannels, ho, wo);
+        e = Tensor(outChannels, ho, wo);
         /* conv */
         o.zero();
         for (int n = 0; n < outChannels; n++) {

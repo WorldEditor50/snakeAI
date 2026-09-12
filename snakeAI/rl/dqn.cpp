@@ -21,7 +21,7 @@ RL::DQN::DQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim
                      Layer<Tanh>::_(hiddenDim, hiddenDim, true, false),
                      TanhNorm<Sigmoid>::_(hiddenDim, hiddenDim, true, false),
                      Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
-#elif 1
+#elif 0
     /* it still performs well if stop exploring enviroment */
     QMainNet = Net(ScaledConcat<Layer<Sigmoid>, 16>::_(Layer<Sigmoid>(stateDim, 4, true, true), stateDim, 4, true),
                    TanhNorm<Sigmoid>::_(16*4, hiddenDim, true, true),
@@ -130,7 +130,6 @@ void RL::DQN::learn(std::size_t maxMemorySize,
 
     /* update target network periodically (Polyak soft update) */
     if (learningSteps % replaceTargetIter == 0) {
-        std::cout<<"update target net"<<std::endl;
         QMainNet.softUpdateTo(QTargetNet, 0.01);
         learningSteps = 0;
     }

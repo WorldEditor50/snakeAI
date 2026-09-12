@@ -20,6 +20,7 @@ public:
     Tensor &gumbelMax(const RL::Tensor &state);
     Tensor &action(const Tensor &state);
     void reinforce(std::vector<Step>& x, float learningRate);
+    void reinforce1(std::vector<Step>& x, float learningRate);
     void save(const std::string& fileName);
     void load(const std::string& fileName);
 protected:

@@ -66,18 +66,27 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
      * ================================================ */
     /* Cache target critic outputs — each is forwarded ONCE */
     const Tensor* targetQs[QNET_NUM];
-    /* Get policy probabilities for next state (reused below) */
-    const Tensor &nextProb = actor.forward(x.nextState);
+    /* Get policy probabilities for next state (reused below).
+       NOTE: this must be a COPY, not a reference — actor.forward() is called
+       again below and overwrites the actor's output buffer, which would
+       silently change what a `const Tensor&` here refers to. */
+    Tensor nextProb = actor.forward(x.nextState);
     Tensor nextState = Tensor::concat(0, x.nextState, nextProb);
     for (int i = 0; i < QNET_NUM; i++) {
         targetQs[i] = &criticsTarget[i].forward(nextState);
     }
-    /* Q-target for the taken action only */
     std::size_t k = x.action.argmax();
-    /* Compute min Q over all target critics (element-wise per action) */
-    float minQTarget = std::numeric_limits<float>::max();
-    for (int i = 0; i < QNET_NUM; i++) {
-        minQTarget = std::min(minQTarget, (*targetQs[i])[k]);
+    /* Soft value of the next state — the FULL expectation over actions:
+         V(s') = Σ_a π(a|s')·( min_i Q'_i(s',a) - α_a·log π(a|s') )
+       The previous version evaluated only the single action k taken in this
+       transition and weighted it by π(k|s'), which is not V(s'). */
+    float nextValue = 0;
+    for (int a = 0; a < actionDim; a++) {
+        float minQa = std::numeric_limits<float>::max();
+        for (int i = 0; i < QNET_NUM; i++) {
+            minQa = std::min(minQa, (*targetQs[i])[a]);
+        }
+        nextValue += nextProb[a]*(minQa - alpha[a]*std::log(nextProb[a] + 1e-8));
     }
 
     /* Train each critic with MSE loss — forward each online critic ONCE */
@@ -86,8 +95,6 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
     for (int i = 0; i < QNET_NUM; i++) {
         const Tensor &out = critics[i].forward(state);
         Tensor qTarget = out;
-        /* V(s') = Σ π(a'|s') * (minQ(s',a') - α·log(π(a'|s'))) */
-        float nextValue = nextProb[k] * (minQTarget - alpha[k]*std::log(nextProb[k] + 1e-8));
         qTarget[k] = x.reward + (1 - x.done)*gamma*nextValue;
         critics[i].backward(state, Loss::MSE::df(out, qTarget));
     }
@@ -132,12 +139,13 @@ void RL::SAC::experienceReplay(const RL::Transition &x)
      *    ∇α = H₀ - H
      * ================================================ */
     {
-        /* Reuse policy p from step 2 — no extra forward pass */
+        /* Use prob_, the COPY taken before actor.backward(): backward() zeroes
+           the actor's output buffer, so reading `prob` (a reference to that
+           buffer) here always produced H == 0 and a constant alpha gradient. */
         float  H = 0;
         for (int i = 0; i < actionDim; i++) {
-            H += RL::entropy(prob[i]);
+            H += RL::entropy(prob_[i]);
         }
-        /* ∇α = -(H - H₀) = H₀ - H */
         float alphaGrad = H0 - H;
         alpha.g[k] += alphaGrad;
     }
@@ -169,11 +177,6 @@ void RL::SAC::learn(size_t maxMemorySize, size_t replaceTargetIter, size_t batch
 
     /* Apply gradient updates */
     actor.RMSProp(1e-2, 0.9, 0);
-
-#if 1
-    std::cout<<"annealing:"<<annealing.val<<",alpha:";
-    alpha.val.printValue();
-#endif
 
     alpha.RMSProp(1e-7, 0.9, 1e-6);
     /* Keep alpha in reasonable range */
