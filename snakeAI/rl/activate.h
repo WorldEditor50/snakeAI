@@ -29,23 +29,20 @@ struct LeakyRelu {
 };
 
 struct Selu {
+    /* Actual SELU: lambda * (x if x>0 else alpha*(exp(x)-1)).
+       The old implementation was a plain clamp to [-1,1] (hard-tanh), which is
+       a different function entirely. */
+    static constexpr float seluAlpha = 1.6732632423543772f;
+    static constexpr float seluLambda = 1.0507009873554805f;
     inline static float f(float x)
     {
-        float y = x;
-        if (y > 1) {
-            y = 1;
-        } else if (y < -1) {
-            y = -1;
-        }
-        return y;
+        return seluLambda*(x > 0 ? x : seluAlpha*(std::exp(x) - 1));
     }
     inline static float df(float y)
     {
-        float dy = 0;
-        if (y >= -1 && y <= 1) {
-            dy = 1;
-        }
-        return dy;
+        /* y is the SELU OUTPUT. x>0  => dy/dx = lambda
+           x<=0 => y = lambda*alpha*(e^x - 1), so dy/dx = y + lambda*alpha. */
+        return y > 0 ? seluLambda : (y + seluLambda*seluAlpha);
     }
 };
 

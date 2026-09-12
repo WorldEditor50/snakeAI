@@ -231,7 +231,9 @@ inline Tensor onehot(const Tensor &xi)
 }
 
 float gaussian(float x, float u, float sigma);
-float clip(float x, float sup, float inf);
+/* Clamp x into [lo, hi]. The parameters used to be named (sup, inf), which
+   read as the opposite bounds of what they actually are. */
+float clip(float x, float lo, float hi);
 float hmean(const Tensor &x);
 float gmean(const Tensor &x);
 float variance(const Tensor &x, float u);
@@ -321,7 +323,11 @@ inline Tensor& noise(Tensor& x)
     Tensor epsilon(x.shape);
     Random::uniform(epsilon, 0, 2);
     x += epsilon;
-    x /= x.max();
+    float m = x.max();
+    /* Guard the normalization: dividing by a zero max produced inf/NaN. */
+    if (std::fabs(m) > 1e-12f) {
+        x /= m;
+    }
     return x;
 }
 
@@ -333,7 +339,10 @@ inline Tensor& noise(Tensor& x, float exploringRate)
         Tensor epsilon(x.shape);
         Random::uniform(epsilon, 0, 2);
         x += epsilon;
-        x /= x.max();
+        float m = x.max();
+        if (std::fabs(m) > 1e-12f) {
+            x /= m;
+        }
     }
     return x;
 }

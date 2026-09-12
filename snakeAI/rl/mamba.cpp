@@ -16,8 +16,8 @@ MambaLayer::MambaLayer(std::size_t inputDim_,
     if (useInputProj) {
         W_in = Tensor(hiddenDim, inputDim);
         b_in = Tensor(hiddenDim, 1);
-        Random::uniform(W_in, -0.1f, 0.1f);
-        Random::uniform(b_in, -0.1f, 0.1f);
+        Random::uniform(W_in, -1.0f, 1.0f);
+        Random::uniform(b_in, -1.0f, 1.0f);
     }
 
     /*
@@ -47,7 +47,20 @@ MambaLayer::MambaLayer(std::size_t inputDim_,
     /* Output projection */
     C = Tensor(outputDim, hiddenDim);
     b = Tensor(outputDim, 1);
-    Random::uniform(C, -0.1f, 0.1f);
+    /*
+       Output projection y = tanh(C·h + b).
+
+       C used to be drawn from U(-0.1, 0.1). Combined with a state of magnitude
+       ~0.03 that made C·h (~0.04) smaller than the bias b (~0.1), so the
+       recurrent state barely reached the output at all: measured
+       max|y(after pattern A) - y(after pattern B)| was 0.01, i.e. the layer was
+       effectively stateless and a temporal task could only score the chance
+       baseline. W_in/b_in are scaled to match, so h itself is not vanishingly
+       small. The LSTM in this project uses U(-1,1) for its weights.
+       W_B/b_B and W_delta/b_delta stay small on purpose: they must keep
+       B close to 0.5 and Δ close to 0.1 respectively.
+    */
+    Random::uniform(C, -1.0f, 1.0f);
     Random::uniform(b, -0.1f, 0.1f);
 
     /* Persistent hidden state and output */
@@ -102,8 +115,8 @@ void MambaLayer::initParams()
 {
     /* Re-init with same scheme as constructor */
     if (W_in.totalSize > 0) {
-        Random::uniform(W_in, -0.1f, 0.1f);
-        Random::uniform(b_in, -0.1f, 0.1f);
+        Random::uniform(W_in, -1.0f, 1.0f);
+        Random::uniform(b_in, -1.0f, 1.0f);
     }
     for (std::size_t i = 0; i < hiddenDim; i++) {
         A_diag[i] = 0.9f + 0.09f * (float)std::rand() / RAND_MAX;
@@ -112,7 +125,20 @@ void MambaLayer::initParams()
     Random::uniform(b_B, -0.1f, 0.1f);
     Random::uniform(W_delta, -0.01f, 0.01f);
     Random::uniform(b_delta, 0.08f, 0.12f);
-    Random::uniform(C, -0.1f, 0.1f);
+    /*
+       Output projection y = tanh(C·h + b).
+
+       C used to be drawn from U(-0.1, 0.1). Combined with a state of magnitude
+       ~0.03 that made C·h (~0.04) smaller than the bias b (~0.1), so the
+       recurrent state barely reached the output at all: measured
+       max|y(after pattern A) - y(after pattern B)| was 0.01, i.e. the layer was
+       effectively stateless and a temporal task could only score the chance
+       baseline. W_in/b_in are scaled to match, so h itself is not vanishingly
+       small. The LSTM in this project uses U(-1,1) for its weights.
+       W_B/b_B and W_delta/b_delta stay small on purpose: they must keep
+       B close to 0.5 and Δ close to 0.1 respectively.
+    */
+    Random::uniform(C, -1.0f, 1.0f);
     Random::uniform(b, -0.1f, 0.1f);
 }
 
@@ -232,11 +258,11 @@ void MambaLayer::backwardAtTime(int t,
     Tensor delta_h(hiddenDim, 1);
     Tensor::MM::kikj(delta_h, C, delta_y);
 
-    /* Add future gradient propagated through Ā: δh += Ā ⊙ δh_next */
+    /* Add future gradient propagated through Ā: δh(t) += Ā(t+1) ⊙ δh(t+1)
+     * delta_.h already carries the decay of the timestep that produced it
+     * (applied exactly once in step 9 below), so it is added as-is here. */
     for (std::size_t i = 0; i < hiddenDim; i++) {
-        float A_i = (A_diag[i] > 1.0f) ? 1.0f : (A_diag[i] < 0.0f ? 0.0f : A_diag[i]);
-        float A_bar_i = std::exp(-states[t].delta[i] * (1.0f - A_i));
-        delta_h[i] += A_bar_i * delta_.h[i];
+        delta_h[i] += delta_.h[i];
     }
 
     /* ——— 4. Input projection gradient ——— */
@@ -298,12 +324,15 @@ void MambaLayer::backwardAtTime(int t,
     }
 
     /* Δ = softplus(z_Δ) = log(1 + exp(z_Δ))
-     * dΔ/dz_Δ = sigmoid(z_Δ)
+     * dΔ/dz_Δ = 1/(1 + exp(-z_Δ)) — the STANDARD logistic of the softplus
+     * pre-activation z_Δ = W_Δ·x + b_Δ (NOT Sigmoid::f, which is the
+     * 1.702-scaled fast sigmoid). Equivalent to Softplus::df(states[t].delta).
      */
     Tensor z_delta(hiddenDim, 1);
     Tensor::MM::ikkj(z_delta, W_delta, x);
     for (std::size_t i = 0; i < hiddenDim; i++) {
-        float sig = Sigmoid::f(z_delta[i] + b_delta[i]);
+        float z_pre = z_delta[i] + b_delta[i];
+        float sig = 1.0f / (1.0f + std::exp(-z_pre));
         float dDz = dDelta[i] * sig;
         g_W_delta(i, 0) += dDz * x[0];
         for (std::size_t j = 1; j < inputDim; j++) {
@@ -333,11 +362,15 @@ void MambaLayer::backwardAtTime(int t,
     }
 
     /* ——— 9. Propagate to previous timestep ——— */
-    /* δh(t-1) = Ā ⊙ δh(t) */
+    /* δh(t-1) = C^T·δy(t-1) + Ā(t) ⊙ δh(t)
+     * Ā(t) = states[t].A_bar is precisely the factor that multiplied h(t-1)
+     * in the forward pass, so the decay is applied here, exactly once per
+     * timestep, and the buffer handed to timestep t-1 is already decayed.
+     * Assignment (=), not accumulation, so no stale value survives. */
     if (t > 0) {
         for (std::size_t i = 0; i < hiddenDim; i++) {
             delta_.h[i] = delta_h[i];
-            /* multiply by Ā */
+            /* multiply by Ā(t) */
             float A_i = (A_diag[i] > 1.0f) ? 1.0f : (A_diag[i] < 0.0f ? 0.0f : A_diag[i]);
             delta_.h[i] *= std::exp(-states[t].delta[i] * (1.0f - A_i));
         }

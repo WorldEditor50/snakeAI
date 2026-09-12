@@ -5,7 +5,6 @@
 #include "rl/ddpg.h"
 #include "rl/ppo.h"
 #include "rl/trpo.h"
-#include "rl/qlstm.h"
 #include "rl/drpg.h"
 #include "rl/convpg.h"
 #include "rl/convdqn.h"
@@ -32,7 +31,6 @@ private:
     RL::PPO ppo;
     RL::TRPO trpo;
     RL::SAC sac;
-    RL::QLSTM qlstm;
     RL::DRPG drpg;
     RL::ConvPG convpg;
     RL::ConvDQN convdqn;
@@ -47,7 +45,6 @@ public:
     int astarAction(int x, int y, int xt, int yt, float &totalReward);
     int randAction(int x, int y, int xt, int yt, float &totalReward);
     int dqnAction(int x, int y, int xt, int yt, float &totalReward);
-    int qlstmAction(int x, int y, int xt, int yt, float &totalReward);
     int dpgAction(int x, int y, int xt, int yt, float &totalReward);
     int drpgAction(int x, int y, int xt, int yt, float &totalReward);
     int convpgAction(int x, int y, int xt, int yt, float &totalReward);

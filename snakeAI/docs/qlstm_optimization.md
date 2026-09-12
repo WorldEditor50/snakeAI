@@ -1,5 +1,13 @@
 # QLSTM (LSTM-DQN) 算法优化报告
 
+> **⚠️ 本文档描述的文件已被删除。**
+>
+> 后续审计确认 QLSTM 的缺陷过于严重（本文档记录的问题之外还有多处），
+> `rl/qlstm.cpp` 与 `rl/qlstm.h` 已删除，`agent.cpp` / `environment.cpp` 中的
+> 入口一并移除。因此本文档仅作为**历史记录**保留，其中的"优化"已不在代码中。
+>
+> 当前状态见 [`optimization_report.md`](optimization_report.md) §1 第 25 项。
+
 ## 概述
 
 对 `rl/qlstm.h` 和 `rl/qlstm.cpp` 进行了系统性优化，修复了原始实现中与DQN标准架构及LSTM序列学习不符的问题。

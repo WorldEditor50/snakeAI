@@ -507,9 +507,18 @@ public:
 
     static Tensor_ fromVector(const std::vector<Tensor_> &vec)
     {
+        if (vec.empty()) {
+            return Tensor_();
+        }
+        /* Stack the sub-tensors: shape (N, d0, d1, ...) from N tensors of shape
+           (d0, d1, ...). The old code std::copy'd the sub-tensor's VALUES into
+           `shape` starting at begin()+1, which wrote past the end of a
+           1-element vector (out-of-bounds) and produced a bogus shape. */
         std::vector<int> shape;
-        shape.push_back(vec.size());
-        std::copy(vec[0].begin(), vec[0].end(), shape.begin() + 1);
+        shape.push_back(static_cast<int>(vec.size()));
+        for (std::size_t i = 0; i < vec[0].shape.size(); i++) {
+            shape.push_back(vec[0].shape[i]);
+        }
         Tensor_ x(shape);
         std::size_t offset = 0;
         for (std::size_t i = 0; i < vec.size(); i++) {
@@ -610,7 +619,21 @@ public:
 
     Tensor_ flatten() const
     {
-        Tensor_ x(totalSize);
+        /*
+         * Return a genuine 2-D column (totalSize x 1), NOT a 1-D {totalSize}
+         * shape.
+         *
+         * The convolution -> fully-connected path in Net::forward/backward does
+         * `layers[i]->forward(out.flatten())` / `layer->backward(out.flatten(), e)`,
+         * and those consumers index the tensor as 2-D: e.g. ikjk() computes
+         * `x2(j, k)` -> posOf(j, k) -> `sizes[0]*j + sizes[1]*k`. With a 1-D
+         * shape, `sizes` has a single element, so `sizes[1]` was an
+         * out-of-bounds vector read; the resulting garbage was multiplied by k
+         * (up to 31) and produced a wild element access. Forward happened to
+         * survive because there j is always 0, but the backward pass crashed —
+         * which is what ConvPG/ConvDQN hit on the very first training step.
+         */
+        Tensor_ x(static_cast<int>(totalSize), 1);
         x.val = val;
         return x;
     }
@@ -1170,7 +1193,9 @@ public:
         for (std::size_t i = 0; i < shape[0]; i++) {
             for (std::size_t j = 0; j < shape[1]; j++) {
                 std::cout<<val[i*shape[1] + j];
-                if (i < totalSize - 1) {
+                /* was `i < totalSize - 1`, comparing a ROW index against the
+                   element count, which printed commas in the wrong places */
+                if (!(i == shape[0] - 1 && j == shape[1] - 1)) {
                     std::cout<<",";
                 }
             }
@@ -1184,7 +1209,8 @@ public:
         std::cout<<"(";
         for (std::size_t i = 0; i < shape.size(); i++) {
             std::cout<<shape[i];
-            if (i < totalSize - 1) {
+            /* was `i < totalSize - 1` instead of the shape's own length */
+            if (i != shape.size() - 1) {
                 std::cout<<",";
             }
         }

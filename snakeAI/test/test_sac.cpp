@@ -82,8 +82,8 @@ static int test_sac_bandit()
         if (ep % 100 == 99) {
             RL::Tensor s0(2,1); s0[0]=1; s0[1]=0;
             RL::Tensor s1(2,1); s1[0]=0; s1[1]=1;
-            RL::Tensor &p0 = agent.action(s0);
-            RL::Tensor &p1 = agent.action(s1);
+            RL::Tensor p0 = agent.action(s0);   /* value copy: Net::forward returns an internal reference */
+            RL::Tensor p1 = agent.action(s1);   /* value copy, see above */
             p0_history[eval_idx] = p0[0];
             p1_history[eval_idx] = p1[1];
             eval_idx++;
@@ -98,8 +98,8 @@ static int test_sac_bandit()
     /* Final evaluation */
     RL::Tensor s0(2,1); s0[0]=1; s0[1]=0;
     RL::Tensor s1(2,1); s1[0]=0; s1[1]=1;
-    RL::Tensor &p0 = agent.action(s0);
-    RL::Tensor &p1 = agent.action(s1);
+    RL::Tensor p0 = agent.action(s0);   /* value copy: Net::forward returns an internal reference */
+    RL::Tensor p1 = agent.action(s1);   /* value copy, see above */
 
     bool pass = (p0[0] > 0.6f && p1[1] > 0.6f);
     std::cout << "\nResult: " << (pass ? "PASS" : "FAIL")
@@ -269,8 +269,8 @@ static int test_sac_vs_dpg()
     {
         RL::Tensor s0(2,1); s0[0]=1; s0[1]=0;
         RL::Tensor s1(2,1); s1[0]=0; s1[1]=1;
-        RL::Tensor &p0 = sac.action(s0);
-        RL::Tensor &p1 = sac.action(s1);
+        RL::Tensor p0 = sac.action(s0);   /* value copy */
+        RL::Tensor p1 = sac.action(s1);   /* value copy */
         sac_final[0] = p0[0];
         sac_final[1] = p1[1];
         std::cout << "SAC: P(a=0|s0)=" << p0[0] << " P(a=1|s1)=" << p1[1] << std::endl;
@@ -302,8 +302,8 @@ static int test_sac_vs_dpg()
     {
         RL::Tensor s0(2,1); s0[0]=1; s0[1]=0;
         RL::Tensor s1(2,1); s1[0]=0; s1[1]=1;
-        RL::Tensor &p0 = dpg.action(s0);
-        RL::Tensor &p1 = dpg.action(s1);
+        RL::Tensor p0 = dpg.action(s0);   /* value copy */
+        RL::Tensor p1 = dpg.action(s1);   /* value copy */
         dpg_final[0] = p0[0];
         dpg_final[1] = p1[1];
         std::cout << "DPG: P(a=0|s0)=" << p0[0] << " P(a=1|s1)=" << p1[1] << std::endl;

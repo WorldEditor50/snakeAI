@@ -86,12 +86,8 @@ SSM::State SSM::feedForward(const Tensor &x, const Tensor &_h)
     State state(hiddenDim, outputDim);
 
     /* h(t) = A · h(t-1) + B · x(t) */
-    Tensor::MM::ikkj(state.h, A, _h);
-    Tensor ah = state.h;  // save A·h for addition
-    Tensor::MM::ikkj(state.h, B, x);
-    for (std::size_t i = 0; i < hiddenDim; i++) {
-        state.h[i] += ah[i];
-    }
+    Tensor::MM::ikkj(state.h, A, _h);   // state.h  = A · h(t-1)
+    Tensor::MM::ikkj(state.h, B, x);    // state.h += B · x(t)  (A·h is already in there)
 
     /* y(t) = tanh(C · h(t) + b) */
     Tensor::MM::ikkj(state.y, C, state.h);
@@ -129,12 +125,14 @@ Tensor &SSM::forward(const Tensor &x, bool inference)
  *   db   += δy(t)
  *   δh(t)_from_output = C^T · δy(t)
  *
- * Total δh(t) = δh(t)_from_output + δh(t+1)_from_state (via A)
+ * Total δh(t) = δh(t)_from_output + A^T · δh(t+1)
+ * (delta_.h carries the plain δh(t+1); the A^T factor is applied when it is
+ *  read here, so it is applied exactly once per timestep)
  *
  * Then:
- *   δA   += δh(t) · h(t-1)^T
+ *   δA   += δh(t) · h(t-1)^T     (h(-1) = 0 for t == 0)
  *   δB   += δh(t) · x(t)^T
- *   δh(t-1) = A^T · δh(t)   (propagate to previous timestep)
+ *   carry δh(t) to timestep t-1 as-is (A^T is applied there)
  */
 void SSM::backwardAtTime(int t,
                          const Tensor &x,
@@ -158,14 +156,28 @@ void SSM::backwardAtTime(int t,
     Tensor::MM::ikjk(g.C, delta.y, states[t].h);  // g.C += δy · h(t)^T
     g.b += delta.y;                                // g.b  += δy
 
-    Tensor::MM::ikjk(g.A, delta.h, states[t>0 ? t-1 : 0].h);  // g.A += δh · h(t-1)^T
-    // ^ Note: for t=0, we use h(-1) which was initial zero  (states[0] is zeroed)
+    /*
+     * Previous hidden state h(t-1) for the δA gradient.
+     * For t == 0 the previous state is the initial state h(-1), which is zero:
+     * states[0].h is h(0) (the state AFTER the first input), NOT h(-1).
+     */
+    Tensor h_prev(hiddenDim, 1);   // zero tensor = initial state
+    if (t > 0) {
+        h_prev = states[t-1].h;
+    }
+
+    Tensor::MM::ikjk(g.A, delta.h, h_prev);  // g.A += δh · h(t-1)^T
 
     Tensor::MM::ikjk(g.B, delta.h, x);  // g.B += δh · x(t)^T
 
-    /* Propagate gradient to previous timestep: δh(t-1) = A^T · δh(t) */
+    /*
+     * Propagate gradient to previous timestep.
+     * The value carried back is δh(t) itself: the A^T factor is applied when
+     * this buffer is read at the start of timestep t-1 (line above), and is
+     * assigned (never accumulated) so no stale value survives an iteration.
+     */
     if (t > 0) {
-        Tensor::MM::kikj(delta_.h, A, delta.h);
+        delta_.h = delta.h;
     }
 
     return;

@@ -72,6 +72,10 @@ public:
     }
     virtual Tensor& forward(const Tensor& x, bool inference=false) override
     {
+        /* MM::ikkj ACCUMULATES into o; o must be cleared first, otherwise a
+           second forward without an intervening backward sums onto the stale
+           output (forward() no longer relies on backward() to zero o). */
+        o.zero();
         Tensor::MM::ikkj(o, w, x);
         if (bias) {
             o += b;
@@ -93,9 +97,12 @@ public:
     }
     virtual void SGD(float lr) override
     {
-        Optimize::SGD(w, g.w, lr, true);
+        /* Optimize::SGD(w, dw, lr, gamma, clipGrad): the 4th argument is gamma
+           (weight decay), not clipGrad. Passing `true` set gamma=1, which zeroed
+           the weights (w = (1-1)*w - lr*dw) on every step. */
+        Optimize::SGD(w, g.w, lr);
         if (bias) {
-            Optimize::SGD(b, g.b, lr, true);
+            Optimize::SGD(b, g.b, lr);
         }
         g.zero();
         return;
@@ -197,6 +204,7 @@ public:
 
     Tensor& forward(const Tensor& x, bool inference=false) override
     {
+        o.zero();
         Tensor::MM::ikkj(o, w, x);
         if (bias) {
             o += b;
@@ -246,6 +254,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
+        o.zero();
         Tensor::MM::ikkj(o, w, x);
         if (bias) {
             o += b;
@@ -496,6 +505,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
+        op.zero();
         Tensor::MM::ikkj(op, w, x);
         u = op.mean();
         float sigma = op.variance(u);
@@ -514,8 +524,8 @@ public:
 
     void backward(const Tensor& x, Tensor &ei) override
     {
-        /* Forward: o = Fn(gamma·(op - u) + b)
-           backward: dy = gamma · (I - 1/n·1·1^T) · (Fn'(o) · e)
+        /* Forward: o = Fn(gamma路(op - u) + b)
+           backward: dy = gamma 路 (I - 1/n路1路1^T) 路 (Fn'(o) 路 e)
         */
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < e.totalSize; i++) {
@@ -529,7 +539,7 @@ public:
 
         /* gradient() independently computes activation derivative */
         if (bias) {
-            g.b += dy;                     // dL/db = Fn'(o)·e (NOT LN-centered)
+            g.b += dy;                     // dL/db = Fn'(o)路e (NOT LN-centered)
         }
         /* Recompute LN-centered dy for weight gradient */
         Tensor::MM::ikjk(g.w, e, x);
@@ -572,6 +582,7 @@ public:
         for (std::size_t i = 0; i < x.size(); i++) {
             x_[i] = (x[i] - u)*gamma;
         }
+        op.zero();
         Tensor::MM::ikkj(op, w, x_);
         if (bias) {
             for (std::size_t i = 0; i < o.size(); i++) {
@@ -587,15 +598,15 @@ public:
 
     void backward(const Tensor& x, Tensor &ei) override
     {
-        /* Forward is: x -> zscore -> w·x_ + b -> Fn::f */
+        /* Forward is: x -> zscore -> w路x_ + b -> Fn::f */
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < e.totalSize; i++) {
-            dy[i] = Fn::df(o[i]) * e[i];           // dy = Fn'(o)·e
+            dy[i] = Fn::df(o[i]) * e[i];           // dy = Fn'(o)路e
         }
-        /* Propagate through w: dL/dx_ = w^T · dy */
+        /* Propagate through w: dL/dx_ = w^T 路 dy */
         Tensor dL(outputDim, 1);
         Tensor::MM::kikj(dL, w, dy);
-        /* Propagate through zscore: dL/dx = gamma · (I - 1/n·1·1^T) · dq */
+        /* Propagate through zscore: dL/dx = gamma 路 (I - 1/n路1路1^T) 路 dq */
         float u = dL.mean();
         for (std::size_t i = 0; i < ei.totalSize; i++) {
             ei[i] = gamma * (dL[i] - u);
@@ -639,6 +650,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
+        o1.zero();
         Tensor::MM::ikkj(o1, w, x);
         if (bias) {
             for (std::size_t i = 0; i < o.size(); i++) {
@@ -660,7 +672,7 @@ public:
 
     void backward(const Tensor& x, Tensor &ei) override
     {
-        /* Forward: o1 = w·x + b → o2 = Fn(o1) → o = gamma·(o2 - u) */
+        /* Forward: o1 = w路x + b 鈫?o2 = Fn(o1) 鈫?o = gamma路(o2 - u) */
         Tensor dy(outputDim, 1);
         float u = e.mean();
         for (std::size_t i = 0; i < e.totalSize; i++) {
@@ -671,7 +683,7 @@ public:
         Tensor::MM::ikjk(g.w, dy, x);
         if (bias) {
             for (std::size_t i = 0; i < e.totalSize; i++) {
-                g.b[i] += Fn::df(o2[i]) * dy[i];      // dL/db = Fn'(o2)·e (pre-LN)
+                g.b[i] += Fn::df(o2[i]) * dy[i];      // dL/db = Fn'(o2)路e (pre-LN)
             }
         }
 
@@ -707,6 +719,7 @@ public:
     }
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
+        op.zero();
         Tensor::MM::ikkj(op, w, x);
         float sigma = op.variance(0);
         gamma = 1.0/std::sqrt(sigma + 1e-9);
@@ -724,16 +737,16 @@ public:
 
     void backward(const RL::Tensor &x, Tensor &ei) override
     {
-        /* Forward: o = Fn(gamma·op + b) */
+        /* Forward: o = Fn(gamma路op + b) */
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < e.totalSize; i++) {
-            dy[i] = gamma * Fn::df(o[i]) * e[i];     // dy = gamma · Fn'(o) · e
+            dy[i] = gamma * Fn::df(o[i]) * e[i];     // dy = gamma 路 Fn'(o) 路 e
         }
         Tensor::MM::kikj(ei, w, dy);
 
         if (bias) {
             for (std::size_t i = 0; i < e.totalSize; i++) {
-                g.b[i] += Fn::df(o[i]) * e[i];      // dL/db = Fn'(o)·e (not gamma-scaled)
+                g.b[i] += Fn::df(o[i]) * e[i];      // dL/db = Fn'(o)路e (not gamma-scaled)
             }
         }
         /* Recompute gamma-scaled dy for weight gradient */
@@ -773,6 +786,7 @@ public:
 
     Tensor& forward(const RL::Tensor &x, bool inference=false) override
     {
+        o1.zero();
         Tensor::MM::ikkj(o1, w, x);
         o1 *= r;
         o2 = RL::tanh(o1);
@@ -792,27 +806,27 @@ public:
     {
         /*
             Forward chain:
-                o1 = w · x
+                o1 = w 路 x
                 o2 = tanh(o1 * r)
                 o  = Fn::f(o2 + b)
 
-            dy = dL/do1 = r · (1 - tanh²(o2)) · Fn'(o) · e
+            dy = dL/do1 = r 路 (1 - tanh虏(o2)) 路 Fn'(o) 路 e
 
             Save original e (dL/do) for bias gradient computation.
         */
         Tensor dL(outputDim, 1);
         Tensor dy(outputDim, 1);
         for (std::size_t i = 0; i < e.totalSize; i++) {
-            float d1 = Fn::df(o[i]) * e[i];       // Fn'(o) · e
+            float d1 = Fn::df(o[i]) * e[i];       // Fn'(o) 路 e
             float d2 = o2[i];
-            dL[i] = r * (1 - d2 * d2) * d1;         // tanh'(o2) · r · d1 = dL/do1
+            dL[i] = r * (1 - d2 * d2) * d1;         // tanh'(o2) 路 r 路 d1 = dL/do1
             dy[i] = d1;
         }
         Tensor::MM::kikj(ei, w, dL);
 
         /*
          * e[i] = dL/do1 = r * tanh'(o2[i]) * Fn'(o[i]) * dL/do
-         * We use e for weight gradient: g.w += e · x^T = dL/do1 · x^T
+         * We use e for weight gradient: g.w += e 路 x^T = dL/do1 路 x^T
          * For bias gradient, we need Fn'(o[i]) * dL/do from saved e0:
          *   g.b[i] += Fn::df(o[i]) * e0[i]
          * where e0 = dL/do (original gradient before backward modified it).

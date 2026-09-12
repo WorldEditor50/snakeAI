@@ -18,6 +18,10 @@ public:
     Tensor &action(const Tensor &state);
     void reinforce(std::vector<Step>& x, float learningRate);
     void reinforce1(std::vector<Step>& x, float learningRate);
+    /* Reset persistent LSTM state to zero (call between independent episodes).
+       Without this the hidden state of one episode leaks into the next, which
+       makes an episodic temporal-credit-assignment task unsolvable. */
+    void resetState() { h.zero(); c.zero(); lstm->h.zero(); lstm->c.zero(); }
 protected:
     std::size_t stateDim;
     std::size_t actionDim;

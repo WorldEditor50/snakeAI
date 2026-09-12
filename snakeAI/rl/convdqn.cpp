@@ -6,20 +6,36 @@
 RL::ConvDQN::ConvDQN(std::size_t stateDim_, std::size_t hiddenDim, std::size_t actionDim_)
     :stateDim(stateDim_), actionDim(actionDim_), gamma(0.99), exploringRate(1), learningSteps(0)
 {
-    QMainNet = Net(Conv2d<Tanh>::_(1, 118, 118, 1, 5, 5, 1, true, true),
+    /*
+       The Q-head used to be Layer<Sigmoid>, which confined every Q-value to
+       (0, 1). Snake's reward is mostly negative: dying costs -1.5, and the
+       distance-shaping term in Environment::reward0 returns RAW distance deltas
+       reaching about -167. TD targets are therefore routinely negative, and the
+       network structurally could not represent them.
 
-                   MaxPooling2d::_(1, 24, 24, 2, 2),
-                   Conv2d<Tanh>::_(1, 12, 12, 4, 3, 3, 0, true, true),
-                   MaxPooling2d::_(4, 4, 4, 2, 2),
-                   Layer<Tanh>::_(4*2*2, hiddenDim, true, true),
-                   Layer<Sigmoid>::_(hiddenDim, actionDim, true, true));
+       Measured with test/test_convdqn.cpp on a 4-way spatial bandit with +1/-1
+       rewards, the old configuration reached 1/4 correct greedy actions (chance)
+       and every Q-value was stuck at exactly 0.000: the -1 targets drove the
+       sigmoid into saturation, where its derivative is ~0, so the gradient died
+       and nothing could recover. A Q-head must be LINEAR (unbounded).
 
-    QTargetNet = Net(Conv2d<Tanh>::_(1, 118, 118, 1, 5, 5, 1, true, false),
-                     MaxPooling2d::_(1, 24, 24, 2, 2),
-                     Conv2d<Tanh>::_(1, 12, 12, 4, 3, 3, 0, true, false),
-                     MaxPooling2d::_(4, 4, 4, 2, 2),
-                     Layer<Tanh>::_(4*2*2, hiddenDim, true, false),
-                     Layer<Sigmoid>::_(hiddenDim, actionDim, true, false));
+       The first convolution also emitted a SINGLE feature map at stride 5 — a
+       severe bottleneck for a 118x118 board. It now emits 4 maps, and the second
+       convolution 8 instead of 4.
+    */
+    QMainNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, true),
+                   MaxPooling2d::_(4, 24, 24, 2, 2),
+                   Conv2d<Tanh>::_(4, 12, 12, 8, 3, 3, 0, true, true),
+                   MaxPooling2d::_(8, 4, 4, 2, 2),
+                   Layer<Tanh>::_(8*2*2, hiddenDim, true, true),
+                   Layer<Linear>::_(hiddenDim, actionDim, true, true));
+
+    QTargetNet = Net(Conv2d<Tanh>::_(1, 118, 118, 4, 5, 5, 1, true, false),
+                     MaxPooling2d::_(4, 24, 24, 2, 2),
+                     Conv2d<Tanh>::_(4, 12, 12, 8, 3, 3, 0, true, false),
+                     MaxPooling2d::_(8, 4, 4, 2, 2),
+                     Layer<Tanh>::_(8*2*2, hiddenDim, true, false),
+                     Layer<Linear>::_(hiddenDim, actionDim, true, false));
 
     QMainNet.copyTo(QTargetNet);
 }
@@ -37,7 +53,16 @@ void RL::ConvDQN::perceive(const Tensor& state,
 RL::Tensor& RL::ConvDQN::eGreedyAction(const Tensor &state)
 {
     Tensor& out = QMainNet.forward(state);
-    return eGreedy(out, exploringRate, false);
+    /* Value copy: eGreedy(hard = true) ZEROES the tensor it is given, and `out`
+       is the network's own cached output buffer, which a later backward() pass
+       needs. */
+    qAction = out;
+    /* hard = true: with a LINEAR Q-head the Q-values are unbounded, so merely
+       overwriting one entry with 1 would not make it the argmax of anything
+       (some other action could easily hold 12.0). Zeroing first makes the
+       exploration choice unconditional, which is exactly what epsilon-greedy
+       requires. */
+    return eGreedy(qAction, exploringRate, true);
 }
 
 RL::Tensor& RL::ConvDQN::noiseAction(const Tensor &state)
@@ -93,7 +118,9 @@ void RL::ConvDQN::learn(std::size_t maxMemorySize,
         experienceReplay(memories[k]);
     }
 
-    /* Polyak soft-update target network (smooth & stable) */
+    /* Polyak soft-update target network (smooth & stable). Note that
+       `replaceTargetIter` is accepted but NOT used: the target network is
+       blended continuously instead of being hard-copied every N steps. */
     QMainNet.softUpdateTo(QTargetNet, 0.01);
 
     /* Adam optimizer for stable convergence */
@@ -106,8 +133,22 @@ void RL::ConvDQN::learn(std::size_t maxMemorySize,
             memories.pop_front();
         }
     }
-    exploringRate *= 0.99999;
-    exploringRate = exploringRate < 0.1 ? 0.1 : exploringRate;
+
+    /*
+       Exploration schedule.
+
+       This used to decay by 0.99999 per learn() call, which needs
+       ln(0.1)/ln(0.99999) ~ 230,000 calls to reach the 0.1 floor. The agent
+       calls learn() once per game step, so epsilon effectively stayed at ~1.0
+       for a whole session — measured 1.0 -> 0.67 after 40,000 calls — and
+       ConvDQN therefore acted almost uniformly at random the entire time. That
+       is the second reason it showed "no noticeable effect".
+
+       0.9995 reaches the floor in ~6,000 calls (tens of episodes), which is a
+       realistic exploration budget, and the floor is lowered to 0.05.
+    */
+    exploringRate *= 0.9995f;
+    exploringRate = exploringRate < 0.05f ? 0.05f : exploringRate;
     learningSteps++;
     return;
 }

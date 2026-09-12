@@ -1,92 +1,215 @@
-# ConvDQN 算法优化报告
+# ConvDQN 算法记录（含未解决问题）
 
-## 概述
-
-对 `rl/convdqn.cpp` 和 `rl/convdqn.h` 进行了系统性优化，修复了 3 个关键 bug，并统一了优化策略。
-
----
-
-## 原始实现的问题分析
-
-### 1. 🐛 learningSteps 未初始化
-
-- **原始**: `learningSteps` 没有在初始化列表初始化
-- **问题**: 在 `learn()` 中执行 `if (learningSteps % replaceTargetIter == 0)` 时，未初始化的值导致行为不可预测
-- **修正**: `learningSteps(0)` 加入构造函数初始化列表
-
-### 2. 🐛 未使用变量 totalReward
-
-- **原始**: 声明了 `totalReward` 成员变量，在构造函数中赋值为 0，但从未使用
-- **修正**: 从 `convdqn.h` 中移除该变量
-
-### 3. 🐛 关键：QMainNet 前向传播状态覆盖 (state corruption)
-
-- **原始代码** (`experienceReplay`):
-```cpp
-/* ① 用 QMainNet 推理 nextState → 覆盖了所有层的 o */
-int k = QMainNet.forward(x.nextState).argmax();
-/* ② 用 QTargetNet 推理 nextState */
-Tensor &v = QTargetNet.forward(x.nextState);
-qTarget[i] = x.reward + gamma * v[k];
-
-/* ③ 现在 forward(x.state) — 但是 QMainNet 的 o 已被 nextState 覆盖 */
-Tensor out = QMainNet.forward(x.state);
-
-/* ④ gradient() 使用的是 ① 中 forward(nextState) 的 e, 而非 ③ 中 forward(state) 的 e */
-QMainNet.backward(Loss::MSE::df(out, qTarget));
-QMainNet.gradient(x.state, qTarget);
-```
-
-- **问题分析**: 
-  - `QMainNet.forward(x.nextState)` 在步骤 ① 中覆盖了网络中所有层的 `o` 和 `e` 张量
-  - `QMainNet.forward(x.state)` 在步骤 ③ 中重新计算了 `o`，这是正确的
-  - 但 `gradient(x.state, qTarget)` 内部使用 `layers[i]->gradient(out, y)`，其中 `out` 是 `layers[i-1]->o`，这是在步骤 ③ 中正确计算的
-  - **实际关键问题**在于 `backward(loss)` — 它设置 `layers[outputIndex]->e = loss`，然后向上传播。这一步是没问题的，因为 `loss` 是基于当前 `out`（步骤 ③ 的结果）计算的
-  - 真正的问题其实是 `backward` → `gradient` 调用链：`backward` 设置最后一层的 `e = loss`，然后各层逐层反向传播误差。`gradient` 使用各层自己的 `o`（前向输出）和 `e`（反向误差）计算权重梯度。如果 `forward(x.state)` 在步骤 ③ 正确执行，那么 `o` 是正确的，但**需要注意的是**，`backward()` 函数中反向传播过的各层 `e` 是逐层计算的，使用的是 `layers[i]->o`，即正确的前向输出
-
-  **但有一个更隐蔽的问题**：`forward(x.nextState)` 在步骤 ① 中修改了各层 `o` 的值，虽然步骤 ③ 的 `forward(x.state)` 会重新计算正确的 `o`，但如果 `backward()` 内部调用了需要基于步骤 ③ 的 `o` 的反向传播，而某些层的 `o` 被 `backward()` 内部清空（例如 `gradient()` 中有 `o.zero()`），就可能出现问题。
-
-- **修正**: 将 TD-target 的计算与当前状态的前向传播分离，确保 `nextState` 的推理不会影响 `state` 的前向/反向传播：
-```cpp
-/* Step 1: 计算 nextState 的 Q-value（基于 QMainNet 选动作，QTargetNet 估值）*/
-Tensor& nextMainOut = QMainNet.forward(x.nextState);
-k = nextMainOut.argmax();
-Tensor& nextTargetOut = QTargetNet.forward(x.nextState);
-tdTarget = x.reward + gamma * nextTargetOut[k];
-
-/* Step 2: 重新 forward(state) — 覆盖回正确的 o */
-Tensor out = QMainNet.forward(x.state);
-Tensor qTarget = out;
-qTarget[i] = tdTarget;
-
-/* Step 3: 正确训练 */
-QMainNet.backward(Loss::MSE::df(out, qTarget));
-QMainNet.gradient(x.state, qTarget);
-```
-
-### 4. 🔧 目标网络更新策略
-
-- **原始**: 每 `replaceTargetIter` 步才软更新一次，且 `learningSteps = 0` 重置会导致除零风险
-- **修正**: 改成每步都执行 Polyak 软更新 (`tau = 0.01`)，提供平滑的目标变化
-
-### 5. 🔧 优化器升级
-
-- **原始**: `RMSProp(learningRate, 0.9, 0)`，且学习率是函数参数传递的而非类成员
-- **修正**: `Adam(learningRate, 0.99, 0.9, 1e-4)`，Adam 的自适应学习率对 ConvDQN 更友好
+> 本文档替换了早期的版本。早期版本描述的 `Net::gradient()` 接口**已经不存在**，
+> 且其"问题 3"的分析是推测性的、与现在的代码不符。
+>
+> **结论先行**：本轮修复了 3 个**实测确认**的缺陷，ConvDQN 现在能学会合成的空间任务
+> （`test_convdqn` 5/5），**但在真实游戏里仍然学不会**。原因已缩小到卷积特征表达能力，
+> 见文末"未解决问题"。
 
 ---
 
-## 优化前后对比
+## 1. 当前网络结构
 
-| 项目 | 原始实现 | 优化后 |
-|------|---------|--------|
-| learningSteps 初始化 | 未初始化 (UB) | `learningSteps(0)` |
-| totalReward 变量 | 声明但从未使用 | 已移除 |
-| forward 状态覆盖 | nextState 推理污染 state 的 o/e | 分离计算，重新 forward |
-| 目标网络更新 | 每 256 步一次，有除零风险 | 每步 Polyak 更新 (tau=0.01) |
-| 优化器 | RMSProp (学习率参数) | Adam (统一 1e-3) |
+```
+输入 (1, 118, 118)   —— 地图，取值 {0, 0.25, 0.5, 1} = OBJ_* / 4
+  Conv2d<Tanh>(1→4,   k=5, s=5, p=1)   → (4, 24, 24)      ~57.6k MAC
+  MaxPooling2d(2, 2)                    → (4, 12, 12)
+  Conv2d<Tanh>(4→8,   k=3, s=3, p=0)    → (8, 4, 4)       ~4.6k MAC
+  MaxPooling2d(2, 2)                    → (8, 2, 2)
+  Layer<Tanh>(32 → hiddenDim=64)
+  Layer<Linear>(64 → 4)                 ← Q 头必须是 LINEAR
+```
 
-## 修改文件
+驱动侧（`agent.cpp::convdqnAction`）：
 
-- **rl/convdqn.h**: 移除未使用的 `totalReward`
-- **rl/convdqn.cpp**: 初始化 `learningSteps`、重写 `experienceReplay()`（修复状态覆盖）、`learn()`（Polyak 更新 + Adam 优化器）
+- 用 `cloneMap`/`cloneSnake` 做 **64 步**模拟 rollout，每步 `eGreedyAction` 采动作；
+- `perceive()` 存转移，撞墙或吃到目标时 `done = true` 并结束 rollout；
+- `learn(4096, 256, 32, 1e-2)`：从缓存里采 32 条回放，Polyak 软更新目标网络
+  （`tau = 0.01`，每次 `learn()` 都做），然后 `Adam(lr, 0.99, 0.9, 1e-4)`；
+- 真实落子用 `action(state_)` 的 argmax（贪心，无探索）。
+
+---
+
+## 2. 本轮修复的缺陷（均有实测）
+
+### 2.1 🔴 Q 头是 `Layer<Sigmoid>` —— 结构上无法表示负 Q ✅
+
+```cpp
+// 原：Layer<Sigmoid>::_(hiddenDim, actionDim, true, true);
+// 现：Layer<Linear>::_(hiddenDim, actionDim, true, true);
+```
+
+Sigmoid 把 Q 限制在 `(0, 1)`。而蛇的奖励以负为主：死亡 −1.5，
+`Environment::reward0` 的距离塑形返回的是**原始距离差**，在 118×118 棋盘上可达 −167。
+TD 目标 `r + γ·max Q` 因此经常为负，**网络结构上就表示不出来**。
+
+**实测**（`test/test_convdqn.cpp` 的 4 路空间 bandit，奖励 +1/−1，600 次迭代）：
+
+| | Sigmoid 头（原） | Linear 头（现） |
+|---|---|---|
+| 贪心正确率 | **1/4**（=瞎猜） | **4/4** |
+| Q 值 | **全部恒为 0.000** | 最优 +0.58…+1.15；受罚 −0.31…−2.60 |
+
+Q 值恒为 0 的机理：−1 的目标把 sigmoid 推向饱和端，而饱和处导数 ≈ 0，
+**梯度死掉且无法恢复**（这也是为什么它不是"学得慢"，而是彻底不动）。
+
+### 2.2 🔴 探索率永不衰减 + `noiseAction` 打乱 argmax ✅
+
+```cpp
+// 原：exploringRate *= 0.99999;   // 到 0.1 地板需要 ln(0.1)/ln(0.99999) ≈ 23 万次
+// 现：exploringRate *= 0.9995f;   // ≈ 6000 次到位
+//     floor 从 0.1 降到 0.05
+```
+
+`learn()` 每个游戏步只调用一次，所以 23 万步之前 ε 一直 ≈ 1.0。
+
+**实测**：40,000 次 `learn()` 之后 ε 仍为 **0.67**；修复后 **5,986 次**到达地板。
+
+同时 `agent.cpp` 原来用 `noiseAction()`：它给**每个** Q 值加 `U(0,2)` 噪声再按最大值
+归一化——Q 值本身在 (0,1) 量级，噪声完全压倒信号，`argmax` 直接变成随机的。
+已改为真正的 ε-greedy（`eGreedyAction`）。
+
+`eGreedyAction` 的实现也修正了两点：
+
+```cpp
+qAction = out;                                  // 先拷贝
+return eGreedy(qAction, exploringRate, true);   // hard = true
+```
+
+- **必须拷贝**：`eGreedy(hard = true)` 会清零传入的张量，而 `out` 是网络自己缓存的
+  输出缓冲（后续 backward 需要）。
+- **必须 `hard = true`**：Linear Q 头的值无界，只把某一项设成 1 并不能保证它是 argmax
+  （别的动作可能本来就是 12.0）。清零后再设 1 才能**无条件**地实现 ε-greedy。
+
+### 2.3 🟠 第一层卷积只有 1 个特征图 ✅
+
+`Conv2d(1→1, k=5, s=5)`：118×118 的棋盘被压成**单通道** 24×24。
+已改为 4 通道（第二层 4→8）——即 ConvPG 本来就在用的配置，
+而 ConvPG 在没有这些改动的情况下也能正常工作。
+
+### 2.4 🟠 卷积内层循环 ~10 ns/MAC —— 每个游戏步要跑 ~192 次前传 ✅
+
+每个游戏步的网络前传次数：rollout 64 次 + 回放 32×3 次 = **160 次前传**，
+外加 32 次反向。而 `conv2d()` 的内层每次乘加要调用 3 次
+`Tensor::operator()`，而后者会构造下标数组并循环——**这是主要开销**。
+
+已改为平坦步长访问 + 把输入合法性范围提到内层循环之外（算术完全不变）：
+
+| | 修改前 | 修改后 |
+|---|---|---|
+| 每游戏步耗时 | **157 ms** | **38 ms（4.1×）** |
+
+**数值等价性验证**：`test_convdqn` 的 Q 值输出**逐位相同**
+（0.592 / −1.444 / −0.972 / −1.370 …，ε 同样是 0.74633、5986 次），
+`test_convpg` 行为不变。
+
+### 2.5 🟡 其它 ✅
+
+- `learningSteps(0)` 加入构造函数初始化列表（原先未初始化，
+  `learningSteps % replaceTargetIter` 是 UB）。
+- 目标网络：早期版本每 256 步硬拷贝一次且会重置 `learningSteps`（有除零风险），
+  改为每次 `learn()` 做 Polyak 软更新 `tau = 0.01`。
+  `replaceTargetIter` 形参保留但**不再使用**，已在注释中写明。
+- 输入归一化：`state /= state.max()` → `state /= 4.0f`。
+  地图取值是 `OBJ_NONE=0 / OBJ_BLOCK=1 / OBJ_SNAKE=2 / OBJ_TARGET=4`，
+  除以自身最大值恰好等于 4，但只要目标不存在就会**静默改变全体编码**；
+  固定除数让输入表示平稳。
+
+---
+
+## 3. 已确认**正常**的部分（用单元测试钉住）
+
+`test/test_convdqn.cpp`（本轮新增，此前覆盖率为 0）5 项全部通过：
+
+| 测试 | 验证内容 | 结果 |
+|---|---|---|
+| 1 | 4 路空间 bandit，贪心动作 | 4/4 |
+| 2 | 受罚动作的 Q 可为负 | 最优 +0.577 / 受罚 −0.309 |
+| 3 | **自举**（`done = false` 路径） | `Q(A,0)=1.092`（自举目标 γ·Q(B,0)=0.99）、`Q(B,0)=1.096` |
+| 4 | 探索调度能到达地板 | 5,986 次 `learn()` |
+| — | 确定性（固定种子） | 连跑 3 次完全一致 |
+
+也就是说：卷积前向/反向、回放、Double-DQN 目标（QMainNet 选动作 / QTargetNet 估值）、
+自举、负值表示、Adam —— **整条管线都是通的**。
+（Test 3 特别重要：bandit 测试只用 `done = true`，从不触发自举，
+所以单靠 bandit 测试无法发现自举问题。）
+
+---
+
+## 4. ❓ 未解决问题：真实游戏中仍然学不会
+
+为此新增了 `bench_agent_game`（真实 `Environment`，与 GUI 完全一致的驱动：
+`init(600,600)` → 118×118 棋盘、`setAgent(name)`、`play2` 逐步）。
+`approach%` = 单格移动中"缩短了到目标距离"的比例。
+
+### 1200 步实测
+
+| agent | approach% | 吃到目标 | ms/步 |
+|---|---|---|---|
+| astar（上界） | 99% | 2–4/阶段 | ~0 |
+| rand（下界） | ~76% | 0–1 | ~0.09 |
+| **dqn（MLP）** | **62 → 98%** | 3 ✓ | 28 |
+| dpg | 84 → 94% | 1–3 ✓ | 18 |
+| drpg | 82 → 95% | 1–3 ✓ | 2 |
+| mpg | 84 → 97% | 2–3 ✓ | 3 |
+| convpg | 81 → 96% | 1–3 ✓ | 10 |
+| **convdqn** | **~50%（比随机还差）** | **0** ✗ | 38 |
+
+跑 5000 步仍然没有任何趋势（35–56%），**不是"学得慢"**。
+
+### 已用实验排除的原因
+
+| 假设 | 实验 | 结果 |
+|---|---|---|
+| 奖励量级过大（±167）压垮回归 | 把 reward0 截断到 ±2 | ❌ 无变化（approach 仍 42–66%） |
+| 输入表示不利于定位 | 把棋盘按蛇头居中（平移不变编码） | ❌ 无变化（35–52%） |
+| 自举路径坏了 | `test_convdqn` Test 3 | ❌ 正常（Q(A,0)=1.092） |
+| 卷积/全连接反向传播管线坏了 | bandit + 自举测试 | ❌ 正常 |
+| 负 Q 表示不了 | Linear 头 + Test 2 | ❌ 已解决 |
+
+### 当前的主要假设
+
+卷积栈把 118×118 压成 `24×24 → 12×12 → 4×4 → 2×2`，最终只有 **32 个数**。
+在这样粗的特征图里，**单像素的蛇头和单像素的目标已经无法分别定位**。
+网络可以记住 4 个固定图案（bandit 测试），但学不出"随机目标位置 → 价值"这个函数。
+
+对照：
+
+- 能工作的 MLP 智能体拿到的状态就是 `[head_x, head_y, target_x, target_y]`
+  （`Agent::observe`），**相对几何是直接给它的**；
+- ConvPG 用**同一套卷积栈**却能工作——因为策略只需要一个粗略的方向偏好，
+  而**价值函数需要真实的距离**。
+
+### 硬约束（决定了可选方案）
+
+朴素卷积下 ~3.2 ns/MAC，ConvDQN 每游戏步 ~160 次前传，
+因此网络规模上限约 **6–10 万 MAC**。而"更细的空间图"要 3–5 倍于此。
+
+三条可行路线：
+
+1. **减少每步前传数**：rollout 64→16、batchSize 32→16（其它 agent 的 rollout
+   是 16/32/128，64 偏大）。腾出的预算给更细的空间图。
+2. **给网络补上相对坐标**：把 `(Δt_x, Δt_y)`（目标相对蛇头的偏移）作为额外
+   输入通道，或直接接到全连接层——即把 `observe()` 已经给 MLP 的信息补给卷积网络。
+   **注意**：单纯的"按蛇头居中"已经试过、无效，所以关键可能不在平移不变性，
+   而在分辨率——这也提示方案 1 可能更根本。
+3. **换更快的卷积实现**（im2col / 向量化），或把输入降采样到更小的棋盘，
+   从根本上降低每步开销。
+
+建议先做 1 + 2 的组合，然后用 `bench_agent_game convdqn 2000 10` 对比
+（当前参考值：0 个目标、approach ~50%）。
+
+---
+
+## 5. 复现方式
+
+```powershell
+# 单元测试（快，确定性）
+build\verify\test_convdqn.exe            # 5/5
+
+# 端到端基准（真实环境，每个阶段约 40 s/1000 步）
+build\verify\bench_agent_game.exe convdqn 2000 10
+build\verify\bench_agent_game.exe rand    1200 6      # 下界 ~76%
+build\verify\bench_agent_game.exe astar   1200 6      # 上界 99%
+```

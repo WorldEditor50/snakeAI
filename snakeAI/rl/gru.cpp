@@ -50,6 +50,7 @@ RL::GRU::State RL::GRU::feedForward(const RL::Tensor &x, const RL::Tensor &_h)
         yt = linear(W*ht + B)
     */
     State state(hiddenDim, outputDim);
+    /* pass 1: compute all reset/update gates over the whole hidden vector */
     for (std::size_t i = 0; i < Wr.shape[0]; i++) {
         for (std::size_t j = 0; j < Wr.shape[1]; j++) {
             state.r[i] += Wr(i, j) * x[j];
@@ -62,6 +63,9 @@ RL::GRU::State RL::GRU::feedForward(const RL::Tensor &x, const RL::Tensor &_h)
         }
         state.r[i] = Sigmoid::f(state.r[i] + Br[i]);
         state.z[i] = Sigmoid::f(state.z[i] + Bz[i]);
+    }
+    /* pass 2: g needs the fully computed r (rt ⊙ ht-1 for every j) */
+    for (std::size_t i = 0; i < Wr.shape[0]; i++) {
         for (std::size_t j = 0; j < Ur.shape[1]; j++) {
             state.g[i] += Ug(i, j) * _h[j] * state.r[j];
         }
@@ -108,7 +112,7 @@ void RL::GRU::backward(const std::vector<RL::Tensor> &x, const std::vector<RL::T
                 delta.h[j] += W(i, j) * E[t][i];
             }
         }
-#if 0
+        /* BPTT: accumulate the recurrent gradient from the next time step */
         for (std::size_t i = 0; i < Ur.shape[0]; i++) {
             for (std::size_t j = 0; j < Ur.shape[1]; j++) {
                 delta.h[j] += Ur(i, j) * delta_.r[i];
@@ -116,17 +120,6 @@ void RL::GRU::backward(const std::vector<RL::Tensor> &x, const std::vector<RL::T
                 delta.h[j] += Ug(i, j) * delta_.g[i];
             }
         }
-#else
-        /* BPTT with EMA */
-        float gamma = 0.99;
-        for (std::size_t i = 0; i < Ur.shape[0]; i++) {
-            for (std::size_t j = 0; j < Ur.shape[1]; j++) {
-                delta.h[j] = delta.h[j]*gamma + Ur(i, j) * delta_.r[i]*(1 - gamma);
-                delta.h[j] = delta.h[j]*gamma + Uz(i, j) * delta_.z[i]*(1 - gamma);
-                delta.h[j] = delta.h[j]*gamma + Ug(i, j) * delta_.g[i]*(1 - gamma);
-            }
-        }
-#endif
         /*
             dht/dzt = -ht-1 + gt
             dht/dWz = (dht/dzt ⊙ zt ⊙ (1 - zt))*xTt
@@ -158,11 +151,11 @@ void RL::GRU::backward(const std::vector<RL::Tensor> &x, const std::vector<RL::T
         Tensor dhr(hiddenDim, 1);
         for (std::size_t i = 0; i < Ug.shape[0]; i++) {
             for (std::size_t j = 0; j < Ug.shape[1]; j++) {
-                dhr[j] += Ug(i, j) * states[t].g[i];
+                dhr[j] += Ug(i, j) * delta.g[i];
             }
         }
         for (std::size_t i = 0; i < Ug.shape[0]; i++) {
-            delta.r[i] = delta.h[i] * dhr[i] * _h[i] *Sigmoid::df(states[t].r[i]);
+            delta.r[i] = dhr[i] * _h[i] *Sigmoid::df(states[t].r[i]);
         }
         /* gradient */
         for (std::size_t i = 0; i < W.shape[0]; i++) {

@@ -86,6 +86,7 @@ public:
             a.embedding({i*unitDim, 0}, out);
         }
         softmax(a);
+        o.zero();
         Tensor::MM::ikkj(o, w1, a);
         Tensor::MM::ikkj(o, w2, x);
         o += b;
@@ -97,23 +98,26 @@ public:
 
     void backward(const Tensor& x, Tensor &ei) override
     {
-        for (int i = 0; i < N; i++) {
-            layers[i].e = e.block({unitDim*i, 0}, {unitDim, 1});
-        }
-
-        Tensor dy(outputDim, 1);
+        /* dz = dL/d(w1·a + w2·x + b) = tanh'(o) ⊙ e */
+        Tensor dz(outputDim, 1);
         for (std::size_t i = 0; i < outputDim; i++) {
-            dy[i] = Tanh::df(o[i])*e[i];
+            dz[i] = Tanh::df(o[i])*e[i];
         }
-        Tensor da(a.shape);
-        Softmax::jacobian_transpose_mul(a, dy, da);
-        Tensor::MM::kikj(ei, w1, da);
+        /* a-path: dL/da_softmax = w1^T·dz, then through softmax: J^T·(w1^T·dz).
+           The per-sublayer error is a slice of THAT, not a slice of e. */
+        Tensor dzSoft(outputDim, 1);
+        Tensor::MM::kikj(dzSoft, w1, dz);
+        Tensor da(outputDim, 1);
+        Softmax::jacobian_transpose_mul(a, dzSoft, da);
+        for (int i = 0; i < N; i++) {
+            layers[i].e = da.block({unitDim*i, 0}, {unitDim, 1});
+        }
+        /* x-path: dL/dx += w2^T·dz */
+        Tensor::MM::kikj(ei, w2, dz);
 
-        Tensor::MM::kikj(ei, w2, dy);
-
-        Tensor::MM::ikjk(g.w1, dy, a);
-        Tensor::MM::ikjk(g.w2, dy, x);
-        g.b += dy;
+        Tensor::MM::ikjk(g.w1, dz, a);
+        Tensor::MM::ikjk(g.w2, dz, x);
+        g.b += dz;
         for (int i = 0; i < N; i++) {
             layers[i].backward(x, ei);
         }
@@ -319,11 +323,13 @@ public:
             Tensor &out = layers[i].forward(x, inference);
             a.embedding({i*unitDim, 0}, out);
         }
+        z1.zero();
         Tensor::MM::ikkj(z1, w0, a);
         for (std::size_t i = 0; i < z1.totalSize; i++) {
             z1[i] = Tanh::f(z1[i]);
         }
         z2 = Softmax::f(z1);
+        o.zero();
         Tensor::MM::ikkj(o, w1, z2);
         Tensor::MM::ikkj(o, w2, x);
         o += b;
@@ -335,36 +341,43 @@ public:
 
     void backward(const Tensor &x, Tensor &ei) override
     {
-
-        for (int i = 0; i < N; i++) {
-            layers[i].e = e.block({unitDim*i, 0}, {unitDim, 1});
-        }
-
-        Tensor dy(outputDim, 1);
+        /* dz = dL/d(w1·z2 + w2·x + b) = tanh'(o) ⊙ e */
+        Tensor dz(outputDim, 1);
         for (std::size_t i = 0; i < outputDim; i++) {
-            dy[i] = Tanh::df(o[i])*e[i];
+            dz[i] = Tanh::df(o[i])*e[i];
         }
 
-        Tensor::MM::ikjk(g.w1, dy, z2);
-        Tensor::MM::ikjk(g.w2, dy, x);
-        g.b += dy;
+        Tensor::MM::ikjk(g.w1, dz, z2);
+        Tensor::MM::ikjk(g.w2, dz, x);
+        g.b += dz;
         /*
-            z = softmax(tanh(w0*a))
-            o = tanh(w1*z + w2*x + b)
-            dw0 = J(z)*w1*(1 - tanh(w*a)^2)*a
-        */
-        Tensor J = Softmax::jacobian(z2);
-        Tensor dw0(outputDim, 1);
-        for (std::size_t i = 0; i < outputDim; i++) {
-            dy[i] *= Tanh::df(z1[i]);
-        }
-        Tensor jw1(outputDim, outputDim);
-        Tensor::MM::ikkj(jw1, J, w1);
-        Tensor::MM::ikkj(dw0, jw1, dy);
-        Tensor::MM::ikjk(g.w0,  dw0, a);
+            z1   = tanh(w0·a)
+            z2   = softmax(z1)
+            o    = tanh(w1·z2 + w2·x + b)
 
+            dz2   = w1^T · dz
+            dz1   = J_softmax^T · dz2
+            dpre1 = tanh'(z1) ⊙ dz1        (= dL/d(w0·a))
+            g.w0 += dpre1 · a^T
+            da    = w0^T · dpre1           (fed to the sublayers)
+        */
+        Tensor dz2(outputDim, 1);
+        Tensor::MM::kikj(dz2, w1, dz);
+        Tensor dpre1(outputDim, 1);
+        Softmax::jacobian_transpose_mul(z2, dz2, dpre1);
+        for (std::size_t i = 0; i < outputDim; i++) {
+            dpre1[i] *= Tanh::df(z1[i]);
+        }
+        Tensor::MM::ikjk(g.w0, dpre1, a);
+        Tensor da(outputDim, 1);
+        Tensor::MM::kikj(da, w0, dpre1);
         for (int i = 0; i < N; i++) {
-            layers[i].gradient(x);
+            layers[i].e = da.block({unitDim*i, 0}, {unitDim, 1});
+        }
+        /* x-path: dL/dx += w2^T·dz */
+        Tensor::MM::kikj(ei, w2, dz);
+        for (int i = 0; i < N; i++) {
+            layers[i].backward(x, ei);
         }
         z1.zero();
         o.zero();
@@ -571,6 +584,7 @@ public:
             offset += out.totalSize;
         }
         softmax(a);
+        o.zero();
         Tensor::MM::ikkj(o, w1, a);
         Tensor::MM::ikkj(o, w2, x);
         o += b;
@@ -582,23 +596,28 @@ public:
 
     void backward(const Tensor& x, Tensor &ei) override
     {
+        /* dz = dL/d(w1·a + w2·x + b) = tanh'(o) ⊙ e */
+        Tensor dz(outputDim, 1);
+        for (std::size_t i = 0; i < outputDim; i++) {
+            dz[i] = Tanh::df(o[i])*e[i];
+        }
+        /* a-path: dL/da_softmax = w1^T·dz, then through softmax: J^T·(w1^T·dz) */
+        Tensor dzSoft(outputDim, 1);
+        Tensor::MM::kikj(dzSoft, w1, dz);
+        Tensor da(outputDim, 1);
+        Softmax::jacobian_transpose_mul(a, dzSoft, da);
         int offset = 0;
         for (int i = 0; i < layers.size(); i++) {
             int unitDim = layers[i]->o.totalSize;
-            layers[i]->e = e.block({offset, 0}, {unitDim, 1});
+            layers[i]->e = da.block({offset, 0}, {unitDim, 1});
             offset += unitDim;
         }
 
-        Tensor dy(outputDim, 1);
-        for (std::size_t i = 0; i < outputDim; i++) {
-            dy[i] = Tanh::df(o[i])*e[i];
-        }
-        Tensor da(outputDim, 1);
-        Tensor J = Softmax::jacobian(a);
-        Tensor::MM::ikkj(da, J, dy);
-        Tensor::MM::ikjk(g.w1, da, a);
-        Tensor::MM::ikjk(g.w2, dy, x);
-        g.b += dy;
+        Tensor::MM::ikjk(g.w1, dz, a);
+        Tensor::MM::ikjk(g.w2, dz, x);
+        g.b += dz;
+        /* x-path: dL/dx += w2^T·dz */
+        Tensor::MM::kikj(ei, w2, dz);
         for (int i = 0; i < layers.size(); i++) {
             layers[i]->backward(x, ei);
         }

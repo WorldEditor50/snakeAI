@@ -103,19 +103,33 @@ public:
         {
             Tensor& u = meanLayer->o;
             Tensor& std = stdLayer->o;
-            Tensor e1(zDim, 1);
+            /*
+               e1 = ∂L_rec/∂z, i.e. the gradient w.r.t. the decoder's INPUT.
+               It is read from Net::inputGrad, which Net::backward() fills in
+               while backpropagating through decoder[0]. The previous code
+               called decoder[0]->backward(z, e1) afterwards, but by then
+               Net::backward() had already zeroed decoder[0]'s cached o and e,
+               so that call always produced e1 == 0 and the whole
+               reconstruction/reparameterization path was silently dropped
+               (only the KL term ever trained the encoder).
+            */
+            Tensor e1 = decoder.inputGrad;
             Tensor& o = encoder.output();
-            decoder[0]->backward(z, e1);
             for (std::size_t i = 0; i < zDim; i++) {
                 meanLayer->e[i] = u[i] + e1[i];
                 stdLayer->e[i] = e1[i] * eps[i] + (std[i] - 1.0/(std[i] + 1e-8));
             }
 
+            /* Both heads feed the same encoder output layer, so their errors
+               must ACCUMULATE into e2 — which therefore has to start at zero. */
             Tensor& e2 = encoder[1]->e;
+            e2.zero();
             meanLayer->backward(o, e2);
             stdLayer->backward(o, e2);
-            Tensor encoderGrad(o.shape);
-            encoder.backward(x, encoderGrad);
+            /* e2 IS the encoder's output-layer error: pass it as the loss.
+               (A fresh zero tensor was used here before, which wiped e2 and
+               left the encoder's first layer with no gradient at all.) */
+            encoder.backward(x, e2);
         }
 
         return;
